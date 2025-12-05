@@ -143,6 +143,33 @@ export const updatePlanService = async (id, data) => {
   return updatedRows[0];
 };
 
+
+export const getPlansByBranchService = async (branchId) => {
+  const [plans] = await pool.query(
+    `
+    SELECT 
+      id,
+      name,
+      duration,
+      price,
+      category,
+      description,
+      status,
+      branchId,
+      sessions,
+      validityDays,
+      createdAt
+    FROM plan
+    WHERE branchId = ?
+    ORDER BY createdAt DESC
+    `,
+    [branchId]
+  );
+
+  return plans;
+};
+
+
 /**************************************
  * DELETE PLAN
  **************************************/

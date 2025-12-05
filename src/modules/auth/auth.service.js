@@ -335,7 +335,6 @@ export const changeUserPassword = async (id, oldPassword, newPassword) => {
 };
 
 
-
 export const getAdminDashboardData = async () => {
   const sql = `
     SELECT 
@@ -363,5 +362,5 @@ export const getAdminDashboardData = async () => {
     throw { status: 404, message: "No dashboard data found" };
   }
 
-  return rows[0];
+  return rows[0];
 };

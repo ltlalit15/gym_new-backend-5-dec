@@ -5,6 +5,8 @@ import {
   getDailyAttendance,
   attendanceDetail,
   getTodaySummary,
+  getAttendanceByMemberId,
+  deleteAttendance
 } from "./memberattendence.controller.js";
 
 const router = express.Router();
@@ -22,10 +24,15 @@ router.put("/checkout/:id", memberCheckOut);
 // ✅ Daily Attendance Report (with search, filter)
 router.get("/daily", getDailyAttendance);
 
+
+router.get("/:memberId", getAttendanceByMemberId);
+
 // ✅ View Single Attendance Detail (for action button)
 router.get("/:id", attendanceDetail);
 
 // ✅ Dashboard Summary (Present, Active, Completed)
 router.get("/summary/today", getTodaySummary);
+
+router.delete("/delete/:id", deleteAttendance);
 
 export default router;

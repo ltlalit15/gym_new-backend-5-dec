@@ -5,7 +5,8 @@ import {
   staffDetail,
   updateStaff,
   deleteStaff,
-  getAllStaff
+  getAllStaff,
+  getTrainerById 
 } from "./staff.controller.js";
 // import { verifyToken } from "../../middlewares/auth.js";
 
@@ -26,6 +27,13 @@ router.get("/all",getAllStaff);
  * 👉 List Staff by Branch
  * 🛑 Prevent Admin accessing other branches
  */
+
+router.get(
+  "/trainers/:id",
+  // verifyToken(["Superadmin", "Admin"]),
+  getTrainerById
+);
+
 router.get(
   "/branch/:branchId",
   // verifyToken(["Superadmin", "Admin"]),

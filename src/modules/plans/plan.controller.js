@@ -27,6 +27,30 @@ export const listPlans = async (req, res, next) => {
 };
 
 
+export const getPlansByBranch = async (req, res, next) => {
+  try {
+    const { branchId } = req.params;
+
+    if (!branchId) {
+      return res.status(400).json({
+        success: false,
+        message: "branchId is required",
+      });
+    }
+
+    const plans = await getPlansByBranchService(branchId);
+
+    res.json({
+      success: true,
+      plans,
+    });
+
+  } catch (err) {
+    next(err);
+  }
+};
+
+
 export const updatePlan = async (req, res, next) => {
   try {
     const id = Number(req.params.id);

@@ -7,11 +7,10 @@ import {
   staffDetailService,
   updateStaffService,
   deleteStaffService,
-  getAllStaffService
+  getAllStaffService,
+  getTrainerByIdService 
 } from "./staff.service.js";
 import bcrypt from "bcryptjs";
-
-
 
 export const createStaff = async (req, res, next) => {
   try {
@@ -77,6 +76,21 @@ export const createStaff = async (req, res, next) => {
       success: true,
       message: "Staff created successfully",
       staff,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getTrainerById = async (req, res, next) => {
+  try {
+    const trainerId = parseInt(req.params.id);
+
+    const trainer = await getTrainerByIdService(trainerId);
+
+    res.json({
+      success: true,
+      trainer,
     });
   } catch (err) {
     next(err);

@@ -7,7 +7,8 @@ import {
   memberDetail,
   updateMember,
   deleteMember,
-  getMembersByAdminId
+  getMembersByAdminId,
+  
 } from "./member.controller.js";
 // import { verifyToken } from "../../middlewares/auth.js";
 

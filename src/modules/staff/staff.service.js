@@ -188,6 +188,30 @@ export const getAllStaffService = async () => {
   return rows;
 };
 
+export const getTrainerByIdService = async (trainerId) => {
+  const sql = `
+    SELECT 
+      u.id AS trainerId,
+      u.fullName,
+      u.email,
+      u.phone,
+      u.branchId,
+      u.roleId
+    FROM user u
+    WHERE u.id = ? AND u.roleId = 4
+    LIMIT 1
+  `;
+
+  const [rows] = await pool.query(sql, [trainerId]);
+
+  if (rows.length === 0) {
+    throw { status: 404, message: "Trainer not found" };
+  }
+
+  return rows[0];
+};
+
+
 
 
 /**************************************

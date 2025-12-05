@@ -27,12 +27,14 @@ import financeRoutes from "../modules/finance/finance.routes.js";
 import inventoryRoutes from "../modules/inventory/inventory.routes.js";
 import purchaseRoutes from "../modules/purchase/purchase.routes.js";
 import sessionRoutes from "../modules/session/session.routes.js";
-import  MemberPlan  from "../modules/memberplan/memberPlan.routes.js";
-import  SalaryRoutes from "../modules/salary/salary.routes.js";
+import MemberPlan from "../modules/memberplan/memberPlan.routes.js";
+import SalaryRoutes from "../modules/salary/salary.routes.js";
 import houseKeepingRoutes from "../modules/houseKeppingtask/housekeepingtask.routes.js";
 import staffAttendanceRoutes from "../modules/staffAttendance/staffAttendance.routes.js";
-// import housekeepingDashboardRoutes from "../modules/dashboard/housekeepingdashboard.routes.js";
+import housekeepingDashboardRoutes from "../modules/dashboard/housekeepingdashboard.routes.js";
 import generaltrainerRoutes from "../modules/generaltrainer/generalTrainer.routes.js";
+import memberAttendenceRoutes from "../modules/memberattendence/attendence.routes.js";
+import shiftRoutes from "../modules/shift/shift.routes.js";
 const router = Router();
 
 // test route
@@ -47,10 +49,10 @@ router.use("/staff", staffRoutes);
 router.use("/members", memberRoutes);
 router.use("/plans", planRoutes);
 router.use("/attendance", attendanceRoutes);
-router.use("/memberattendence", attendanceRoutes);
 router.use("/class", classRoutes);
 router.use("/payments", paymentRoutes);
 router.use("/dashboard", dashboardRoutes);
+router.use("/memberattendence", memberAttendenceRoutes);
 router.use("/alerts", alertRoutes);
 router.use("/expenses", expenseRoutes);
 router.use("/finance", financeRoutes);
@@ -65,10 +67,8 @@ router.use("/sessions", sessionRoutes);
 router.use("/salaries", SalaryRoutes);
 router.use("/housekeepingtask", houseKeepingRoutes);
 router.use("/staff-attendance", staffAttendanceRoutes);
-// router.use("/housekeepingdashboard", housekeepingDashboardRoutes);
+router.use("/housekeepingdashboard", housekeepingDashboardRoutes);
 router.use("/generaltrainer", generaltrainerRoutes);
-
-
-
+router.use("/shift", shiftRoutes);
 
 export default router;

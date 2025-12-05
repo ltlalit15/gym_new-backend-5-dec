@@ -769,7 +769,7 @@ export const getDashboardDataService = async (branchId) => {
     // Format the daily schedule
     const dailyClassSchedule = dailySchedule.map((cls) => ({
       id: cls.id,
-      time: `${cls.startTime} - ${cls.endTime}`,
+      time: `${cls.startTime} - ${cls.endTime}` ,
       className: cls.className,
       trainer: cls.trainerName,
       capacity: cls.capacity,
@@ -858,6 +858,6 @@ export const getAllMembersByBranchService = async (branchId) => {
     return formattedMembers;
   } catch (error) {
     console.error("Error fetching members by branch:", error);
-    throw { status: 500, message: "Failed to fetch members" };
-  }
+    throw { status: 500, message: "Failed to fetch members" };
+  }
 };

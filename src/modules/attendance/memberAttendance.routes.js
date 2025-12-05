@@ -33,13 +33,13 @@ const router = Router();
 
 // MEMBER ATTENDANCE
 router.post(
-  "/checkin",
+  "/member/checkin",
   // verifyToken(["Admin", "Staff", "Member"]),
   memberCheckIn
 );
 
 router.post(
-  "/member/checkout", 
+  "/member/checkout",
   // verifyToken(["Admin", "Staff", "Member"]),
   memberCheckOut
 );

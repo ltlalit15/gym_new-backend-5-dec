@@ -1,136 +1,84 @@
 import { pool } from "../../config/db.js";
 
-/**************************************
- * CREATE TASK
- **************************************/
 export const createTaskService = async (data) => {
   const {
-    category,
+    assignedTo,
+    branchId,
     taskTitle,
+    dueDate,
+    priority,
     description,
-    createdById
+    createdById,
   } = data;
 
   const [result] = await pool.query(
-    `INSERT INTO HousekeepingTasks
-      (category, taskTitle, description, status, dutyDate, createdById)
-     VALUES (?, ?, ?, 'Pending', CURDATE(), ?)`,
+    `INSERT INTO Tasks (assignedTo, branchId, taskTitle, dueDate, priority, description, status, createdById)
+     VALUES (?, ?, ?, ?, ?, ?,'Pending', ?)`,
     [
-      category,
+      assignedTo,
+      branchId,
       taskTitle,
-      description || null,
-      Number(createdById)
+      dueDate,
+      priority,
+      description,
+      createdById,
     ]
   );
 
-  const [rows] = await pool.query(
-    `SELECT * FROM HousekeepingTasks WHERE id = ?`,
-    [result.insertId]
-  );
+  const [rows] = await pool.query(`SELECT * FROM Tasks WHERE id = ?`, [
+    result.insertId,
+  ]);
 
   return rows[0];
 };
 
-/**************************************
- * GET ALL TASKS
- **************************************/
 export const getAllTasksService = async () => {
-  const [rows] = await pool.query(
-    `SELECT * FROM HousekeepingTasks
-     ORDER BY id DESC`
-  );
-
+  const [rows] = await pool.query(`SELECT * FROM Tasks ORDER BY id DESC`);
   return rows;
 };
 
-/**************************************
- * GET TASK BY ID
- **************************************/
 export const getTaskByIdService = async (id) => {
-  const [rows] = await pool.query(
-    `SELECT * FROM HousekeepingTasks
-     WHERE id = ?`,
-
-    [Number(id)]
-  );
-
-  if (rows.length === 0) {
-    throw { status: 404, message: "Task not found" };
-  }
-
+  const [rows] = await pool.query(`SELECT * FROM Tasks WHERE id = ?`, [id]);
   return rows[0];
 };
 
-/**************************************
- * UPDATE TASK
- **************************************/
 export const updateTaskService = async (id, data) => {
-  const taskId = Number(id);
-
-  const [existingRows] = await pool.query(
-    `SELECT * FROM HousekeepingTasks WHERE id = ?`,
-    [taskId]
-  );
-
-  if (existingRows.length === 0) {
-    throw { status: 404, message: "Task not found" };
-  }
-
-  const existing = existingRows[0];
-
-  const category = data.category ?? existing.category;
-  const taskTitle = data.taskTitle ?? existing.taskTitle;
-  const description = data.description ?? existing.description;
-  const status = data.status ?? existing.status;
+  const {
+    assignedTo,
+    branchId,
+    taskTitle,
+    dueDate,
+    priority,
+    description,
+    status,
+  } = data;
 
   await pool.query(
-    `UPDATE HousekeepingTasks SET
-      category = ?,
-      taskTitle = ?,
-      description = ?,
-      status = ?
-     WHERE id = ?`,
+    `UPDATE Tasks SET assignedTo=?, branchId=?, taskTitle=?, dueDate=?, priority=?,description=?, status=? WHERE id=?`,
     [
-      category,
+      assignedTo,
+      branchId,
       taskTitle,
+      dueDate,
+      priority,
       description,
       status,
-      taskId
+      id,
     ]
   );
 
-  const [rows] = await pool.query(
-    `SELECT * FROM HousekeepingTasks WHERE id = ?`,
-    [taskId]
-  );
-
+  const [rows] = await pool.query(`SELECT * FROM Tasks WHERE id = ?`, [id]);
   return rows[0];
 };
 
-/**************************************
- * DELETE TASK
- **************************************/
-export const deleteTaskService = async (id) => {
-  await pool.query(
-    `DELETE FROM HousekeepingTasks
-     WHERE id = ?`,
-    [Number(id)]
-  );
+export const updateTaskStatusService = async (id, status) => {
+  await pool.query(`UPDATE Tasks SET status = ? WHERE id = ?`, [status, id]);
 
-  return { message: "Task deleted successfully" };
+  const [rows] = await pool.query(`SELECT * FROM Tasks WHERE id = ?`, [id]);
+  return rows[0];
 };
 
-/**************************************
- * FILTER TASKS BY CATEGORY
- **************************************/
-export const getTasksByCategoryService = async (category) => {
-  const [rows] = await pool.query(
-    `SELECT *
-     FROM HousekeepingTasks
-     WHERE category = ?
-     ORDER BY id DESC`,
-    [category]
-  );
-
-  return rows;
+export const deleteTaskService = async (id) => {
+  await pool.query(`DELETE FROM Tasks WHERE id = ?`, [id]);
+  return { message: "Task deleted successfully" };
 };

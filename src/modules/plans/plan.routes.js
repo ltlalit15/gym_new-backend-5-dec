@@ -3,7 +3,8 @@ import {
   createPlan,
   listPlans,
   updatePlan,
-  deletePlan
+  deletePlan,
+  getPlansByBranch
 } from "./plan.controller.js";
 // import { verifyToken } from "../../middlewares/auth.js";
 
@@ -21,6 +22,8 @@ router.get(
  
   listPlans
 );
+
+router.get("/branch/:branchId", getPlansByBranch);
 
 router.put(
   "/update/:id",

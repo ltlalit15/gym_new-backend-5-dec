@@ -7,7 +7,8 @@ import {
   memberDetailService,
   updateMemberService,
   deleteMemberService,
-  getMembersByAdminIdService
+  getMembersByAdminIdService,
+  
 } from "./member.service.js";
 
 export const createMember = async (req, res, next) => {
