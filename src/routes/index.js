@@ -67,7 +67,7 @@ router.use("/sessions", sessionRoutes);
 router.use("/salaries", SalaryRoutes);
 router.use("/housekeepingtask", houseKeepingRoutes);
 router.use("/staff-attendance", staffAttendanceRoutes);
-router.use("/housekeepingdashboard", housekeepingDashboardRoutes);
+// router.use("/housekeepingdashboard", housekeepingDashboardRoutes);
 router.use("/generaltrainer", generaltrainerRoutes);
 router.use("/shift", shiftRoutes);
 
