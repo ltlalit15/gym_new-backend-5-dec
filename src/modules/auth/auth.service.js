@@ -334,3 +334,34 @@ export const changeUserPassword = async (id, oldPassword, newPassword) => {
   return { message: "Password updated successfully" };
 };
 
+
+
+export const getAdminDashboardData = async () => {
+  const sql = `
+    SELECT 
+      -- Total Branches
+      (SELECT COUNT(*) FROM branch WHERE status = 'Active') AS totalBranches,
+
+      -- Total Members (roleId = 4)
+      (SELECT COUNT(*) FROM user WHERE roleId = 4 AND status = 'Active') AS totalMembers,
+
+      -- Active Staff Count
+      (SELECT COUNT(*) FROM staff WHERE status = 'Active') AS totalStaff,
+
+      -- Today's Member Check-ins
+      (SELECT COUNT(*) FROM memberattendance 
+       WHERE DATE(checkIn) = CURDATE()) AS todaysMemberCheckins,
+
+      -- Today's Staff Check-ins
+      (SELECT COUNT(*) FROM staffattendance 
+       WHERE DATE(checkIn) = CURDATE()) AS todaysStaffCheckins
+  `;
+
+  const [rows] = await pool.query(sql);
+
+  if (!rows.length) {
+    throw { status: 404, message: "No dashboard data found" };
+  }
+
+  return rows[0];
+};

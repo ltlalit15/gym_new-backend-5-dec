@@ -1,6 +1,6 @@
 import { registerUser, loginUser , fetchUserById,
   modifyUser,
-  removeUser, fetchAdmins, fetchDashboardStats, loginMemberService,changeUserPassword} from "./auth.service.js";
+  removeUser, fetchAdmins, fetchDashboardStats, loginMemberService,changeUserPassword, getAdminDashboardData} from "./auth.service.js";
 
 
 
@@ -147,3 +147,19 @@ export const changePasswordController = async (req, res, next) => {
   }
 };
 
+
+
+
+export const getAdminDashboard = async (req, res, next) => {
+  try {
+    const data = await getAdminDashboardData();
+
+    res.json({
+      success: true,
+      message: "Dashboard data fetched successfully",
+      data,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
