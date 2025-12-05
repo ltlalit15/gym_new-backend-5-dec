@@ -596,166 +596,8 @@ export const deleteAttendanceRecordService = async (id) => {
   return { message: "Attendance record deleted successfully" };
 };
 
-// export const getDashboardDataService = async (branchId) => {
-//   if (!branchId) throw { status: 400, message: "Branch ID is required" };
 
-//   try {
-//     // Get attendance data for the past 7 days
-//     const [attendanceData] = await pool.query(
-//       `
-//       SELECT
-//         DATE(checkIn) as date,
-//         COUNT(*) as count
-//       FROM MemberAttendance
-//       WHERE branchId = ? AND checkIn >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
-//       GROUP BY DATE(checkIn)
-//       ORDER BY date ASC
-//     `,
-//       [branchId]
-//     );
 
-//     // Fill in missing days with 0 attendance
-//     const weeklyAttendanceTrend = [];
-//     const today = new Date();
-
-//     for (let i = 6; i >= 0; i--) {
-//       const date = new Date(today);
-//       date.setDate(date.getDate() - i);
-//       const dateStr = date.toISOString().split("T")[0];
-
-//       const dayData = attendanceData.find((d) => d.date === dateStr);
-//       weeklyAttendanceTrend.push({
-//         day: date.toLocaleDateString("en-US", { weekday: "short" }),
-//         date: dateStr,
-//         count: dayData ? dayData.count : 0,
-//       });
-//     }
-
-//     // Get class distribution by type
-//     const [classData] = await pool.query(
-//       `
-//       SELECT
-//         ct.name as className,
-//         COUNT(cs.id) as count
-//       FROM ClassSchedule cs
-//       JOIN ClassType ct ON cs.classTypeId = ct.id
-//       WHERE cs.branchId = ? AND cs.date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
-//       GROUP BY ct.name
-//     `,
-//       [branchId]
-//     );
-
-//     const classDistribution = classData.map((cls) => ({
-//       name: cls.className,
-//       value: cls.count,
-//     }));
-
-//     // Get today's classes
-//     const [todayClasses] = await pool.query(
-//       `
-//       SELECT
-//         cs.id,
-//         cs.startTime,
-//         cs.endTime,
-//         ct.name as className,
-//         u.fullName as trainerName,
-//         cs.capacity,
-//         COUNT(b.id) as bookedCount
-//       FROM ClassSchedule cs
-//       JOIN ClassType ct ON cs.classTypeId = ct.id
-//       JOIN User u ON cs.trainerId = u.id
-//       LEFT JOIN Booking b ON cs.id = b.scheduleId
-//       WHERE cs.branchId = ? AND DATE(cs.date) = CURRENT_DATE
-//       GROUP BY cs.id
-//       ORDER BY cs.startTime
-//     `,
-//       [branchId]
-//     );
-
-//     // Find the next class
-//     const now = new Date();
-//     const currentTime = `${now.getHours().toString().padStart(2, "0")}:${now
-//       .getMinutes()
-//       .toString()
-//       .padStart(2, "0")}`;
-
-//     let nextClass = null;
-//     for (const cls of todayClasses) {
-//       if (cls.startTime > currentTime) {
-//         nextClass = {
-//           name: cls.className,
-//           time: cls.startTime,
-//         };
-//         break;
-//       }
-//     }
-
-//     const classesToday = {
-//       total: todayClasses.length,
-//       next: nextClass
-//         ? `${nextClass.name} at ${nextClass.time}`
-//         : "No more classes today",
-//     };
-
-//     // Get active members count
-//     const [activeMembers] = await pool.query(
-//       `
-//       SELECT COUNT(*) as count
-//       FROM Member
-//       WHERE branchId = ? AND status = 'ACTIVE'
-//     `,
-//       [branchId]
-//     );
-
-//     // Get pending feedback count (alerts requiring attention)
-//     const [pendingFeedback] = await pool.query(
-//       `
-//       SELECT COUNT(*) as count
-//       FROM Alert
-//       WHERE branchId = ? AND type = 'FEEDBACK_REQUIRED'
-//     `,
-//       [branchId]
-//     );
-
-//     // Get classes for this week
-//     const [weekClasses] = await pool.query(
-//       `
-//       SELECT
-//         COUNT(*) as total,
-//         SUM(CASE WHEN DATE(cs.date) < CURRENT_DATE THEN 1 ELSE 0 END) as completed
-//       FROM ClassSchedule cs
-//       WHERE cs.branchId = ?
-//         AND cs.date >= DATE_SUB(CURRENT_DATE(), INTERVAL WEEKDAY(CURRENT_DATE()) DAY)
-//         AND cs.date < DATE_ADD(DATE_SUB(CURRENT_DATE(), INTERVAL WEEKDAY(CURRENT_DATE()) DAY), INTERVAL 7 DAY)
-//     `,
-//       [branchId]
-//     );
-
-//     const classesThisWeek = {
-//       total: weekClasses[0].total || 0,
-//       completed: weekClasses[0].completed || 0,
-//     };
-
-//     // Return a single object with all dashboard data
-//     return {
-//       weeklyAttendanceTrend,
-//       classDistribution,
-//       classesToday,
-//       membersToTrain: {
-//         count: activeMembers[0].count,
-//         label: "Active members",
-//       },
-//       pendingFeedback: {
-//         count: pendingFeedback[0].count,
-//         label: "Requires attention",
-//       },
-//       classesThisWeek,
-//     };
-//   } catch (error) {
-//     console.error("Error fetching dashboard data:", error);
-//     throw { status: 500, message: "Failed to fetch dashboard data" };
-//   }
-// };
 
 export const getDashboardDataService = async (branchId) => {
   if (!branchId) throw { status: 400, message: "Branch ID is required" };
@@ -956,6 +798,8 @@ export const getDashboardDataService = async (branchId) => {
     throw { status: 500, message: "Failed to fetch dashboard data" };
   }
 };
+
+
 
 export const getAllMembersByBranchService = async (branchId) => {
   if (!branchId) throw { status: 400, message: "Branch ID is required" };
