@@ -6,7 +6,7 @@ export const getGroupTrainingPlansWithMembersService = async (branchId) => {
 
   // Get all group training plans for this branch
   const [groupPlans] = await pool.query(
-    "SELECT * FROM MemberPlan WHERE type = 'GROUP' ORDER BY price ASC"
+    "SELECT * FROM memberplan WHERE type = 'GROUP' ORDER BY price ASC"
   );
 
   // For each plan, get the members assigned to this branch
@@ -104,7 +104,7 @@ export const getMembersForPlanService = async (branchId, planId) => {
 
   // Get the plan details
   const [planResults] = await pool.query(
-    "SELECT * FROM MemberPlan WHERE id = ? AND type = 'GROUP'",
+    "SELECT * FROM memberplan WHERE id = ? AND type = 'GROUP'",
     [planId]
   );
 
@@ -206,7 +206,7 @@ export const getMemberBookingDetailsService = async (branchId, memberId) => {
     `
     SELECT m.*, p.name as planName, p.sessions as planSessions, p.validityDays as planValidityDays, p.price as planPrice
     FROM Member m
-    LEFT JOIN MemberPlan p ON m.planId = p.id
+    LEFT JOIN memberplan p ON m.planId = p.id
     WHERE m.id = ? AND m.branchId = ?
   `,
     [memberId, branchId]
