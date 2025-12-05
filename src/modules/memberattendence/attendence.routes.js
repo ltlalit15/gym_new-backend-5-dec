@@ -1,0 +1,31 @@
+import express from "express";
+import {
+  memberCheckIn,
+  memberCheckOut,
+  getDailyAttendance,
+  attendanceDetail,
+  getTodaySummary,
+} from "./memberattendence.controller.js";
+
+const router = express.Router();
+
+/**
+ * Attendance Routes
+ */
+
+// ✅ Member Check-in (QR + Manual)
+router.post("/checkin", memberCheckIn);
+
+// ✅ Member Check-out
+router.put("/checkout/:id", memberCheckOut);
+
+// ✅ Daily Attendance Report (with search, filter)
+router.get("/daily", getDailyAttendance);
+
+// ✅ View Single Attendance Detail (for action button)
+router.get("/:id", attendanceDetail);
+
+// ✅ Dashboard Summary (Present, Active, Completed)
+router.get("/summary/today", getTodaySummary);
+
+export default router;
