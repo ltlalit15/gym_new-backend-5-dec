@@ -5,11 +5,11 @@ dotenv.config();
 // Create a **Promise Pool directly**
 export const pool = mysql
   .createPool({
-    host: "localhost",
+    host: "switchback.proxy.rlwy.net",
     user: "root",
-    password: "",
-    database: "gym_db",
-    port: 3306,
+    password: "LYEPuGdFNazTUxSFwrZilcKIAOlztDYo",
+    database: "railway",
+    port: 35602,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
@@ -25,3 +25,4 @@ pool.getConnection()
   .catch((err) => {
     console.error("❌ MySQL connection failed:", err.message);
   });
+
