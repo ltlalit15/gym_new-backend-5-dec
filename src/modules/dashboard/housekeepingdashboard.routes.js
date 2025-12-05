@@ -1,8 +1,8 @@
-import { Router } from "express";
-import { getHousekeepingDashboard } from "./housekeepingdashboard.controller.js";
+// import { Router } from "express";
+// import { getHousekeepingDashboard } from "./housekeepingdashboard.controller.js";
 
-const router = Router();
+// const router = Router();
 
-router.get("/", getHousekeepingDashboard);
+// router.get("/", getHousekeepingDashboard);
 
-export default router;
+// export default router;
