@@ -13,20 +13,27 @@ export const getGroupTrainingPlansWithMembersService = async (branchId) => {
   const plansWithMembers = await Promise.all(
     groupPlans.map(async (plan) => {
       // Find members who have purchased this plan and belong to this branch
-      const [membersWithBookings] = await pool.query(
-        `
-        SELECT m.*, p.paymentDate, p.invoiceNo
-        FROM member m
-        LEFT JOIN (
-          SELECT memberId, MAX(paymentDate) as paymentDate, invoiceNo
-          FROM payment 
+     const [membersWithBookings] = await pool.query(
+  `
+  SELECT m.*, p.paymentDate, p.invoiceNo
+  FROM member m
+  LEFT JOIN (
+      SELECT p1.memberId, p1.paymentDate, p1.invoiceNo
+      FROM payment p1
+      JOIN (
+          SELECT memberId, MAX(paymentDate) AS latestPayment
+          FROM payment
           WHERE planId = ?
           GROUP BY memberId
-        ) p ON m.id = p.memberId
-        WHERE m.planId = ? AND m.branchId = ?
-      `,
-        [plan.id, plan.id, branchId]
-      );
+      ) p2 
+      ON p1.memberId = p2.memberId AND p1.paymentDate = p2.latestPayment
+      WHERE p1.planId = ?
+  ) p ON m.id = p.memberId
+  WHERE m.planId = ? AND m.branchId = ?
+`,
+  [plan.id, plan.id, plan.id, branchId]
+);
+
 
       // Get booking counts for each member (with any trainer in this branch)
       const memberIds = membersWithBookings.map((m) => m.id);
