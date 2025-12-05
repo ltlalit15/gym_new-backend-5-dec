@@ -16,7 +16,7 @@ export const getGroupTrainingPlansWithMembersService = async (branchId) => {
       const [membersWithBookings] = await pool.query(
         `
         SELECT m.*, p.paymentDate, p.invoiceNo
-        FROM Member m
+        FROM member m
         LEFT JOIN (
           SELECT memberId, MAX(paymentDate) as paymentDate, invoiceNo
           FROM Payment 
@@ -117,7 +117,7 @@ export const getMembersForPlanService = async (branchId, planId) => {
   const [membersWithBookings] = await pool.query(
     `
     SELECT m.*, p.paymentDate, p.invoiceNo
-    FROM Member m
+    FROM member m
     LEFT JOIN (
       SELECT memberId, MAX(paymentDate) as paymentDate, invoiceNo
       FROM Payment 
@@ -205,7 +205,7 @@ export const getMemberBookingDetailsService = async (branchId, memberId) => {
   const [memberResults] = await pool.query(
     `
     SELECT m.*, p.name as planName, p.sessions as planSessions, p.validityDays as planValidityDays, p.price as planPrice
-    FROM Member m
+    FROM member m
     LEFT JOIN memberplan p ON m.planId = p.id
     WHERE m.id = ? AND m.branchId = ?
   `,
@@ -319,7 +319,7 @@ export const getClassPerformanceReportService = async (branchId) => {
 
   // Get total students count for this branch
   const [totalStudentsResult] = await pool.query(
-    "SELECT COUNT(*) as count FROM Member WHERE branchId = ? AND status = 'ACTIVE'",
+    "SELECT COUNT(*) as count FROM member WHERE branchId = ? AND status = 'ACTIVE'",
     [branchId]
   );
   const totalStudents = totalStudentsResult[0].count;
@@ -327,7 +327,7 @@ export const getClassPerformanceReportService = async (branchId) => {
   // Get present students count for today
   const today = new Date().toISOString().split("T")[0];
   const [presentStudentsResult] = await pool.query(
-    "SELECT COUNT(DISTINCT memberId) as count FROM MemberAttendance WHERE branchId = ? AND DATE(checkIn) = ?",
+    "SELECT COUNT(DISTINCT memberId) as count FROM memberattendance WHERE branchId = ? AND DATE(checkIn) = ?",
     [branchId, today]
   );
   const presentStudents = presentStudentsResult[0].count;
@@ -347,10 +347,10 @@ export const getClassPerformanceReportService = async (branchId) => {
       COUNT(DISTINCT b.memberId) as attendanceCount,
       cs.capacity,
       ROUND(COUNT(DISTINCT b.memberId) / cs.capacity * 100, 1) as attendancePercentage
-    FROM ClassSchedule cs
-    JOIN ClassType ct ON cs.classTypeId = ct.id
-    LEFT JOIN Booking b ON cs.id = b.scheduleId
-    LEFT JOIN MemberAttendance ma ON b.memberId = ma.memberId
+    FROM classschedule cs
+    JOIN classtype ct ON cs.classTypeId = ct.id
+    LEFT JOIN booking b ON cs.id = b.scheduleId
+    LEFT JOIN memberattendance ma ON b.memberId = ma.memberId
       AND DATE(ma.checkIn) = DATE(cs.date)
     WHERE cs.branchId = ?
       AND cs.date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
@@ -415,8 +415,8 @@ export const getAttendanceByIdService = async (id) => {
       m.membershipFrom,
       m.membershipTo,
       b.name as branchName
-    FROM MemberAttendance ma
-    JOIN Member m ON ma.memberId = m.id
+    FROM memberattendance ma
+    JOIN member m ON ma.memberId = m.id
     JOIN Branch b ON ma.branchId = b.id
     WHERE ma.id = ?
     `,
@@ -454,7 +454,7 @@ export const checkInMemberService = async (data) => {
 
   // Check if member already has an active attendance record (not checked out)
   const [existingAttendance] = await pool.query(
-    "SELECT * FROM MemberAttendance WHERE memberId = ? AND branchId = ? AND checkOut IS NULL",
+    "SELECT * FROM memberattendance WHERE memberId = ? AND branchId = ? AND checkOut IS NULL",
     [memberId, branchId]
   );
 
@@ -475,7 +475,7 @@ export const checkInMemberService = async (data) => {
 
   // Create new attendance record with status, mode, and notes
   const [result] = await pool.query(
-    "INSERT INTO MemberAttendance (memberId, branchId, checkIn, status, mode, notes, createdAt) VALUES (?, ?, ?, ?, ?, ?, NOW())",
+    "INSERT INTO memberattendance (memberId, branchId, checkIn, status, mode, notes, createdAt) VALUES (?, ?, ?, ?, ?, ?, NOW())",
     [memberId, branchId, checkInTime, status, mode, notes || null]
   );
 
@@ -495,7 +495,7 @@ export const checkInMemberService = async (data) => {
       m.fullName as memberName,
       m.email as memberEmail,
       m.phone as memberPhone
-    FROM MemberAttendance ma
+    FROM memberattendance ma
     JOIN Member m ON ma.memberId = m.id
     WHERE ma.id = ?
     `,
@@ -509,7 +509,7 @@ export const checkInMemberService = async (data) => {
 export const checkOutMemberService = async (id, data) => {
   // Check if attendance record exists and is not already checked out
   const [attendanceRecords] = await pool.query(
-    "SELECT * FROM MemberAttendance WHERE id = ?",
+    "SELECT * FROM memberattendance WHERE id = ?",
     [id]
   );
 
@@ -542,7 +542,7 @@ export const checkOutMemberService = async (id, data) => {
   // Update the attendance record with the new check-out time and notes
   // Status and mode are not updated here
   await pool.query(
-    "UPDATE MemberAttendance SET checkOut = ?, notes = ? WHERE id = ?",
+    "UPDATE memberattendance SET checkOut = ?, notes = ? WHERE id = ?",
     [checkoutTime, finalNotes, id]
   );
 
@@ -562,7 +562,7 @@ export const checkOutMemberService = async (id, data) => {
       m.fullName as memberName,
       m.email as memberEmail,
       m.phone as memberPhone
-    FROM MemberAttendance ma
+    FROM memberattendance ma
     JOIN Member m ON ma.memberId = m.id
     WHERE ma.id = ?
     `,
@@ -575,7 +575,7 @@ export const checkOutMemberService = async (id, data) => {
 export const deleteAttendanceRecordService = async (id) => {
   // Check if attendance record exists
   const [attendanceRecords] = await pool.query(
-    "SELECT * FROM MemberAttendance WHERE id = ?",
+    "SELECT * FROM memberattendance WHERE id = ?",
     [id]
   );
 
@@ -584,7 +584,7 @@ export const deleteAttendanceRecordService = async (id) => {
   }
 
   // Delete the attendance record
-  await pool.query("DELETE FROM MemberAttendance WHERE id = ?", [id]);
+  await pool.query("DELETE FROM memberattendance WHERE id = ?", [id]);
 
   return { message: "Attendance record deleted successfully" };
 };
@@ -760,7 +760,7 @@ export const getDashboardDataService = async (branchId) => {
       SELECT 
         DATE(checkIn) as date,
         COUNT(*) as count
-      FROM MemberAttendance
+      FROM memberattendance
       WHERE branchId = ? AND checkIn >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
       GROUP BY DATE(checkIn)
       ORDER BY date ASC
@@ -815,10 +815,10 @@ export const getDashboardDataService = async (branchId) => {
         u.fullName as trainerName,
         cs.capacity,
         COUNT(b.id) as bookedCount
-      FROM ClassSchedule cs
-      JOIN ClassType ct ON cs.classTypeId = ct.id
-      JOIN User u ON cs.trainerId = u.id
-      LEFT JOIN Booking b ON cs.id = b.scheduleId
+      FROM classschedule cs
+      JOIN classtype ct ON cs.classTypeId = ct.id
+      JOIN user u ON cs.trainerId = u.id
+      LEFT JOIN booking b ON cs.id = b.scheduleId
       WHERE cs.branchId = ? AND DATE(cs.date) = CURRENT_DATE
       GROUP BY cs.id
       ORDER BY cs.startTime
@@ -855,7 +855,7 @@ export const getDashboardDataService = async (branchId) => {
     const [activeMembers] = await pool.query(
       `
       SELECT COUNT(*) as count
-      FROM Member
+      FROM member
       WHERE branchId = ? AND status = 'ACTIVE'
     `,
       [branchId]
@@ -865,7 +865,7 @@ export const getDashboardDataService = async (branchId) => {
     const [pendingFeedback] = await pool.query(
       `
       SELECT COUNT(*) as count
-      FROM Alert
+      FROM alert
       WHERE branchId = ? AND type = 'FEEDBACK_REQUIRED'
     `,
       [branchId]
@@ -877,7 +877,7 @@ export const getDashboardDataService = async (branchId) => {
       SELECT 
         COUNT(*) as total,
         SUM(CASE WHEN DATE(cs.date) < CURRENT_DATE THEN 1 ELSE 0 END) as completed
-      FROM ClassSchedule cs
+      FROM classschedule cs
       WHERE cs.branchId = ? 
         AND cs.date >= DATE_SUB(CURRENT_DATE(), INTERVAL WEEKDAY(CURRENT_DATE()) DAY)
         AND cs.date < DATE_ADD(DATE_SUB(CURRENT_DATE(), INTERVAL WEEKDAY(CURRENT_DATE()) DAY), INTERVAL 7 DAY)
@@ -906,10 +906,10 @@ export const getDashboardDataService = async (branchId) => {
           WHEN cs.startTime <= TIME(NOW()) AND cs.endTime >= TIME(NOW()) THEN 'In Progress'
           ELSE 'Scheduled'
         END as status
-      FROM ClassSchedule cs
-      JOIN ClassType ct ON cs.classTypeId = ct.id
-      JOIN User u ON cs.trainerId = u.id
-      LEFT JOIN Booking b ON cs.id = b.scheduleId
+      FROM classschedule cs
+      JOIN classtype ct ON cs.classTypeId = ct.id
+      JOIN user u ON cs.trainerId = u.id
+      LEFT JOIN booking b ON cs.id = b.scheduleId
       WHERE cs.branchId = ? AND DATE(cs.date) = CURRENT_DATE
       GROUP BY cs.id
       ORDER BY cs.startTime
@@ -976,10 +976,10 @@ export const getAllMembersByBranchService = async (branchId) => {
         p.price as planPrice,
         COUNT(DISTINCT ma.id) as attendanceCount,
         COUNT(DISTINCT b.id) as bookingCount
-      FROM Member m
-      LEFT JOIN Plan p ON m.planId = p.id
-      LEFT JOIN MemberAttendance ma ON m.id = ma.memberId
-      LEFT JOIN Booking b ON m.id = b.memberId
+      FROM member m
+      LEFT JOIN plan p ON m.planId = p.id
+      LEFT JOIN memberattendance ma ON m.id = ma.memberId
+      LEFT JOIN booking b ON m.id = b.memberId
       WHERE m.branchId = ?
       GROUP BY m.id
       ORDER BY m.fullName
