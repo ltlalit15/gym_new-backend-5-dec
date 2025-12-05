@@ -31,7 +31,7 @@ import  MemberPlan  from "../modules/memberplan/memberPlan.routes.js";
 import  SalaryRoutes from "../modules/salary/salary.routes.js";
 import houseKeepingRoutes from "../modules/houseKeppingtask/housekeepingtask.routes.js";
 import staffAttendanceRoutes from "../modules/staffAttendance/staffAttendance.routes.js";
-import housekeepingDashboardRoutes from "../modules/dashboard/housekeepingdashboard.routes.js";
+// import housekeepingDashboardRoutes from "../modules/dashboard/housekeepingdashboard.routes.js";
 import generaltrainerRoutes from "../modules/generaltrainer/generalTrainer.routes.js";
 const router = Router();
 
@@ -65,7 +65,7 @@ router.use("/sessions", sessionRoutes);
 router.use("/salaries", SalaryRoutes);
 router.use("/housekeepingtask", houseKeepingRoutes);
 router.use("/staff-attendance", staffAttendanceRoutes);
-router.use("/housekeepingdashboard", housekeepingDashboardRoutes);
+// router.use("/housekeepingdashboard", housekeepingDashboardRoutes);
 router.use("/generaltrainer", generaltrainerRoutes);
 
 
