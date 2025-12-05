@@ -19,7 +19,7 @@ export const getGroupTrainingPlansWithMembersService = async (branchId) => {
         FROM member m
         LEFT JOIN (
           SELECT memberId, MAX(paymentDate) as paymentDate, invoiceNo
-          FROM Payment 
+          FROM payment 
           WHERE planId = ?
           GROUP BY memberId
         ) p ON m.id = p.memberId
@@ -36,9 +36,9 @@ export const getGroupTrainingPlansWithMembersService = async (branchId) => {
         const [bookingResults] = await pool.query(
           `
           SELECT b.memberId, COUNT(*) as bookingCount
-          FROM Booking b
-          JOIN ClassSchedule cs ON b.scheduleId = cs.id
-          JOIN User u ON cs.trainerId = u.id
+          FROM booking b
+          JOIN classschedule cs ON b.scheduleId = cs.id
+          JOIN user u ON cs.trainerId = u.id
           WHERE b.memberId IN (${memberIds.join(",")}) AND u.branchId = ?
           GROUP BY b.memberId
         `,
@@ -120,7 +120,7 @@ export const getMembersForPlanService = async (branchId, planId) => {
     FROM member m
     LEFT JOIN (
       SELECT memberId, MAX(paymentDate) as paymentDate, invoiceNo
-      FROM Payment 
+      FROM payment 
       WHERE planId = ?
       GROUP BY memberId
     ) p ON m.id = p.memberId
@@ -222,9 +222,9 @@ export const getMemberBookingDetailsService = async (branchId, memberId) => {
     `
     SELECT b.id, cs.date, cs.startTime, cs.endTime, ct.name as className, u.fullName as trainerName
     FROM Booking b
-    JOIN ClassSchedule cs ON b.scheduleId = cs.id
-    JOIN ClassType ct ON cs.classTypeId = ct.id
-    JOIN User u ON cs.trainerId = u.id
+    JOIN classschedule cs ON b.scheduleId = cs.id
+    JOIN classtype ct ON cs.classTypeId = ct.id
+    JOIN user u ON cs.trainerId = u.id
     WHERE b.memberId = ? AND u.branchId = ?
     ORDER BY cs.date DESC
   `,
@@ -235,7 +235,7 @@ export const getMemberBookingDetailsService = async (branchId, memberId) => {
   const [paymentResults] = await pool.query(
     `
     SELECT id, amount, paymentDate, invoiceNo
-    FROM Payment
+    FROM payment
     WHERE memberId = ?
     ORDER BY paymentDate DESC
   `,
@@ -444,7 +444,7 @@ export const checkInMemberService = async (data) => {
 
   // Check if member exists
   const [memberRecords] = await pool.query(
-    "SELECT * FROM Member WHERE id = ? AND branchId = ?",
+    "SELECT * FROM member WHERE id = ? AND branchId = ?",
     [memberId, branchId]
   );
 
@@ -496,7 +496,7 @@ export const checkInMemberService = async (data) => {
       m.email as memberEmail,
       m.phone as memberPhone
     FROM memberattendance ma
-    JOIN Member m ON ma.memberId = m.id
+    JOIN member m ON ma.memberId = m.id
     WHERE ma.id = ?
     `,
     [result.insertId]
@@ -563,7 +563,7 @@ export const checkOutMemberService = async (id, data) => {
       m.email as memberEmail,
       m.phone as memberPhone
     FROM memberattendance ma
-    JOIN Member m ON ma.memberId = m.id
+    JOIN member m ON ma.memberId = m.id
     WHERE ma.id = ?
     `,
     [id]
@@ -791,8 +791,8 @@ export const getDashboardDataService = async (branchId) => {
       SELECT 
         ct.name as className,
         COUNT(cs.id) as count
-      FROM ClassSchedule cs
-      JOIN ClassType ct ON cs.classTypeId = ct.id
+      FROM classschedule cs
+      JOIN classtype ct ON cs.classTypeId = ct.id
       WHERE cs.branchId = ? AND cs.date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
       GROUP BY ct.name
     `,
