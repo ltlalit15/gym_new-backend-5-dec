@@ -769,3 +769,232 @@ export const deleteGroupBooking = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+
+// unfied 
+
+
+export const createUnifiedBooking = async (req, res) => {
+    console.log("Unified Booking Bodyyyy:", req.body);
+  try {
+    const {
+      memberId,
+      trainerId,
+      sessionId,
+      classId,
+      date,
+      startTime,
+      endTime,
+      bookingType,
+      notes,
+      branchId
+    } = req.body;
+
+    // BASIC VALIDATION
+    if (!memberId || !date || !startTime || !endTime || !branchId || !bookingType) {
+      return res.status(400).json({
+        success: false,
+        message: "memberId, date, startTime, endTime, bookingType, branchId are required"
+      });
+    }
+
+    // PT Booking Validation
+    if (bookingType === "PT" && (!trainerId || !sessionId)) {
+      return res.status(400).json({
+        success: false,
+        message: "PT booking requires trainerId and sessionId"
+      });
+    }
+
+    // Group Booking Validation
+    if (bookingType === "GROUP" && !classId) {
+      return res.status(400).json({
+        success: false,
+        message: "Group booking requires classId"
+      });
+    }
+
+    await pool.query(
+      `
+      INSERT INTO unified_bookings 
+      (memberId, trainerId, sessionId, classId, date, startTime, endTime, bookingType, bookingStatus, paymentStatus, notes, branchId)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Booked', 'Pending', ?, ?)
+      `,
+      [
+        memberId,
+        trainerId || null,
+        sessionId || null,
+        classId || null,
+        date,
+        startTime,
+        endTime,
+        bookingType,
+        notes || "",
+        branchId
+      ]
+    );
+
+    res.json({
+      success: true,
+      message: "Booking created successfully!"
+    });
+
+  } catch (err) {
+    console.error("createUnifiedBooking ERROR →", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+export const getUnifiedBookingsByBranch = async (req, res) => {
+  try {
+    const { branchId } = req.params;
+
+    const [rows] = await pool.query(
+      `
+      SELECT 
+        b.*,
+        um.fullName AS memberName,
+        ut.fullName AS trainerName,
+        s.sessionName,
+        c.className
+      FROM unified_bookings b
+      LEFT JOIN member m ON m.id = b.memberId
+      LEFT JOIN user um ON um.id = m.userId
+
+      LEFT JOIN staff t ON t.id = b.trainerId
+      LEFT JOIN user ut ON ut.id = t.userId
+
+      LEFT JOIN session s ON s.id = b.sessionId
+      LEFT JOIN classschedule c ON c.id = b.classId
+
+      WHERE b.branchId = ?
+      ORDER BY b.date DESC, b.startTime DESC
+      `,
+      [branchId]
+    );
+
+    res.json({ success: true, bookings: rows });
+
+  } catch (err) {
+    console.error("getUnifiedBookingsByBranch ERROR →", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+export const getUnifiedBookingsByTrainer = async (req, res) => {
+  try {
+    const { trainerId } = req.params;
+
+    const [rows] = await pool.query(
+      `
+      SELECT 
+        b.*,
+        um.fullName AS memberName,
+        s.sessionName
+      FROM unified_bookings b
+      LEFT JOIN member m ON m.id = b.memberId
+      LEFT JOIN user um ON um.id = m.userId
+      LEFT JOIN session s ON s.id = b.sessionId
+      WHERE b.trainerId = ? AND b.bookingType = 'PT'
+      ORDER BY b.date DESC
+      `,
+      [trainerId]
+    );
+
+    res.json({ success: true, bookings: rows });
+
+  } catch (err) {
+    console.error("ERROR →", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+export const updateUnifiedBooking = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { date, startTime, endTime, bookingStatus, paymentStatus, notes } = req.body;
+
+    const [result] = await pool.query(
+      `
+      UPDATE unified_bookings
+      SET date=?, startTime=?, endTime=?, bookingStatus=?, paymentStatus=?, notes=?, updatedAt=NOW()
+      WHERE id=?
+      `,
+      [date, startTime, endTime, bookingStatus, paymentStatus, notes, bookingId]
+    );
+
+    if (!result.affectedRows)
+      return res.status(404).json({ success: false, message: "Booking not found" });
+
+    res.json({ success: true, message: "Booking updated!" });
+
+  } catch (err) {
+    console.error("ERROR →", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+export const deleteUnifiedBooking = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+
+    const [result] = await pool.query(
+      `DELETE FROM unified_bookings WHERE id = ?`,
+      [bookingId]
+    );
+
+    if (!result.affectedRows)
+      return res.status(404).json({ success: false, message: "Booking not found" });
+
+    res.json({ success: true, message: "Booking deleted!" });
+
+  } catch (err) {
+    console.error("ERROR →", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+
+export const getUnifiedBookingsByMember = async (req, res) => {
+  try {
+    const { memberId } = req.params;
+
+    if (!memberId) {
+      return res.status(400).json({
+        success: false,
+        message: "memberId is required",
+      });
+    }
+
+    const [rows] = await pool.query(
+      `
+      SELECT 
+        b.*,
+        ut.fullName AS trainerName,
+        s.sessionName,
+        c.className
+      FROM unified_bookings b
+      LEFT JOIN staff t ON t.id = b.trainerId
+      LEFT JOIN user ut ON ut.id = t.userId
+      LEFT JOIN session s ON s.id = b.sessionId
+      LEFT JOIN classschedule c ON c.id = b.classId
+      WHERE b.memberId = ?
+      ORDER BY b.date DESC
+      `,
+      [memberId]
+    );
+
+    res.json({
+      success: true,
+      bookings: rows,
+    });
+
+  } catch (err) {
+    console.error("getUnifiedBookingsByMember ERROR →", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
