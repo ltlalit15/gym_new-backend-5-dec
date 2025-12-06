@@ -2,7 +2,8 @@ import {
   createPlanService,
   listPlansService,
   updatePlanService,
-  deletePlanService
+  deletePlanService,
+  getPlansByBranchService
 } from "./plan.service.js";
 
 export const createPlan = async (req, res, next) => {
@@ -47,9 +48,8 @@ export const getPlansByBranch = async (req, res, next) => {
 
   } catch (err) {
     next(err);
-  }
+  }
 };
-
 
 export const updatePlan = async (req, res, next) => {
   try {

@@ -36,6 +36,9 @@ import generaltrainerRoutes from "../modules/generaltrainer/generalTrainer.route
 import memberAttendenceRoutes from "../modules/memberattendence/attendence.routes.js";
 import shiftRoutes from "../modules/shift/shift.routes.js";
 import bookingRoutes from "../modules/classbookingrequest/classbooking.routes.js";
+// import housekeepingAttendance from "../modules/housekeepingAttendance/housekeepingattendance.routes.js";
+import memberDeshboardRoutes from "../modules/member/memberDashboard.routes.js";
+
 import adminStaffAttendanceRoutes from "../modules/adminStaffAttendance/adminStaffAttendance.routes.js";
 import memberSelfRoutes from "../modules/member/memberSelf.routes.js";
 
@@ -76,6 +79,8 @@ router.use("/housekeepingdashboard", housekeepingDashboardRoutes);
 router.use("/generaltrainer", generaltrainerRoutes);
 router.use("/shift", shiftRoutes);
 router.use("/personal-trainer-dashboard", personalTrainerDashboardRoutes);
+// router.use("/housekeeping-attendance",housekeepingAttendance);
+router.use("/member-dashboard",memberDeshboardRoutes);
 router.use("/admin-staff-attendance", adminStaffAttendanceRoutes);
 router.use("/member-self", memberSelfRoutes);
 
