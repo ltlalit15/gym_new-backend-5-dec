@@ -3,7 +3,9 @@ import {
   createBookingRequest,
   getAllBookingRequests,
   approveBooking,
-  rejectBooking
+  rejectBooking,
+  getBookingRequestsByBranch,
+  getBookingRequestsByAdmin
 } from "./classbooking.controller.js";
 // import { verifyToken } from "./classbookingrequest.js";   // adminId lene ke liye
 
@@ -18,6 +20,8 @@ router.post("/create", createBookingRequest);
    ADMIN → GET ALL BOOKING REQUESTS
 ---------------------------------------------------- */
 router.get("/requests", getAllBookingRequests);
+router.get("/branch/:branchId", getBookingRequestsByBranch);
+router.get("/admin/:adminId", getBookingRequestsByAdmin);
 
 /* ----------------------------------------------------
    ADMIN → APPROVE BOOKING REQUEST

@@ -48,7 +48,7 @@ export const getSalaryById = async (req, res) => {
 // ====== DELETE ======
 export const deleteSalary = async (req, res) => {
   try {
-    await deleteSalaryService(req.params.id);
+    await deleteSalaryService(req.params.salaryId);
     return res.json({ success: true, message: "Salary deleted successfully" });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
@@ -58,7 +58,7 @@ export const deleteSalary = async (req, res) => {
 // ====== UPDATE ======
 export const updateSalary = async (req, res) => {
   try {
-    const data = await updateSalaryService(req.params.id, req.body);
+    const data = await updateSalaryService(req.params.salaryId, req.body);
     return res.json({
       success: true,
       message: "Salary updated successfully",

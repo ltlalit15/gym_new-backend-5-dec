@@ -6,13 +6,22 @@ import { registerUser, loginUser , fetchUserById,
 
 export const register = async (req, res, next) => {
   try {
-    // pass req.body directly to service
+    // ⚠️ Abhi ke liye adminId body se aa raha hai
+    // Frontend se bhejna hoga:
+    // { ..., adminId: 1 }
+
+    // Agar baad me token lagaoge to aise kar sakte ho:
+    // if (req.user) {
+    //   req.body.adminId = req.user.id;   // jis admin ne create kiya
+    // }
+
     const user = await registerUser(req.body);
     res.json({ success: true, user });
   } catch (err) {
     next(err);
   }
 };
+
 
 
 export const getUserById = async (req, res, next) => {
@@ -74,6 +83,7 @@ export const getDashboardStats = async (req, res, next) => {
 
 
 
+// ✅ controller
 export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -89,12 +99,15 @@ export const login = async (req, res, next) => {
         email: user.email,
         phone: user.phone,
 
-        // FIXED ROLE FIELDS
+        // ROLE FIELDS
         roleId: user.roleId,
         roleName: user.roleName,
 
         branchId: user.branchId,
-        branchName: user.branchName
+        branchName: user.branchName,
+
+        // ✅ ADMIN ID BHI BEJ RAHE HAI
+        adminId: user.adminId,
       }
     });
 
@@ -102,6 +115,7 @@ export const login = async (req, res, next) => {
     next(err);
   }
 };
+
 
 
 

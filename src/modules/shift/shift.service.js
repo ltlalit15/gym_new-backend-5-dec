@@ -13,7 +13,7 @@ export const createShiftService = async (data) => {
   } = data;
 
   const [result] = await pool.query(
-    `INSERT INTO Shifts (staffIds, branchId, shiftDate, startTime, endTime, shiftType, description, status, createdById)
+    `INSERT INTO shifts (staffIds, branchId, shiftDate, startTime, endTime, shiftType, description, status, createdById)
      VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending', ?)`,
     [
       staffIds,
@@ -27,19 +27,19 @@ export const createShiftService = async (data) => {
     ]
   );
 
-  const [rows] = await pool.query(`SELECT * FROM Shifts WHERE id = ?`, [
+  const [rows] = await pool.query(`SELECT * FROM shifts WHERE id = ?`, [
     result.insertId,
   ]);
   return rows[0];
 };
 
 export const getAllShiftsService = async () => {
-  const [rows] = await pool.query(`SELECT * FROM Shifts ORDER BY id DESC`);
+  const [rows] = await pool.query(`SELECT * FROM shifts ORDER BY id DESC`);
   return rows;
 };
 
 export const getShiftByIdService = async (id) => {
-  const [rows] = await pool.query(`SELECT * FROM Shifts WHERE id = ?`, [id]);
+  const [rows] = await pool.query(`SELECT * FROM shifts WHERE id = ?`, [id]);
   return rows[0];
 };
 
@@ -55,7 +55,7 @@ export const updateShiftService = async (id, data) => {
     status,
   } = data;
   await pool.query(
-    `UPDATE Shifts SET staffIds=?, branchId=?, shiftDate=?, startTime=?, endTime=?, shiftType=?, description=?, status=? WHERE id=?`,
+    `UPDATE shifts SET staffIds=?, branchId=?, shiftDate=?, startTime=?, endTime=?, shiftType=?, description=?, status=? WHERE id=?`,
     [
       staffIds,
       branchId,
@@ -68,11 +68,11 @@ export const updateShiftService = async (id, data) => {
       id,
     ]
   );
-  const [rows] = await pool.query(`SELECT * FROM Shifts WHERE id = ?`, [id]);
+  const [rows] = await pool.query(`SELECT * FROM shifts WHERE id = ?`, [id]);
   return rows[0];
 };
 
 export const deleteShiftService = async (id) => {
-  await pool.query(`DELETE FROM Shifts WHERE id = ?`, [id]);
+  await pool.query(`DELETE FROM shifts WHERE id = ?`, [id]);
   return { message: "Shift deleted successfully" };
 };

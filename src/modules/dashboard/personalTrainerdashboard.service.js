@@ -97,36 +97,43 @@ export const getAdminDashboardService = async (adminId) => {
     recentActivities,
   };
 };
+// export const getPersonalTrainingPlansByAdminService = async (adminId) => {
+//   const [rows] = await pool.query(
+//     `
+//     SELECT
+//       p.id,
+//       p.name,
+//       p.sessions,
+//       p.validityDays,
+//       p.price,
+//       p.type,
+//       COUNT(m.id) AS customersCount
+//     FROM memberplan p
+//     LEFT JOIN member m
+//       ON m.planId = p.id
+//       AND m.status = 'ACTIVE'
+//       AND m.adminId = ?        -- yahi se "by admin" wala count aa raha hai
+//     GROUP BY p.id
+//     HAVING p.sessions IS NOT NULL AND p.sessions > 0   -- sirf training plans
+//     ORDER BY p.id DESC
+//     `,
+//     [adminId]
+//   );
+
+//   return rows;
+// };
+
+
 export const getPersonalTrainingPlansByAdminService = async (adminId) => {
   const [rows] = await pool.query(
     `
-    SELECT
-      p.id,
-      p.name,
-      p.sessions,
-      p.validityDays,
-      p.price,
-      p.category,
-      p.branchId,
-      COUNT(m.id) AS customersCount
-    FROM plan p
-    LEFT JOIN member m
-      ON m.planId = p.id
-      AND m.status = 'ACTIVE'
-      AND m.adminId = ?        -- yahi se "by admin" wala count aa raha hai
-    GROUP BY p.id
-    HAVING p.sessions IS NOT NULL AND p.sessions > 0   -- sirf training plans
-    ORDER BY p.id DESC
-    `,
+    SELECT * FROM memberplan  WHERE adminId = ? `,
     [adminId]
   );
 
   return rows;
 };
 
-/**
- * 🔹 Niche wali "Customers" table
- */
 export const getPersonalTrainingCustomersByAdminService = async (
   adminId,   // abhi param ke liye, filter ham planId se kar rahe hain
   planId
