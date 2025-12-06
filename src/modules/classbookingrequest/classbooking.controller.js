@@ -6,12 +6,12 @@ import { pool } from "../../config/db.js";
 
 
 export const createBookingRequest = async (req, res) => {
-    console.log("Booking Request Body:", req.body);
-  try {
-    const { memberId, classId, branchId, price ,adminId} = req.body;
+  console.log("Booking Request Body:", req.body);
 
-    // Basic validations
-    if (!memberId || !classId || !branchId || !price || !adminId) {
+  try {
+    const { memberId, classId, branchId, price, adminId, upiId } = req.body;
+
+    if (!memberId || !classId || !branchId || !price) {
       return res.status(400).json({
         success: false,
         message: "memberId, classId, branchId and price are required"
@@ -19,9 +19,9 @@ export const createBookingRequest = async (req, res) => {
     }
 
     await pool.query(
-      `INSERT INTO booking_requests (adminId,memberId, classId, branchId, price, status)
-       VALUES (?,?, ?, ?, ?, 'pending')`,
-      [adminId,memberId, classId, branchId, price, adminId]
+      `INSERT INTO booking_requests (adminId, memberId, classId, branchId, price, upiId, status)
+       VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
+      [adminId || null, memberId, classId, branchId, price, upiId || null]
     );
 
     res.json({

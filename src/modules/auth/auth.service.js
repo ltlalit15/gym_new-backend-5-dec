@@ -23,6 +23,9 @@ export const registerUser = async (data) => {
   const description = data.description || null;
   const status = data.status || null;
 
+  // ✅ Jis admin ne ye user create kiya hai
+  const adminId = data.adminId || null;
+
   if (!fullName || !email || !password || !roleId) {
     throw { status: 400, message: "fullName, email, password, roleId required" };
   }
@@ -39,14 +42,26 @@ export const registerUser = async (data) => {
   const sql = `
     INSERT INTO user (
       fullName, email, password, phone, roleId, branchId, 
-      gymName, address, planName, price, duration, description, status
+      gymName, address, planName, price, duration, description, status, adminId
     ) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const [result] = await pool.query(sql, [
-    fullName, email, hash, phone, roleId, branchId,
-    gymName, address, planName, price, duration, description, status
+    fullName,
+    email,
+    hash,
+    phone,
+    roleId,
+    branchId,
+    gymName,
+    address,
+    planName,
+    price,
+    duration,
+    description,
+    status,
+    adminId,     // ✅ last me adminId
   ]);
 
   // Return full user object
@@ -63,9 +78,11 @@ export const registerUser = async (data) => {
     price,
     duration,
     description,
-    status
+    status,
+    adminId,      // ✅ yaha bhi
   };
 };
+
 
 
 /**************************************
@@ -112,6 +129,7 @@ export const registerUser = async (data) => {
 // };
 
 
+// ✅ service
 export const loginUser = async ({ email, password }) => {
 
   const sql = `
@@ -138,6 +156,7 @@ export const loginUser = async ({ email, password }) => {
       id: user.id,
       roleId: user.roleId,
       branchId: user.branchId,
+      adminId: user.adminId,   // ✅ token me bhi adminId
     },
     ENV.jwtSecret,
     { expiresIn: "7d" }
@@ -154,9 +173,11 @@ export const loginUser = async ({ email, password }) => {
       roleName: user.roleName,
       branchId: user.branchId,
       branchName: user.branchName,
+      adminId: user.adminId,   // ✅ yaha se controller ko milega
     }
   };
 };
+
 
 
 
