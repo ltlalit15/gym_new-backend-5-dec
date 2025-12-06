@@ -49,12 +49,7 @@ export const getPersonalTrainingPlansByAdmin = async (req, res, next) => {
   }
 };
 
-// ✅ Niche wali "Customers" table
-export const getPersonalTrainingCustomersByAdmin = async (
-  req,
-  res,
-  next
-) => {
+export const getPersonalTrainingCustomersByAdmin = async (req, res, next) => {
   try {
     const adminId = parseInt(req.params.adminId);
     const planId = parseInt(req.params.planId);
@@ -79,4 +74,4 @@ export const getPersonalTrainingCustomersByAdmin = async (
   } catch (err) {
     next(err);
   }
-}
+};
