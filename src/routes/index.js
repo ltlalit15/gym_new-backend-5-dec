@@ -35,6 +35,7 @@ import staffAttendanceRoutes from "../modules/staffAttendance/staffAttendance.ro
 import generaltrainerRoutes from "../modules/generaltrainer/generalTrainer.routes.js";
 import memberAttendenceRoutes from "../modules/memberattendence/attendence.routes.js";
 import shiftRoutes from "../modules/shift/shift.routes.js";
+import personalTrainerDashboardRoutes from "../modules/dashboard/personalTrainerDashboard.routes.js";
 const router = Router();
 
 // test route
@@ -70,5 +71,6 @@ router.use("/staff-attendance", staffAttendanceRoutes);
 // router.use("/housekeepingdashboard", housekeepingDashboardRoutes);
 router.use("/generaltrainer", generaltrainerRoutes);
 router.use("/shift", shiftRoutes);
+router.use("/personal-trainer-dashboard", personalTrainerDashboardRoutes);
 
 export default router;

@@ -1,5 +1,5 @@
 // src/modules/dashboard/personalTrainerDashboard.controller.js
-import { getAdminDashboardService } from "./dashboard.service.js";
+import { getAdminDashboardService } from "./personalTrainerdashboard.service.js";
 
 export const getPersonalTrainerDashboard = async (req, res, next) => {
   try {
