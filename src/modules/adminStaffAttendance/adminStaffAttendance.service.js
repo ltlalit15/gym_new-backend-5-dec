@@ -246,12 +246,12 @@ export const createStaffAttendanceService = async (data) => {
     // }
 
     // Verify the staff is assigned to this shift
-    const staffIds = shiftDetails.staffIds
-      .split(",")
-      .map((id) => parseInt(id.trim()));
-    if (!staffIds.includes(staffId)) {
-      throw { status: 400, message: "Staff is not assigned to this shift" };
-    }
+    // const staffIds = shiftDetails.staffIds
+    //   .split(",")
+    //   .map((id) => parseInt(id.trim()));
+    // if (!staffIds.includes(staffId)) {
+    //   throw { status: 400, message: "Staff is not assigned to this shift" };
+    // }
   }
 
   // Create attendance record - FIXED: Added shiftId to INSERT statement
