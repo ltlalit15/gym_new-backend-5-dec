@@ -12,7 +12,7 @@ export const housekeepingDashboardService = async () => {
 
   const [[todayShiftsRow]] = await conn.query(
     `SELECT COUNT(*) AS shifts
-   FROM Shifts
+   FROM shifts
    WHERE DATE(CONVERT_TZ(shiftDate, '+00:00', '+05:30')) = ?`,
     [todayStr]
   );
@@ -44,7 +44,7 @@ export const housekeepingDashboardService = async () => {
     `SELECT 
         SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END) AS present,
         COUNT(*) AS total
-     FROM housekeepingAttendance
+     FROM housekeepingattendance
      WHERE attendanceDate >= ?`,
     [weekStartStr]
   );
@@ -54,7 +54,7 @@ export const housekeepingDashboardService = async () => {
   // --- Weekly Roster (Shift Table)
   const [weeklyRosterRows] = await conn.query(
     `SELECT shiftDate, startTime, endTime, branchId, status
-     FROM Shifts
+     FROM shifts
      WHERE shiftDate >= ?
      ORDER BY shiftDate ASC`,
     [weekStartStr]
