@@ -134,9 +134,6 @@ export const getPersonalTrainingPlansByAdminService = async (adminId) => {
   return rows;
 };
 
-/**
- * 🔹 Niche wali "Customers" table
- */
 export const getPersonalTrainingCustomersByAdminService = async (
   adminId,   // abhi param ke liye, filter ham planId se kar rahe hain
   planId

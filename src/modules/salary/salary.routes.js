@@ -15,3 +15,4 @@ router.post("/create", createSalary);
  router.put("/:id", updateSalary);
 
 export default router;
+ 
