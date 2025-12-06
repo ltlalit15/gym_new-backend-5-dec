@@ -162,3 +162,82 @@ export const rejectBooking = async (req, res) => {
   }
 };
 
+
+export const getBookingRequestsByBranch = async (req, res) => {
+  try {
+    const { branchId } = req.params;
+
+    if (!branchId) {
+      return res.status(400).json({
+        success: false,
+        message: "branchId is required",
+      });
+    }
+
+    const [rows] = await pool.query(
+      `
+      SELECT 
+        br.*,
+        m.fullName AS memberName,
+        c.className,
+        IFNULL(a.fullName, 'Pending') AS adminName
+      FROM booking_requests br
+      LEFT JOIN member m ON m.id = br.memberId
+      LEFT JOIN classschedule c ON c.id = br.classId
+      LEFT JOIN user a ON a.id = br.adminId
+      WHERE br.branchId = ?
+      ORDER BY br.createdAt DESC
+      `,
+      [branchId]
+    );
+
+    res.json({
+      success: true,
+      requests: rows,
+    });
+
+  } catch (err) {
+    console.error("getBookingRequestsByBranch Error:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+export const getBookingRequestsByAdmin = async (req, res) => {
+  try {
+    const { adminId } = req.params;
+
+    if (!adminId) {
+      return res.status(400).json({
+        success: false,
+        message: "adminId is required",
+      });
+    }
+
+    const [rows] = await pool.query(
+      `
+      SELECT 
+        br.*,
+        m.fullName AS memberName,
+        c.className,
+        IFNULL(a.fullName, 'Pending') AS adminName
+      FROM booking_requests br
+      LEFT JOIN member m ON m.id = br.memberId
+      LEFT JOIN classschedule c ON c.id = br.classId
+      LEFT JOIN user a ON a.id = br.adminId
+      WHERE br.adminId = ?
+      ORDER BY br.updatedAt DESC
+      `,
+      [adminId]
+    );
+
+    res.json({
+      success: true,
+      requests: rows,
+    });
+
+  } catch (err) {
+    console.error("getBookingRequestsByAdmin Error:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
