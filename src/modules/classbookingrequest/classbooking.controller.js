@@ -323,3 +323,449 @@ export const getBookingRequestsByAdmin = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+
+export const createPTBooking = async (req, res) => {
+  try {
+    const {
+      memberId,
+      trainerId,
+      sessionId,   // ⭐ NEW FIELD
+      date,
+      startTime,
+      endTime,
+      bookingStatus,
+      paymentStatus,
+      notes,
+      branchId
+    } = req.body;
+
+    // VALIDATION
+    if (!memberId || !trainerId || !sessionId || !date || !startTime || !endTime || !branchId) {
+      return res.status(400).json({
+        success: false,
+        message: "memberId, trainerId, sessionId, date, time and branchId are required"
+      });
+    }
+
+    await pool.query(
+      `
+      INSERT INTO pt_bookings 
+      (memberId, trainerId, sessionId, date, startTime, endTime, bookingStatus, paymentStatus, notes, branchId)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        memberId,
+        trainerId,
+        sessionId,        // ⭐ NEW DATA INSERT
+        date,
+        startTime,
+        endTime,
+        bookingStatus || "Booked",
+        paymentStatus || "Pending",
+        notes || "",
+        branchId
+      ]
+    );
+
+    res.json({
+      success: true,
+      message: "Personal training session booked successfully!"
+    });
+
+  } catch (err) {
+    console.error("createPTBooking ERROR →", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+
+
+export const createGroupBooking = async (req, res) => {
+  try {
+    const {
+      memberId,
+      classId,
+      date,
+      startTime,
+      endTime,
+      bookingStatus,
+      paymentStatus,
+      notes,
+      branchId
+    } = req.body;
+
+    if (!memberId || !classId || !date || !startTime || !endTime || !branchId) {
+      return res.status(400).json({ success: false, message: "All required fields missing" });
+    }
+
+    await pool.query(
+      `
+      INSERT INTO group_class_bookings 
+      (memberId, classId, date, startTime, endTime, bookingStatus, paymentStatus, notes, branchId)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        memberId,
+        classId,
+        date,
+        startTime,
+        endTime,
+        bookingStatus || "Booked",
+        paymentStatus || "Pending",
+        notes || "",
+        branchId
+      ]
+    );
+
+    res.json({
+      success: true,
+      message: "Group class booked successfully!"
+    });
+
+  } catch (err) {
+    console.error("createGroupBooking ERROR →", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+export const getGroupBookingsByBranch = async (req, res) => {
+  try {
+    const { branchId } = req.params;
+
+    if (!branchId) {
+      return res.status(400).json({
+        success: false,
+        message: "branchId is required"
+      });
+    }
+
+    const [rows] = await pool.query(
+      `
+      SELECT 
+        g.*,
+        m.fullName AS memberName,
+        c.className
+      FROM group_class_bookings g
+      LEFT JOIN member m ON m.id = g.memberId
+      LEFT JOIN classschedule c ON c.id = g.classId
+      WHERE g.branchId = ?
+      ORDER BY g.date DESC, g.startTime DESC
+      `,
+      [branchId]
+    );
+
+    res.json({
+      success: true,
+      bookings: rows,
+    });
+
+  } catch (err) {
+    console.error("getGroupBookingsByBranch ERROR:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+
+export const getPTBookingsByBranch = async (req, res) => {
+  try {
+    const { branchId } = req.params;
+
+    if (!branchId) {
+      return res.status(400).json({
+        success: false,
+        message: "branchId is required"
+      });
+    }
+
+    const [rows] = await pool.query(
+      `
+      SELECT 
+        p.*,
+
+        -- Member details
+        m.id AS memberId,
+        um.fullName AS memberName,
+
+        -- Trainer details
+        t.id AS trainerId,
+        ut.fullName AS trainerName,
+
+        -- PT Session Name
+        s.sessionName
+
+      FROM pt_bookings p
+      
+      LEFT JOIN member m ON m.id = p.memberId
+      LEFT JOIN user um ON um.id = m.userId      -- ⭐ Member full name from user table
+
+      LEFT JOIN staff t ON t.id = p.trainerId
+      LEFT JOIN user ut ON ut.id = t.userId      -- ⭐ Trainer full name from user table
+
+      LEFT JOIN session s ON s.id = p.sessionId
+
+      WHERE p.branchId = ?
+      ORDER BY p.date DESC, p.startTime DESC
+      `,
+      [branchId]
+    );
+
+    res.json({
+      success: true,
+      bookings: rows,
+    });
+
+  } catch (err) {
+    console.error("getPTBookingsByBranch ERROR:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+export const getPTBookingById = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+
+    const [[row]] = await pool.query(
+      `
+      SELECT 
+        p.*,
+        um.fullName AS memberName,
+        ut.fullName AS trainerName,
+        s.sessionName
+      FROM pt_bookings p
+      LEFT JOIN member m ON m.id = p.memberId
+      LEFT JOIN user um ON um.id = m.userId
+      LEFT JOIN staff t ON t.id = p.trainerId
+      LEFT JOIN user ut ON ut.id = t.userId
+      LEFT JOIN session s ON s.id = p.sessionId
+      WHERE p.id = ?
+      `,
+      [bookingId]
+    );
+
+    if (!row) {
+      return res.status(404).json({
+        success: false,
+        message: "PT Booking not found",
+      });
+    }
+
+    res.json({ success: true, booking: row });
+
+  } catch (err) {
+    console.error("getPTBookingById →", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+export const getPTBookingsByMember = async (req, res) => {
+  try {
+    const { memberId } = req.params;
+
+    const [rows] = await pool.query(
+      `
+      SELECT 
+        p.*,
+        ut.fullName AS trainerName,
+        s.sessionName
+      FROM pt_bookings p
+      LEFT JOIN staff t ON t.id = p.trainerId
+      LEFT JOIN user ut ON ut.id = t.userId
+      LEFT JOIN session s ON s.id = p.sessionId
+      WHERE p.memberId = ?
+      ORDER BY p.date DESC
+      `,
+      [memberId]
+    );
+
+    res.json({ success: true, bookings: rows });
+
+  } catch (err) {
+    console.error("getPTBookingsByMember →", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+
+export const getPTBookingsByTrainer = async (req, res) => {
+  try {
+    const { trainerId } = req.params;
+
+    const [rows] = await pool.query(
+      `
+      SELECT 
+        p.*,
+        um.fullName AS memberName,
+        s.sessionName
+      FROM pt_bookings p
+      LEFT JOIN member m ON m.id = p.memberId
+      LEFT JOIN user um ON um.id = m.userId
+      LEFT JOIN session s ON s.id = p.sessionId
+      WHERE p.trainerId = ?
+      ORDER BY p.date DESC
+      `,
+      [trainerId]
+    );
+
+    res.json({ success: true, bookings: rows });
+
+  } catch (err) {
+    console.error("getPTBookingsByTrainer →", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+
+export const updatePTBooking = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { date, startTime, endTime, bookingStatus, paymentStatus, notes } = req.body;
+
+    const [result] = await pool.query(
+      `
+      UPDATE pt_bookings
+      SET date = ?, startTime = ?, endTime = ?, bookingStatus = ?, paymentStatus = ?, notes = ?, updatedAt = NOW()
+      WHERE id = ?
+      `,
+      [date, startTime, endTime, bookingStatus, paymentStatus, notes, bookingId]
+    );
+
+    if (result.affectedRows === 0)
+      return res.status(404).json({ success: false, message: "PT Booking not found" });
+
+    res.json({ success: true, message: "PT Booking updated" });
+
+  } catch (err) {
+    console.error("updatePTBooking →", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+export const deletePTBooking = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+
+    const [result] = await pool.query(
+      `DELETE FROM pt_bookings WHERE id = ?`,
+      [bookingId]
+    );
+
+    if (result.affectedRows === 0)
+      return res.status(404).json({ success: false, message: "PT Booking not found" });
+
+    res.json({ success: true, message: "PT Booking deleted" });
+
+  } catch (err) {
+    console.error("deletePTBooking →", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+export const getGroupBookingById = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+
+    const [[row]] = await pool.query(
+      `
+      SELECT 
+        g.*,
+        m.fullName AS memberName,
+        c.className
+      FROM group_class_bookings g
+      LEFT JOIN member m ON m.id = g.memberId
+      LEFT JOIN classschedule c ON c.id = g.classId
+      WHERE g.id = ?
+      `,
+      [bookingId]
+    );
+
+    if (!row)
+      return res.status(404).json({ success: false, message: "Group booking not found" });
+
+    res.json({ success: true, booking: row });
+
+  } catch (err) {
+    console.error("getGroupBookingById →", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+export const getGroupBookingsByMember = async (req, res) => {
+  try {
+    const { memberId } = req.params;
+
+    const [rows] = await pool.query(
+      `
+      SELECT 
+        g.*,
+        c.className
+      FROM group_class_bookings g
+      LEFT JOIN classschedule c ON c.id = g.classId
+      WHERE g.memberId = ?
+      ORDER BY g.date DESC
+      `,
+      [memberId]
+    );
+
+    res.json({ success: true, bookings: rows });
+
+  } catch (err) {
+    console.error("getGroupBookingsByMember →", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+export const updateGroupBooking = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { date, startTime, endTime, bookingStatus, paymentStatus, notes } = req.body;
+
+    const [result] = await pool.query(
+      `
+      UPDATE group_class_bookings
+      SET date = ?, startTime = ?, endTime = ?, bookingStatus = ?, paymentStatus = ?, notes = ?, updatedAt = NOW()
+      WHERE id = ?
+      `,
+      [date, startTime, endTime, bookingStatus, paymentStatus, notes, bookingId]
+    );
+
+    if (result.affectedRows === 0)
+      return res.status(404).json({ success: false, message: "Group booking not found" });
+
+    res.json({ success: true, message: "Group booking updated" });
+
+  } catch (err) {
+    console.error("updateGroupBooking →", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+export const deleteGroupBooking = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+
+    const [result] = await pool.query(
+      `DELETE FROM group_class_bookings WHERE id = ?`,
+      [bookingId]
+    );
+
+    if (result.affectedRows === 0)
+      return res.status(404).json({ success: false, message: "Group booking not found" });
+
+    res.json({ success: true, message: "Group booking deleted" });
+
+  } catch (err) {
+    console.error("deleteGroupBooking →", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};

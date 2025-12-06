@@ -364,16 +364,30 @@ export const deleteMemberService = async (id) => {
     [id]
   );
 
-  if (rows.length === 0)
+  if (rows.length === 0) {
     throw { status: 404, message: "Member not found" };
+  }
 
   const userId = rows[0].userId;
 
+  // 1️⃣ Delete Attendance
+  await pool.query("DELETE FROM memberattendance WHERE memberId = ?", [id]);
+
+  // 2️⃣ Delete Payments (if exists)
+  await pool.query("DELETE FROM payment WHERE memberId = ?", [id]);
+
+  // 3️⃣ Delete Bookings (if exists)
+  await pool.query("DELETE FROM booking_requests WHERE memberId = ?", [id]);
+
+  // 4️⃣ Finally delete member
   await pool.query("DELETE FROM member WHERE id = ?", [id]);
+
+  // 5️⃣ Delete user account
   await pool.query("DELETE FROM user WHERE id = ?", [userId]);
 
   return { message: "Member deleted permanently" };
 };
+
 
 
 

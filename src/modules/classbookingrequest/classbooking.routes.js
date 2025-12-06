@@ -5,7 +5,11 @@ import {
   approveBooking,
   rejectBooking,
   getBookingRequestsByBranch,
-  getBookingRequestsByAdmin
+  getBookingRequestsByAdmin,
+  createGroupBooking,
+  createPTBooking,
+  getGroupBookingsByBranch,
+getPTBookingsByBranch
 } from "./classbooking.controller.js";
 // import { verifyToken } from "./classbookingrequest.js";   // adminId lene ke liye
 
@@ -32,5 +36,12 @@ router.put("/approve/:requestId", approveBooking);
    ADMIN → REJECT BOOKING REQUEST
 ---------------------------------------------------- */
 router.put("/reject/:requestId", rejectBooking);
+
+
+// group class booking
+router.post("/group", createGroupBooking);
+router.post("/pt", createPTBooking);
+router.get("/group/:branchId", getGroupBookingsByBranch);
+router.get("/pt/:branchId", getPTBookingsByBranch);
 
 export default router;
