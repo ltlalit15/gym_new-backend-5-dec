@@ -58,7 +58,7 @@ export const deleteSalary = async (req, res) => {
 // ====== UPDATE ======
 export const updateSalary = async (req, res) => {
   try {
-    const data = await updateSalaryService(req.params.id, req.body);
+    const data = await updateSalaryService(req.params.salaryId, req.body);
     return res.json({
       success: true,
       message: "Salary updated successfully",

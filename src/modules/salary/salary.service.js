@@ -108,7 +108,7 @@ export const  deleteSalaryService = async (salaryId) => {
 };
 
 // ===== UPDATE =====
-export const updateSalaryService = async (id, data) => {
+export const updateSalaryService = async (salaryId, data) => {
   const {
     salaryId,
     staffId,
@@ -151,7 +151,7 @@ export const updateSalaryService = async (id, data) => {
       deductions = ?,
       netPay = ?,
       status = ?
-    WHERE id = ?
+    WHERE salaryId  = ?
   `;
 
   await pool.query(sql, [
@@ -169,10 +169,10 @@ export const updateSalaryService = async (id, data) => {
     JSON.stringify(deductions || []),
     netPay,
     status,
-    id
+    salaryId 
   ]);
 
-  return { id, ...data, netPay };
+  return { salaryId, ...data, netPay };
 };
 
 
