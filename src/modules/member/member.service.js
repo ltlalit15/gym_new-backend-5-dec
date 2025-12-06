@@ -299,30 +299,22 @@ export const updateMemberService = async (id, data) => {
  * DELETE (SOFT DELETE)
  **************************************/
 export const deleteMemberService = async (id) => {
-  // Get userId from member table
   const [rows] = await pool.query(
     "SELECT userId FROM member WHERE id = ?",
     [id]
   );
-  if (!member) throw { status: 404, message: "Member not found" };
 
-  await pool.query(`UPDATE member SET status='Inactive' WHERE id=?`, [id]);
-  await pool.query(`UPDATE user SET status='Inactive' WHERE id=?`, [member.userId]);
-
-  if (rows.length === 0) {
+  if (rows.length === 0)
     throw { status: 404, message: "Member not found" };
-  }
 
   const userId = rows[0].userId;
 
-  // Delete from member table
   await pool.query("DELETE FROM member WHERE id = ?", [id]);
-
-  // Delete from user table
   await pool.query("DELETE FROM user WHERE id = ?", [userId]);
 
   return { message: "Member deleted permanently" };
 };
+
 
 
 
