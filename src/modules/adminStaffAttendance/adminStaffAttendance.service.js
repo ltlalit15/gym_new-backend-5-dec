@@ -205,9 +205,9 @@ export const createStaffAttendanceService = async (data) => {
     notes,
   } = data;
 
-  if (!staffId || !branchId || !date) {
-    throw { status: 400, message: "staffId, branchId, and date are required" };
-  }
+  // if (!staffId || !branchId || !date) {
+  //   throw { status: 400, message: "staffId, branchId, and date are required" };
+  // }
 
   // Parse date from "06-12-2025" format to "2025-06-12"
   const dateParts = date.split("-");
@@ -241,9 +241,9 @@ export const createStaffAttendanceService = async (data) => {
     shiftDetails = shiftRows[0];
 
     // Verify the shift belongs to the same branch
-    if (shiftDetails.branchId !== branchId) {
-      throw { status: 400, message: "Shift does not belong to this branch" };
-    }
+    // if (shiftDetails.branchId !== branchId) {
+    //   throw { status: 400, message: "Shift does not belong to this branch" };
+    // }
 
     // Verify the staff is assigned to this shift
     const staffIds = shiftDetails.staffIds
@@ -427,6 +427,7 @@ export const getStaffAttendanceByBranchIdService = async (
 /**************************************
  * UPDATE STAFF ATTENDANCE
  **************************************/
+
 export const updateStaffAttendanceService = async (id, data) => {
   const {
     staffId,
@@ -440,18 +441,20 @@ export const updateStaffAttendanceService = async (id, data) => {
     notes,
   } = data;
 
-  // Check if attendance record exists
+  // Check if attendance record exists and get current values
   const [existing] = await pool.query(
-    "SELECT id FROM staffattendance WHERE id = ?",
+    "SELECT * FROM staffattendance WHERE id = ?",
     [id]
   );
   if (!existing.length) {
     throw { status: 404, message: "Attendance record not found" };
   }
+  
+  const currentRecord = existing[0];
 
   // Parse check-in and check-out datetime
-  let checkIn = null;
-  let checkOut = null;
+  let checkIn = currentRecord.checkIn;
+  let checkOut = currentRecord.checkOut;
 
   if (checkInTime) {
     checkIn = new Date(checkInTime);
@@ -487,33 +490,44 @@ export const updateStaffAttendanceService = async (id, data) => {
     }
   }
 
-  // Update the attendance record
+  // Update the attendance record - FIXED: Added shiftId to UPDATE statement
   const [result] = await pool.query(
     `UPDATE staffattendance 
-     SET checkIn = ?, checkOut = ?, mode = ?, status = ?, notes = ?
+     SET staffId = ?, branchId = ?, shiftId = ?, checkIn = ?, checkOut = ?, mode = ?, status = ?, notes = ?
      WHERE id = ?`,
-    [checkIn, checkOut, mode, status, notes, id]
+    [
+      staffId || currentRecord.staffId,
+      branchId || currentRecord.branchId,
+      shiftId || currentRecord.shiftId,
+      checkIn,
+      checkOut,
+      mode || currentRecord.mode,
+      status || currentRecord.status,
+      notes || currentRecord.notes,
+      id
+    ]
   );
 
   if (result.affectedRows === 0) {
     throw { status: 500, message: "Failed to update attendance record" };
   }
 
+  // Get the updated record to return complete information
+  const updatedRecord = await getStaffAttendanceByIdService(id);
+  
+  // If shiftId was provided, include shiftDetails in response
+  if (shiftId) {
+    updatedRecord.shiftDetails = shiftDetails;
+  }
+
   return {
     message: "Staff attendance updated successfully",
-    id,
-    staffId,
-    branchId,
-    date,
-    checkIn,
-    checkOut,
-    mode,
-    status,
-    notes,
-    shiftId,
-    shiftDetails,
+    ...updatedRecord
   };
 };
+
+
+
 
 /**************************************
  * DELETE STAFF ATTENDANCE
