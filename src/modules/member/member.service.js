@@ -45,7 +45,7 @@ export const createMemberService = async (data) => {
 
   // Membership End Date (Based on Plan Duration)
   if (planId) {
-    const [planRows] = await pool.query("SELECT * FROM plan WHERE id = ?", [planId]);
+    const [planRows] = await pool.query("SELECT * FROM 	memberplan WHERE id = ?", [planId]);
     if (!planRows.length) throw { status: 404, message: "Invalid plan selected" };
 
     const plan = planRows[0];
