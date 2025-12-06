@@ -8,6 +8,7 @@ import {
   updateMemberService,
   deleteMemberService,
   getMembersByAdminIdService,
+  renewMembershipService
   
 } from "./member.service.js";
 
@@ -19,6 +20,31 @@ export const createMember = async (req, res, next) => {
     next(err);
   }
 };
+
+export const renewMembershipPlan = async (req, res, next) => {
+  try {
+    const memberId = parseInt(req.params.memberId);
+    const { planId, paymentMode, amountPaid } = req.body;
+
+    if (!planId || !paymentMode || amountPaid === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: "planId, paymentMode और amountPaid required हैं",
+      });
+    }
+
+    const data = await renewMembershipService(memberId, req.body);
+
+    res.json({
+      success: true,
+      message: "Membership renewed successfully",
+      data,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 
 export const listMembers = async (req, res, next) => {
   try {

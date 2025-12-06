@@ -8,7 +8,7 @@ export const generateAlerts = async () => {
   const todayStr = today.toISOString().slice(0, 10);
   const soonStr = soon.toISOString().slice(0, 10);
 
-  const conn = pool.promise();
+  const conn = pool;
 
   // --- Clear old alerts ---
   await conn.query("DELETE FROM alert");
