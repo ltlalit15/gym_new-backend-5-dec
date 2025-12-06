@@ -118,6 +118,66 @@ export const createMemberService = async (data) => {
 };
 
 
+export const renewMembershipService = async (memberId, body) => {
+  const { planId, paymentMode, amountPaid, adminId } = body;
+
+  // 1️⃣ Member check
+  const [[member]] = await pool.query(
+    "SELECT * FROM member WHERE id = ?",
+    [memberId]
+  );
+
+  if (!member) throw { status: 404, message: "Member not found" };
+
+  // 2️⃣ Fetch plan
+  const [[plan]] = await pool.query(
+    "SELECT * FROM plan WHERE id = ?",
+    [planId]
+  );
+
+  if (!plan) throw { status: 404, message: "Invalid Plan" };
+
+  // 3️⃣ Calculate new membership dates
+  let startDate = member.membershipTo
+    ? new Date(member.membershipTo)
+    : new Date();
+
+  startDate.setDate(startDate.getDate() + 1); // next day after previous expiry
+
+  let endDate = new Date(startDate);
+  endDate.setDate(endDate.getDate() + Number(plan.duration));
+
+  // 4️⃣ Update member table
+  await pool.query(
+    `UPDATE member SET 
+        planId = ?, 
+        membershipFrom = ?, 
+        membershipTo = ?, 
+        paymentMode = ?, 
+        amountPaid = ?, 
+        adminId = ? 
+     WHERE id = ?`,
+    [
+      planId,
+      startDate,
+      endDate,
+      paymentMode,
+      amountPaid,
+      adminId || member.adminId,
+      memberId,
+    ]
+  );
+
+  return {
+    memberId,
+    planId,
+    membershipFrom: startDate,
+    membershipTo: endDate,
+    paymentMode,
+    amountPaid,
+  };
+};
+
 
 /**************************************
  * LIST MEMBERS

@@ -8,6 +8,7 @@ import {
   updateMember,
   deleteMember,
   getMembersByAdminId,
+  renewMembershipPlan
   
 } from "./member.controller.js";
 // import { verifyToken } from "../../middlewares/auth.js";
@@ -20,6 +21,9 @@ router.post(
   // verifyToken(["Superadmin", "Admin", "Staff"]),
   createMember
 );
+
+router.put("/renew/:memberId", renewMembershipPlan);
+
 
 /** List Members by Branch */
 router.get(
