@@ -217,19 +217,44 @@ export const getTrainerByIdService = async (trainerId) => {
 /**************************************
  * DELETE STAFF
  **************************************/
-export const deleteStaffService = async (id) => {
-  // soft delete user and staff
-  await pool.query(
-    `UPDATE user SET status='Inactive' WHERE id=?`,
-    [id]
-  );
-  await pool.query(
-    `UPDATE staff SET status='Inactive', exitDate=? WHERE userId=?`,
-    [new Date(), id]
+// export const deleteStaffService = async (id) => {
+//   // soft delete user and staff
+//   await pool.query(
+//     `UPDATE user SET status='Inactive' WHERE id=?`,
+//     [id]
+//   );
+//   await pool.query(
+//     `UPDATE staff SET status='Inactive', exitDate=? WHERE userId=?`,
+//     [new Date(), id]
+//   );
+
+//   return { message: "Staff deactivated successfully" };
+// };
+
+export const deleteStaffService = async (staffId) => {
+  // 1️⃣ Find staff entry using staff.id
+  const [rows] = await pool.query(
+    "SELECT userId FROM staff WHERE id = ?",
+    [staffId]
   );
 
-  return { message: "Staff deactivated successfully" };
+  if (rows.length === 0) {
+    throw { status: 404, message: "Staff not found" };
+  }
+
+  const userId = rows[0].userId;
+
+  // 2️⃣ Delete from staff table using staff.id
+  await pool.query("DELETE FROM staff WHERE id = ?", [staffId]);
+
+  // 3️⃣ Delete linked user
+  await pool.query("DELETE FROM user WHERE id = ?", [userId]);
+
+  return { message: "Staff deleted permanently" };
 };
+
+
+
 
 
 export const getAdminStaffService = async (adminId) => {
