@@ -36,7 +36,7 @@ import generaltrainerRoutes from "../modules/generaltrainer/generalTrainer.route
 import memberAttendenceRoutes from "../modules/memberattendence/attendence.routes.js";
 import shiftRoutes from "../modules/shift/shift.routes.js";
 import bookingRoutes from "../modules/classbookingrequest/classbooking.routes.js";
-
+import adminStaffAttendanceRoutes from "../modules/adminStaffAttendance/adminStaffAttendance.routes.js";
 
 import personalTrainerDashboardRoutes from "../modules/dashboard/personalTrainerDashboard.routes.js";
 const router = Router();
@@ -75,7 +75,8 @@ router.use("/housekeepingdashboard", housekeepingDashboardRoutes);
 router.use("/generaltrainer", generaltrainerRoutes);
 router.use("/shift", shiftRoutes);
 router.use("/personal-trainer-dashboard", personalTrainerDashboardRoutes);
+router.use("/admin-staff-attendance", adminStaffAttendanceRoutes);
 
-router.use("/booking",bookingRoutes);
+router.use("/booking", bookingRoutes);
 
 export default router;
