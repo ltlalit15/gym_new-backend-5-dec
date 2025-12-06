@@ -203,31 +203,89 @@ export const getScheduleByIdService = async (id) => {
   return schedule;
 };
 
+// export const updateScheduleService = async (id, data) => {
+//   const [existsRows] = await pool.query(
+//     "SELECT * FROM classschedule WHERE id = ?",
+//     [id]
+//   );
+//   const exists = existsRows[0];
+//   if (!exists) throw { status: 404, message: "Class schedule not found" };
+
+//   const fields = [];
+//   const values = [];
+
+//   // Note: use 'className' instead of 'classTypeId'
+//   for (const key of [
+//     "branchId", "className", "trainerId", "date", "day",
+//     "startTime", "endTime", "capacity", "status", "members"
+//   ]) {
+//     if (data[key] !== undefined) {
+//       fields.push(`${key} = ?`);
+//       values.push(key === "members" ? JSON.stringify(data[key]) : data[key]);
+//     }
+//   }
+
+//   if (fields.length === 0) return { ...exists, ...data };
+
+//   values.push(id);
+//   await pool.query(
+//     `UPDATE classschedule SET ${fields.join(", ")} WHERE id = ?`,
+//     values
+//   );
+
+//   return { ...exists, ...data };
+// };
+
 export const updateScheduleService = async (id, data) => {
   const [existsRows] = await pool.query(
     "SELECT * FROM classschedule WHERE id = ?",
     [id]
   );
+
   const exists = existsRows[0];
   if (!exists) throw { status: 404, message: "Class schedule not found" };
 
   const fields = [];
   const values = [];
 
-  // Note: use 'className' instead of 'classTypeId'
   for (const key of [
-    "branchId", "className", "trainerId", "date", "day",
-    "startTime", "endTime", "capacity", "status", "members"
+    "branchId",
+    "className",
+    "trainerId",
+    "date",
+    "day",
+    "startTime",
+    "endTime",
+    "capacity",
+    "status",
+    "members"
   ]) {
-    if (data[key] !== undefined) {
+    if (data[key] !== undefined && data[key] !== null) {
+
+      let value = data[key];
+
+      // Convert members JSON
+      if (key === "members") {
+        value = JSON.stringify(value);
+      }
+
+      // Convert JS ISO date → MySQL datetime(3)
+      if (key === "date") {
+        value = new Date(value)
+          .toISOString()
+          .slice(0, 23)        // keep milliseconds for datetime(3)
+          .replace("T", " ");  // replace T with space
+      }
+
       fields.push(`${key} = ?`);
-      values.push(key === "members" ? JSON.stringify(data[key]) : data[key]);
+      values.push(value);
     }
   }
 
   if (fields.length === 0) return { ...exists, ...data };
 
   values.push(id);
+
   await pool.query(
     `UPDATE classschedule SET ${fields.join(", ")} WHERE id = ?`,
     values
@@ -235,6 +293,9 @@ export const updateScheduleService = async (id, data) => {
 
   return { ...exists, ...data };
 };
+
+
+
 
 export const deleteScheduleService = async (id) => {
   const [existingRows] = await pool.query(
