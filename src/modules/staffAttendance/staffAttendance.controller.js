@@ -292,3 +292,193 @@ export const getTodayStaffSummary = async (req, res, next) => {
     next(err);
   }
 };
+
+export const getHousekeepingAttendance = async (req, res, next) => {
+  try {
+    const { date, branchId, search } = req.query;
+    const adminId = req.user?.id || req.query.adminId; // agar token nai hai to query se le lo
+
+    // 🔁 date default: aaj ka
+    const targetDate = date
+      ? new Date(date).toISOString().slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
+
+    // 📌 1) Total housekeeping staff (user table se)
+    // Yahan roleName ya roleId jo bhi tum use kar rahe ho usko lagao
+    const [housekeepingStaff] = await pool.query(
+      `
+      SELECT u.id AS staffId, u.fullName, s.position
+      FROM staff s
+      JOIN user u ON u.id = s.userId
+      LEFT JOIN role r ON r.id = u.roleId
+      WHERE r.name = 'Housekeeper'
+      ${branchId ? " AND u.branchId = ?" : ""}
+      ${adminId ? " AND u.adminId = ?" : ""}
+      ${search ? " AND (u.fullName LIKE ? OR u.phone LIKE ?)" : ""}
+      `,
+      [
+        ...(branchId ? [branchId] : []),
+        ...(adminId ? [adminId] : []),
+        ...(search ? [`%${search}%`, `%${search}%`] : []),
+      ]
+    );
+
+    const totalStaff = housekeepingStaff.length;
+
+    // 📌 2) Aaj ka attendance housekeeping ke liye
+    const [todayAttendance] = await pool.query(
+      `
+      SELECT sa.*, u.fullName
+      FROM staffattendance sa
+      JOIN user u ON u.id = sa.staffId
+      LEFT JOIN role r ON r.id = u.roleId
+      WHERE DATE(sa.checkIn) = ?
+        AND r.name = 'Housekeeper'
+      ${branchId ? " AND sa.branchId = ?" : ""}
+      `,
+      [targetDate, ...(branchId ? [branchId] : [])]
+    );
+
+    const presentCount = new Set(todayAttendance.map(a => a.staffId)).size;
+
+    // Late logic: example – 09:00 ke baad aane wale
+    const [lateRows] = await pool.query(
+      `
+      SELECT COUNT(DISTINCT sa.staffId) AS count
+      FROM staffattendance sa
+      JOIN user u ON u.id = sa.staffId
+      LEFT JOIN role r ON r.id = u.roleId
+      WHERE DATE(sa.checkIn) = ?
+        AND r.name = 'Housekeeper'
+        AND TIME(sa.checkIn) > '09:00:00'
+      ${branchId ? " AND sa.branchId = ?" : ""}
+      `,
+      [targetDate, ...(branchId ? [branchId] : [])]
+    );
+
+    const late = lateRows[0]?.count || 0;
+    const absent = totalStaff - presentCount;
+
+    // 📌 3) Mark Daily Attendance table ke liye rows:
+    // har staff + uska aaj ka attendance (agar hai to)
+    const [markList] = await pool.query(
+      `
+      SELECT 
+        u.id AS staffId,
+        u.fullName AS staffName,
+        s.position,
+        sa.id AS attendanceId,
+        sa.status,
+        sa.checkIn,
+        sa.checkOut,
+        sa.notes
+      FROM staff s
+      JOIN user u ON u.id = s.userId
+      LEFT JOIN role r ON r.id = u.roleId
+      LEFT JOIN staffattendance sa 
+        ON sa.staffId = u.id 
+        AND DATE(sa.checkIn) = ?
+      WHERE r.name = 'Housekeeper'
+      ${branchId ? " AND u.branchId = ?" : ""}
+      ${adminId ? " AND u.adminId = ?" : ""}
+      ${search ? " AND (u.fullName LIKE ? OR u.phone LIKE ?)" : ""}
+      ORDER BY u.fullName ASC
+      `,
+      [
+        targetDate,
+        ...(branchId ? [branchId] : []),
+        ...(adminId ? [adminId] : []),
+        ...(search ? [`%${search}%`, `%${search}%`] : []),
+      ]
+    );
+
+    // 📌 4) History table (neeche wala)
+    const [history] = await pool.query(
+      `
+      SELECT 
+        sa.id,
+        DATE(sa.checkIn) AS date,
+        u.fullName AS staffName,
+        s.position,
+        sa.status,
+        sa.checkIn,
+        sa.checkOut,
+        TIMESTAMPDIFF(MINUTE, sa.checkIn, IFNULL(sa.checkOut, sa.checkIn)) AS workMinutes,
+        sa.notes
+      FROM staffattendance sa
+      JOIN user u ON u.id = sa.staffId
+      JOIN staff s ON s.userId = u.id
+      LEFT JOIN role r ON r.id = u.roleId
+      WHERE r.name = 'Housekeeper'
+      ${branchId ? " AND sa.branchId = ?" : ""}
+      ${adminId ? " AND u.adminId = ?" : ""}
+      ORDER BY sa.checkIn DESC
+      LIMIT 100
+      `,
+      [
+        ...(branchId ? [branchId] : []),
+        ...(adminId ? [adminId] : []),
+      ]
+    );
+
+    // frontend ko workHours "H:MM" format me
+    const historyFormatted = history.map(h => ({
+      ...h,
+      workHours: `${Math.floor(h.workMinutes / 60)}:${String(h.workMinutes % 60).padStart(2,"0")}`
+    }));
+
+    res.json({
+      success: true,
+      summary: {
+        totalStaff,
+        present: presentCount,
+        absent,
+        late
+      },
+      markList,
+      history: historyFormatted
+    });
+
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getTodayHousekeeperHistory = async (req, res, next) => {
+  try {
+    const staffId = req.params.staffId;
+
+    const [rows] = await pool.query(
+      `
+      SELECT 
+        id,
+        checkIn,
+        checkOut,
+        status,
+        notes
+      FROM staffattendance
+      WHERE staffId = ?
+        AND DATE(checkIn) = CURDATE()
+      ORDER BY checkIn ASC
+      `,
+      [staffId]
+    );
+
+    const history = rows.map((r, idx) => ({
+      srNo: idx + 1,
+      checkIn: r.checkIn,
+      checkOut: r.checkOut || "Still in gym",
+      status: r.checkOut ? "Completed" : "Active",
+      notes: r.notes || null
+    }));
+
+    res.json({
+      success: true,
+      history
+    });
+
+  } catch (err) {
+    next(err);
+  }
+};
+

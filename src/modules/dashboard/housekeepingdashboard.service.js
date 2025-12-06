@@ -44,8 +44,8 @@ export const housekeepingDashboardService = async () => {
     `SELECT 
         SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END) AS present,
         COUNT(*) AS total
-     FROM housekeepingattendance
-     WHERE attendanceDate >= ?`,
+     FROM staffattendance
+     WHERE checkIn >= ?`,
     [weekStartStr]
   );
   const attendancePresent = Number(attendanceRow.present);
