@@ -1,4 +1,4 @@
-import { housekeepingDashboardService } from "./housekeepingDashboard.service.js";
+import { housekeepingDashboardService } from "./housekeepingdashboard.service.js";
 
 export const getHousekeepingDashboard = async (req, res, next) => {
   try {
