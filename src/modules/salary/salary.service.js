@@ -24,7 +24,7 @@ export const createSalaryService = async (data) => {
   const netPay = hourlyTotal + (fixedSalary || 0) + (commissionTotal || 0) + bonusTotal - deductionTotal;
 
   const [result] = await pool.query(
-    `INSERT INTO Salary 
+    `INSERT INTO salary 
       (salaryId, staffId, role, periodStart, periodEnd, hoursWorked, hourlyRate, hourlyTotal,
        fixedSalary, commissionTotal, bonuses, deductions, netPay, status)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -101,7 +101,7 @@ export const getSalaryByIdService = async (id) => {
 
 // ===== DELETE =====
 export const deleteSalaryService = async (id) => {
-  await pool.query(`DELETE FROM Salary WHERE id = ?`, [id]);
+  await pool.query(`DELETE FROM salary WHERE id = ?`, [id]);
   return { success: true };
 };
 
@@ -134,7 +134,7 @@ export const updateSalaryService = async (id, data) => {
     deductionTotal;
 
   const sql = `
-    UPDATE Salary SET
+    UPDATE salary SET
       salaryId = ?,
       staffId = ?,          -- USER ID
       role = ?,
