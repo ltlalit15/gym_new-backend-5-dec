@@ -188,7 +188,7 @@ export const deleteStaff = async (req, res, next) => {
 
     res.json({
       success: true,
-      message: "Staff deactivated successfully",
+      message: "Staff Deleted successfully",
     });
   } catch (err) {
     next(err);
