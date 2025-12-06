@@ -12,7 +12,7 @@ export const createTaskService = async (data) => {
   } = data;
 
   const [result] = await pool.query(
-    `INSERT INTO Tasks (assignedTo, branchId, taskTitle, dueDate, priority, description, status, createdById)
+    `INSERT INTO tasks (assignedTo, branchId, taskTitle, dueDate, priority, description, status, createdById)
      VALUES (?, ?, ?, ?, ?, ?,'Pending', ?)`,
     [
       assignedTo,
@@ -25,7 +25,7 @@ export const createTaskService = async (data) => {
     ]
   );
 
-  const [rows] = await pool.query(`SELECT * FROM Tasks WHERE id = ?`, [
+  const [rows] = await pool.query(`SELECT * FROM tasks WHERE id = ?`, [
     result.insertId,
   ]);
 
@@ -33,12 +33,12 @@ export const createTaskService = async (data) => {
 };
 
 export const getAllTasksService = async () => {
-  const [rows] = await pool.query(`SELECT * FROM Tasks ORDER BY id DESC`);
+  const [rows] = await pool.query(`SELECT * FROM tasks ORDER BY id DESC`);
   return rows;
 };
 
 export const getTaskByIdService = async (id) => {
-  const [rows] = await pool.query(`SELECT * FROM Tasks WHERE id = ?`, [id]);
+  const [rows] = await pool.query(`SELECT * FROM tasks WHERE id = ?`, [id]);
   return rows[0];
 };
 
@@ -54,7 +54,7 @@ export const updateTaskService = async (id, data) => {
   } = data;
 
   await pool.query(
-    `UPDATE Tasks SET assignedTo=?, branchId=?, taskTitle=?, dueDate=?, priority=?,description=?, status=? WHERE id=?`,
+    `UPDATE tasks SET assignedTo=?, branchId=?, taskTitle=?, dueDate=?, priority=?,description=?, status=? WHERE id=?`,
     [
       assignedTo,
       branchId,
@@ -67,18 +67,18 @@ export const updateTaskService = async (id, data) => {
     ]
   );
 
-  const [rows] = await pool.query(`SELECT * FROM Tasks WHERE id = ?`, [id]);
+  const [rows] = await pool.query(`SELECT * FROM tasks WHERE id = ?`, [id]);
   return rows[0];
 };
 
 export const updateTaskStatusService = async (id, status) => {
-  await pool.query(`UPDATE Tasks SET status = ? WHERE id = ?`, [status, id]);
+  await pool.query(`UPDATE tasks SET status = ? WHERE id = ?`, [status, id]);
 
-  const [rows] = await pool.query(`SELECT * FROM Tasks WHERE id = ?`, [id]);
+  const [rows] = await pool.query(`SELECT * FROM tasks WHERE id = ?`, [id]);
   return rows[0];
 };
 
 export const deleteTaskService = async (id) => {
-  await pool.query(`DELETE FROM Tasks WHERE id = ?`, [id]);
+  await pool.query(`DELETE FROM tasks WHERE id = ?`, [id]);
   return { message: "Task deleted successfully" };
 };
