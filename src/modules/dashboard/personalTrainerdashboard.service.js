@@ -97,3 +97,69 @@ export const getAdminDashboardService = async (adminId) => {
     recentActivities,
   };
 };
+export const getPersonalTrainingPlansByAdminService = async (adminId) => {
+  const [rows] = await pool.query(
+    `
+    SELECT
+      p.id,
+      p.name,
+      p.sessions,
+      p.validityDays,
+      p.price,
+      p.category,
+      p.branchId,
+      COUNT(m.id) AS customersCount
+    FROM plan p
+    LEFT JOIN member m
+      ON m.planId = p.id
+      AND m.adminId = ?
+      AND m.status = 'ACTIVE'
+    WHERE p.category = 'Personal Training'
+    GROUP BY p.id
+    ORDER BY p.id DESC
+    `,
+    [adminId]
+  );
+
+  return rows;
+};
+
+/**
+ * Niche wali "Basic Training Customers" table ke liye
+ */
+export const getPersonalTrainingCustomersByAdminService = async (
+  adminId,
+  planId
+) => {
+  const [rows] = await pool.query(
+    `
+    SELECT
+      m.id           AS memberId,
+      m.fullName     AS customerName,
+      m.membershipFrom AS purchaseDate,
+      m.membershipTo   AS expiryDate,
+      m.status,
+      p.sessions
+    FROM member m
+    JOIN plan p ON m.planId = p.id
+    WHERE m.adminId = ?
+      AND m.planId = ?
+    ORDER BY m.membershipFrom DESC
+    `,
+    [adminId, planId]
+  );
+
+  // Abhi tumhare DB me per-member sessions used/left ka field nahi hai,
+  // isliye main yahan placeholder de रहा हूँ:
+  return rows.map((row, index) => ({
+    srNo: index + 1,
+    memberId: row.memberId,
+    customerName: row.customerName,
+    purchaseDate: row.purchaseDate,
+    expiryDate: row.expiryDate,
+    // TODO: agar future me koi sessions tracking table banega to yahan se calculate karna
+    bookedSessions: 0,
+    leftSessions: row.sessions, // total sessions from plan
+    status: row.status,
+  }));
+};
