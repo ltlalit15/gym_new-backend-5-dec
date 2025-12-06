@@ -321,74 +321,154 @@ export const getMemberBookingDetailsService = async (branchId, memberId) => {
   };
 };
 
+// export const getClassPerformanceReportService = async (branchId) => {
+//   if (!branchId) throw { status: 400, message: "Branch ID is required" };
+
+//   // Get total students count for this branch
+//   const [totalStudentsResult] = await pool.query(
+//     "SELECT COUNT(*) as count FROM member WHERE branchId = ? AND status = 'ACTIVE'",
+//     [branchId]
+//   );
+//   const totalStudents = totalStudentsResult[0].count;
+
+//   // Get present students count for today
+//   const today = new Date().toISOString().split("T")[0];
+//   const [presentStudentsResult] = await pool.query(
+//     "SELECT COUNT(DISTINCT memberId) as count FROM memberattendance WHERE branchId = ? AND DATE(checkIn) = ?",
+//     [branchId, today]
+//   );
+//   const presentStudents = presentStudentsResult[0].count;
+
+//   // Calculate average attendance percentage
+//   const avgAttendance =
+//     totalStudents > 0
+//       ? Math.round((presentStudents / totalStudents) * 100 * 10) / 10
+//       : 0;
+
+//   // Get student attendance by class data (last 7 days)
+//   const [studentAttendanceByClass] = await pool.query(
+//     `
+//     SELECT
+//       ct.name as className,
+//       cs.date,
+//       COUNT(DISTINCT b.memberId) as attendanceCount,
+//       cs.capacity,
+//       ROUND(COUNT(DISTINCT b.memberId) / cs.capacity * 100, 1) as attendancePercentage
+//     FROM classschedule cs
+//     JOIN classtype ct ON cs.classTypeId = ct.id
+//     LEFT JOIN booking b ON cs.id = b.scheduleId
+//     LEFT JOIN memberattendance ma ON b.memberId = ma.memberId
+//       AND DATE(ma.checkIn) = DATE(cs.date)
+//     WHERE cs.branchId = ?
+//       AND cs.date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+//       AND cs.date <= CURDATE()
+//     GROUP BY cs.id, ct.name, cs.date, cs.capacity
+//     ORDER BY cs.date DESC
+//     LIMIT 10
+//     `,
+//     [branchId]
+//   );
+
+//   // Format student attendance by class data
+//   const formattedAttendanceData = studentAttendanceByClass.map((item) => ({
+//     className: item.className,
+//     date: item.date.toISOString().split("T")[0],
+//     attendance: `${item.attendanceCount}/${item.capacity}`,
+//     attendancePercentage: item.attendancePercentage,
+//   }));
+
+//   return {
+//     summary: {
+//       totalStudents,
+//       presentStudents,
+//       avgAttendance: `${avgAttendance}%`,
+//     },
+//     studentAttendanceByClass: {
+//       title: "Student Attendance by Class",
+//       data: formattedAttendanceData,
+//     },
+//   };
+// };
+
+
+
 export const getClassPerformanceReportService = async (branchId) => {
-  if (!branchId) throw { status: 400, message: "Branch ID is required" };
+  if (!branchId) {
+    throw { status: 400, message: "Branch ID is required" };
+  }
 
-  // Get total students count for this branch
-  const [totalStudentsResult] = await pool.query(
-    "SELECT COUNT(*) as count FROM member WHERE branchId = ? AND status = 'ACTIVE'",
-    [branchId]
-  );
-  const totalStudents = totalStudentsResult[0].count;
+  try {
+    // 1. Fetch Total Students
+    const [totalStudentsResult] = await pool.query(
+      "SELECT COUNT(*) as count FROM member WHERE branchId = ? AND status = 'ACTIVE'",
+      [branchId]
+    );
+    const totalStudents = totalStudentsResult[0].count;
 
-  // Get present students count for today
-  const today = new Date().toISOString().split("T")[0];
-  const [presentStudentsResult] = await pool.query(
-    "SELECT COUNT(DISTINCT memberId) as count FROM memberattendance WHERE branchId = ? AND DATE(checkIn) = ?",
-    [branchId, today]
-  );
-  const presentStudents = presentStudentsResult[0].count;
+    // 2. Fetch Present Students for Today
+    const [presentStudentsResult] = await pool.query(
+      "SELECT COUNT(DISTINCT memberId) as count FROM memberattendance WHERE branchId = ? AND DATE(checkIn) = CURDATE()",
+      [branchId]
+    );
+    const presentStudents = presentStudentsResult[0].count;
 
-  // Calculate average attendance percentage
-  const avgAttendance =
-    totalStudents > 0
-      ? Math.round((presentStudents / totalStudents) * 100 * 10) / 10
-      : 0;
+    // 3. Calculate Average Attendance
+    const avgAttendancePercentage =
+      totalStudents > 0
+        ? Math.round((presentStudents / totalStudents) * 100 * 10) / 10
+        : 0;
 
-  // Get student attendance by class data (last 7 days)
-  const [studentAttendanceByClass] = await pool.query(
-    `
-    SELECT
-      ct.name as className,
-      cs.date,
-      COUNT(DISTINCT b.memberId) as attendanceCount,
-      cs.capacity,
-      ROUND(COUNT(DISTINCT b.memberId) / cs.capacity * 100, 1) as attendancePercentage
-    FROM classschedule cs
-    JOIN classtype ct ON cs.classTypeId = ct.id
-    LEFT JOIN booking b ON cs.id = b.scheduleId
-    LEFT JOIN memberattendance ma ON b.memberId = ma.memberId
-      AND DATE(ma.checkIn) = DATE(cs.date)
-    WHERE cs.branchId = ?
-      AND cs.date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-      AND cs.date <= CURDATE()
-    GROUP BY cs.id, ct.name, cs.date, cs.capacity
-    ORDER BY cs.date DESC
-    LIMIT 10
-    `,
-    [branchId]
-  );
+    // 4. Fetch all scheduled classes and their attendance (more robust query)
+    const [studentAttendanceByClass] = await pool.query(
+      `
+      SELECT
+        cs.className,
+        cs.date,
+        cs.capacity,
+        COUNT(DISTINCT b.memberId) as bookedCount
+      FROM classschedule cs
+      LEFT JOIN booking b ON cs.id = b.scheduleId
+      WHERE 
+        cs.branchId = ?
+        AND cs.date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        AND cs.date <= CURDATE()
+      GROUP BY cs.id, cs.className, cs.date, cs.capacity
+      ORDER BY cs.date DESC
+      LIMIT 10
+      `,
+      [branchId]
+    );
 
-  // Format student attendance by class data
-  const formattedAttendanceData = studentAttendanceByClass.map((item) => ({
-    className: item.className,
-    date: item.date.toISOString().split("T")[0],
-    attendance: `${item.attendanceCount}/${item.capacity}`,
-    attendancePercentage: item.attendancePercentage,
-  }));
+    // 5. Format the class attendance data
+    const formattedAttendanceData = studentAttendanceByClass.map((item) => {
+      const attendancePercentage =
+        item.capacity > 0
+          ? Math.round((item.bookedCount / item.capacity) * 100 * 10) / 10
+          : 0;
 
-  return {
-    summary: {
-      totalStudents,
-      presentStudents,
-      avgAttendance: `${avgAttendance}%`,
-    },
-    studentAttendanceByClass: {
-      title: "Student Attendance by Class",
-      data: formattedAttendanceData,
-    },
-  };
+      return {
+        className: item.className,
+        date: item.date.toISOString().split("T")[0],
+        attendance: `${item.bookedCount}/${item.capacity}`, // This now shows Booked/Total Capacity
+        attendancePercentage: attendancePercentage,
+      };
+    });
+
+    // 6. Return the final object
+    return {
+      summary: {
+        totalStudents,
+        presentStudents,
+        avgAttendance: `${avgAttendancePercentage}%`,
+      },
+      studentAttendanceByClass: formattedAttendanceData,
+    };
+  } catch (error) {
+    console.error("Error fetching class performance report:", error);
+    throw { status: 500, message: "Failed to fetch class performance report" };
+  }
 };
+
 
 const processAttendanceRecord = (record) => {
   return {
