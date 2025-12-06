@@ -8,7 +8,7 @@ export const dashboardService = async () => {
   const monthStartStr = monthStart.toISOString().slice(0, 10);
   const todayStr = today.toISOString().slice(0, 10);
 
-  const conn = pool.promise();
+  const conn = pool;
 
   // --- Total Revenue ---
   const [[totalRevenueRow]] = await conn.query(

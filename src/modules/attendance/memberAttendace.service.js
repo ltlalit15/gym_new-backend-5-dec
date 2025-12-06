@@ -5,7 +5,7 @@ import { pool } from "../../config/db.js";
  **************************************/
 export const memberCheckInService = async (memberId, branchId) => {
   // Fetch member
-  const [[member]] = await pool.promise().query(
+  const [[member]] = await pool.query(
     "SELECT * FROM member WHERE id = ?",
     [memberId]
   );
@@ -21,7 +21,7 @@ export const memberCheckInService = async (memberId, branchId) => {
     throw { status: 400, message: "Membership expired or not active" };
 
   // Prevent double check-in
-  const [activeRows] = await pool.promise().query(
+  const [activeRows] = await pool.query(
     "SELECT * FROM memberAttendance WHERE memberId = ? AND checkOut IS NULL",
     [memberId]
   );
@@ -29,7 +29,7 @@ export const memberCheckInService = async (memberId, branchId) => {
   if (activeRows.length > 0)
     throw { status: 400, message: "Member already checked in" };
 
-  const [result] = await pool.promise().query(
+  const [result] = await pool.query(
     "INSERT INTO memberAttendance (memberId, branchId, checkIn) VALUES (?, ?, NOW())",
     [memberId, branchId]
   );
@@ -41,7 +41,7 @@ export const memberCheckInService = async (memberId, branchId) => {
  * MEMBER CHECK-OUT
  **************************************/
 export const memberCheckOutService = async (memberId) => {
-  const [activeRows] = await pool.promise().query(
+  const [activeRows] = await pool.query(
     "SELECT * FROM memberAttendance WHERE memberId = ? AND checkOut IS NULL",
     [memberId]
   );
@@ -51,7 +51,7 @@ export const memberCheckOutService = async (memberId) => {
 
   const attendanceId = activeRows[0].id;
 
-  await pool.promise().query(
+  await pool.query(
     "UPDATE memberAttendance SET checkOut = NOW() WHERE id = ?",
     [attendanceId]
   );
@@ -63,7 +63,7 @@ export const memberCheckOutService = async (memberId) => {
  * MEMBER ATTENDANCE LIST
  **************************************/
 export const memberAttendanceListService = async (memberId) => {
-  const [rows] = await pool.promise().query(
+  const [rows] = await pool.query(
     "SELECT * FROM memberAttendance WHERE memberId = ? ORDER BY id DESC",
     [memberId]
   );
@@ -74,7 +74,7 @@ export const memberAttendanceListService = async (memberId) => {
  * STAFF CHECK-IN
  **************************************/
 export const staffCheckInService = async (staffId, branchId) => {
-  const [activeRows] = await pool.promise().query(
+  const [activeRows] = await pool.query(
     "SELECT * FROM staffattendance WHERE staffId = ? AND checkOut IS NULL",
     [staffId]
   );
@@ -82,7 +82,7 @@ export const staffCheckInService = async (staffId, branchId) => {
   if (activeRows.length > 0)
     throw { status: 400, message: "Staff already checked in" };
 
-  const [result] = await pool.promise().query(
+  const [result] = await pool.query(
     "INSERT INTO staffattendance (staffId, branchId, checkIn) VALUES (?, ?, NOW())",
     [staffId, branchId]
   );
@@ -94,7 +94,7 @@ export const staffCheckInService = async (staffId, branchId) => {
  * STAFF CHECK-OUT
  **************************************/
 export const staffCheckOutService = async (staffId) => {
-  const [activeRows] = await pool.promise().query(
+  const [activeRows] = await pool.query(
     "SELECT * FROM staffattendance WHERE staffId = ? AND checkOut IS NULL",
     [staffId]
   );
@@ -104,7 +104,7 @@ export const staffCheckOutService = async (staffId) => {
 
   const attendanceId = activeRows[0].id;
 
-  await pool.promise().query(
+  await pool.query(
     "UPDATE staffattendance SET checkOut = NOW() WHERE id = ?",
     [attendanceId]
   );
@@ -116,7 +116,7 @@ export const staffCheckOutService = async (staffId) => {
  * STAFF ATTENDANCE LIST
  **************************************/
 export const staffAttendanceListService = async (staffId) => {
-  const [rows] = await pool.promise().query(
+  const [rows] = await pool.query(
     "SELECT * FROM staffattendance WHERE staffId = ? ORDER BY id DESC",
     [staffId]
   );
