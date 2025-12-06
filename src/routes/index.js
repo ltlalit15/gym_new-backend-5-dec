@@ -80,6 +80,6 @@ router.use("/personal-trainer-dashboard", personalTrainerDashboardRoutes);
 // router.use("/housekeeping-attendance",housekeepingAttendance);
 router.use("/member-dashboard",memberDeshboardRoutes);
 
-router.use("/booking",bookingRoutes);
+router.use("/booking", bookingRoutes);
 
 export default router;

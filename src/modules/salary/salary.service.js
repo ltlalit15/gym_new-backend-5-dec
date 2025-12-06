@@ -99,16 +99,85 @@ export const getSalaryByIdService = async (id) => {
 
 
 
+
+
 // ===== DELETE =====
-export const deleteSalaryService = async (id) => {
-  await pool.query(`DELETE FROM salary WHERE id = ?`, [id]);
+export const  deleteSalaryService = async (salaryId) => {
+  await pool.query(`DELETE FROM salary WHERE salaryId = ?`, [salaryId]);
   return { success: true };
 };
 
 // ===== UPDATE =====
-export const updateSalaryService = async (id, data) => {
+// export const updateSalaryService = async (salaryId, data) => {
+//   const {
+//     salaryId,
+//     staffId,
+//     role,
+//     periodStart,
+//     periodEnd,
+//     hoursWorked,
+//     hourlyRate,
+//     fixedSalary,
+//     commissionTotal,
+//     bonuses,
+//     deductions,
+//     status
+//   } = data;
+
+//   const hourlyTotal = (hoursWorked || 0) * (hourlyRate || 0);
+//   const bonusTotal = bonuses?.reduce((a, b) => a + Number(b.amount), 0) || 0;
+//   const deductionTotal = deductions?.reduce((a, b) => a + Number(b.amount), 0) || 0;
+
+//   const netPay =
+//     hourlyTotal +
+//     (fixedSalary || 0) +
+//     (commissionTotal || 0) +
+//     bonusTotal -
+//     deductionTotal;
+
+//   const sql = `
+//     UPDATE salary SET
+//       salaryId = ?,
+//       staffId = ?,          -- USER ID
+//       role = ?,
+//       periodStart = ?,
+//       periodEnd = ?,
+//       hoursWorked = ?,
+//       hourlyRate = ?,
+//       hourlyTotal = ?,
+//       fixedSalary = ?,
+//       commissionTotal = ?,
+//       bonuses = ?,
+//       deductions = ?,
+//       netPay = ?,
+//       status = ?
+//     WHERE salaryId = ?
+//   `;
+
+//   await pool.query(sql, [
+//     salaryId,
+//     staffId,
+//     role,
+//     new Date(periodStart),
+//     new Date(periodEnd),
+//     hoursWorked,
+//     hourlyRate,
+//     hourlyTotal,
+//     fixedSalary,
+//     commissionTotal,
+//     JSON.stringify(bonuses || []),
+//     JSON.stringify(deductions || []),
+//     netPay,
+//     status,
+//     salaryId 
+//   ]);
+
+//   return { salaryId, ...data, netPay };
+// };
+
+
+export const updateSalaryService = async (salaryId, data) => {
   const {
-    salaryId,
     staffId,
     role,
     periodStart,
@@ -135,8 +204,7 @@ export const updateSalaryService = async (id, data) => {
 
   const sql = `
     UPDATE salary SET
-      salaryId = ?,
-      staffId = ?,          -- USER ID
+      staffId = ?,          
       role = ?,
       periodStart = ?,
       periodEnd = ?,
@@ -149,11 +217,10 @@ export const updateSalaryService = async (id, data) => {
       deductions = ?,
       netPay = ?,
       status = ?
-    WHERE id = ?
+    WHERE salaryId = ?
   `;
 
   await pool.query(sql, [
-    salaryId,
     staffId,
     role,
     new Date(periodStart),
@@ -167,11 +234,12 @@ export const updateSalaryService = async (id, data) => {
     JSON.stringify(deductions || []),
     netPay,
     status,
-    id
+    salaryId        // 🔥 IMPORTANT: now updating by salaryId
   ]);
 
-  return { id, ...data, netPay };
+  return { salaryId, ...data, netPay };
 };
+
 
 
 // ===== GET BY STAFF ID =====

@@ -1,0 +1,628 @@
+/**************************************
+ * CREATE STAFF ATTENDANCE
+ **************************************/
+// export const createStaffAttendanceService = async (data) => {
+//   const {
+//     staffId,
+//     branchId,
+//     date,
+//     shiftId,
+//     mode,
+//     checkInTime,
+//     checkOutTime,
+//     status,
+//     notes,
+//   } = data;
+
+//   if (!staffId || !branchId || !date) {
+//     throw { status: 400, message: "staffId, branchId, and date are required" };
+//   }
+
+//   // Parse date from "06-12-2025" format to "2025-06-12"
+//   const dateParts = date.split("-");
+//   const formattedDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+
+//   // Parse check-in and check-out datetime
+//   let checkIn = null;
+//   let checkOut = null;
+
+//   if (checkInTime) {
+//     checkIn = new Date(checkInTime);
+//   } else {
+//     // Default to current time if checkInTime is not provided
+//     checkIn = new Date();
+//   }
+
+//   if (checkOutTime) {
+//     checkOut = new Date(checkOutTime);
+//   }
+
+//   // If shiftId is provided, validate it exists
+//   let shiftDetails = null;
+//   if (shiftId) {
+//     const [shiftRows] = await pool.query("SELECT * FROM shifts WHERE id = ?", [
+//       shiftId,
+//     ]);
+//     if (!shiftRows.length) {
+//       throw { status: 404, message: "Shift not found" };
+//     }
+
+//     shiftDetails = shiftRows[0];
+
+//     // Verify the shift belongs to the same branch
+//     if (shiftDetails.branchId !== branchId) {
+//       throw { status: 400, message: "Shift does not belong to this branch" };
+//     }
+
+//     // Verify the staff is assigned to this shift
+//     const staffIds = shiftDetails.staffIds
+//       .split(",")
+//       .map((id) => parseInt(id.trim()));
+//     if (!staffIds.includes(staffId)) {
+//       throw { status: 400, message: "Staff is not assigned to this shift" };
+//     }
+//   }
+
+//   // Create attendance record
+//   const [result] = await pool.query(
+//     `INSERT INTO staffattendance
+//       (staffId, branchId, checkIn, checkOut, mode, status, notes)
+//      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+//     [
+//       staffId,
+//       branchId,
+//       checkIn,
+//       checkOut,
+//       mode || "Manual",
+//       status || "Present",
+//       notes || null,
+//     ]
+//   );
+
+//   return {
+//     message: "Staff attendance created successfully",
+//     id: result.insertId,
+//     staffId,
+//     branchId,
+//     date,
+//     checkIn,
+//     checkOut,
+//     mode: mode || "Manual",
+//     status: status || "Present",
+//     shiftId: shiftId || null,
+//     shiftDetails,
+//   };
+// };
+
+import { pool } from "../../config/db.js";
+
+/**************************************
+ * CREATE STAFF ATTENDANCE
+ **************************************/
+// export const createStaffAttendanceService = async (data) => {
+//   const {
+//     staffId,
+//     branchId,
+//     date,
+//     shiftId,
+//     mode,
+//     checkInTime,
+//     checkOutTime,
+//     status,
+//     notes,
+//   } = data;
+
+//   if (!staffId || !branchId || !date) {
+//     throw { status: 400, message: "staffId, branchId, and date are required" };
+//   }
+
+//   // Parse date from "06-12-2025" format to "2025-06-12"
+//   const dateParts = date.split("-");
+//   const formattedDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+
+//   // Parse check-in and check-out datetime
+//   let checkIn = null;
+//   let checkOut = null;
+
+//   if (checkInTime) {
+//     checkIn = new Date(checkInTime);
+//   } else {
+//     // Default to current time if checkInTime is not provided
+//     checkIn = new Date();
+//   }
+
+//   if (checkOutTime) {
+//     checkOut = new Date(checkOutTime);
+//   }
+
+//   // If shiftId is provided, validate it exists
+//   let shiftDetails = null;
+//   if (shiftId) {
+//     const [shiftRows] = await pool.query("SELECT * FROM shifts WHERE id = ?", [
+//       shiftId,
+//     ]);
+//     if (!shiftRows.length) {
+//       throw { status: 404, message: "Shift not found" };
+//     }
+
+//     shiftDetails = shiftRows[0];
+
+//     // Verify the shift belongs to the same branch
+//     if (shiftDetails.branchId !== branchId) {
+//       throw { status: 400, message: "Shift does not belong to this branch" };
+//     }
+
+//     // Verify the staff is assigned to this shift
+//     const staffIds = shiftDetails.staffIds
+//       .split(",")
+//       .map((id) => parseInt(id.trim()));
+//     if (!staffIds.includes(staffId)) {
+//       throw { status: 400, message: "Staff is not assigned to this shift" };
+//     }
+//   }
+
+//   // Create attendance record
+//   const [result] = await pool.query(
+//     `INSERT INTO staffattendance
+//       (staffId, branchId, checkIn, checkOut, mode, status, notes)
+//      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+//     [
+//       staffId,
+//       branchId,
+//       checkIn,
+//       checkOut,
+//       mode || "Manual",
+//       status || "Present",
+//       notes || null,
+//     ]
+//   );
+
+//   return {
+//     message: "Staff attendance created successfully",
+//     id: result.insertId,
+//     staffId,
+//     branchId,
+//     date,
+//     checkIn,
+//     checkOut,
+//     mode: mode || "Manual",
+//     status: status || "Present",
+//     shiftId: shiftId || null,
+//     shiftDetails,
+//   };
+// };
+
+export const createStaffAttendanceService = async (data) => {
+  const {
+    staffId,
+    branchId,
+    date,
+    shiftId,
+    mode,
+    checkInTime,
+    checkOutTime,
+    status,
+    notes,
+  } = data;
+
+  if (!staffId || !branchId || !date) {
+    throw { status: 400, message: "staffId, branchId, and date are required" };
+  }
+
+  // Parse date from "06-12-2025" format to "2025-06-12"
+  const dateParts = date.split("-");
+  const formattedDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+
+  // Parse check-in and check-out datetime
+  let checkIn = null;
+  let checkOut = null;
+
+  if (checkInTime) {
+    checkIn = new Date(checkInTime);
+  } else {
+    // Default to current time if checkInTime is not provided
+    checkIn = new Date();
+  }
+
+  if (checkOutTime) {
+    checkOut = new Date(checkOutTime);
+  }
+
+  // If shiftId is provided, validate it exists
+  let shiftDetails = null;
+  if (shiftId) {
+    const [shiftRows] = await pool.query("SELECT * FROM shifts WHERE id = ?", [
+      shiftId,
+    ]);
+    if (!shiftRows.length) {
+      throw { status: 404, message: "Shift not found" };
+    }
+
+    shiftDetails = shiftRows[0];
+
+    // Verify the shift belongs to the same branch
+    if (shiftDetails.branchId !== branchId) {
+      throw { status: 400, message: "Shift does not belong to this branch" };
+    }
+
+    // Verify the staff is assigned to this shift
+    const staffIds = shiftDetails.staffIds
+      .split(",")
+      .map((id) => parseInt(id.trim()));
+    if (!staffIds.includes(staffId)) {
+      throw { status: 400, message: "Staff is not assigned to this shift" };
+    }
+  }
+
+  // Create attendance record - FIXED: Added shiftId to INSERT statement
+  const [result] = await pool.query(
+    `INSERT INTO staffattendance 
+      (staffId, branchId, shiftId, checkIn, checkOut, mode, status, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      staffId,
+      branchId,
+      shiftId || null, // FIXED: Added shiftId to the values array
+      checkIn,
+      checkOut,
+      mode || "Manual",
+      status || "Present",
+      notes || null,
+    ]
+  );
+
+  return {
+    message: "Staff attendance created successfully",
+    id: result.insertId,
+    staffId,
+    branchId,
+    date,
+    checkIn,
+    checkOut,
+    mode: mode || "Manual",
+    status: status || "Present",
+    shiftId: shiftId || null,
+    shiftDetails,
+  };
+};
+/**************************************
+ * GET STAFF ATTENDANCE BY ID
+ **************************************/
+export const getStaffAttendanceByIdService = async (id) => {
+  const [attendance] = await pool.query(
+    `SELECT sa.*, u.fullName as staffName, b.name as branchName 
+     FROM staffattendance sa
+     JOIN staff s ON sa.staffId = s.id
+     JOIN user u ON s.userId = u.id
+     JOIN branch b ON sa.branchId = b.id
+     WHERE sa.id = ?`,
+    [id]
+  );
+
+  if (!attendance.length) {
+    throw { status: 404, message: "Attendance record not found" };
+  }
+
+  const record = attendance[0];
+
+  // Format date for frontend (MM-DD-YYYY)
+  if (record.checkIn) {
+    const checkInDate = new Date(record.checkIn);
+    record.date = `${checkInDate.getDate().toString().padStart(2, "0")}-${(
+      checkInDate.getMonth() + 1
+    )
+      .toString()
+      .padStart(2, "0")}-${checkInDate.getFullYear()}`;
+
+    // Format time for frontend
+    record.checkInTime = `${checkInDate
+      .getDate()
+      .toString()
+      .padStart(2, "0")}-${(checkInDate.getMonth() + 1)
+      .toString()
+      .padStart(2, "0")}-${checkInDate.getFullYear()} ${checkInDate
+      .getHours()
+      .toString()
+      .padStart(2, "0")}:${checkInDate
+      .getMinutes()
+      .toString()
+      .padStart(2, "0")}`;
+  }
+
+  if (record.checkOut) {
+    const checkOutDate = new Date(record.checkOut);
+    record.checkOutTime = `${checkOutDate
+      .getDate()
+      .toString()
+      .padStart(2, "0")}-${(checkOutDate.getMonth() + 1)
+      .toString()
+      .padStart(2, "0")}-${checkOutDate.getFullYear()} ${checkOutDate
+      .getHours()
+      .toString()
+      .padStart(2, "0")}:${checkOutDate
+      .getMinutes()
+      .toString()
+      .padStart(2, "0")}`;
+  }
+
+  return record;
+};
+
+/**************************************
+ * GET STAFF ATTENDANCE BY BRANCH ID
+ **************************************/
+export const getStaffAttendanceByBranchIdService = async (
+  branchId,
+  options = {}
+) => {
+  const { date, limit = 20, offset = 0 } = options;
+
+  let query = `
+    SELECT sa.*, u.fullName as staffName, b.name as branchName 
+    FROM staffattendance sa
+    JOIN staff s ON sa.staffId = s.id
+    JOIN user u ON s.userId = u.id
+    JOIN branch b ON sa.branchId = b.id
+    WHERE sa.branchId = ?
+  `;
+
+  const params = [branchId];
+
+  if (date) {
+    // Parse date from "06-12-2025" format to "2025-06-12"
+    const dateParts = date.split("-");
+    const formattedDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+    query += " AND DATE(sa.checkIn) = ?";
+    params.push(formattedDate);
+  }
+
+  query += " ORDER BY sa.checkIn DESC LIMIT ? OFFSET ?";
+  params.push(limit, offset);
+
+  const [attendance] = await pool.query(query, params);
+
+  // Format dates for frontend
+  return attendance.map((record) => {
+    if (record.checkIn) {
+      const checkInDate = new Date(record.checkIn);
+      record.date = `${checkInDate.getDate().toString().padStart(2, "0")}-${(
+        checkInDate.getMonth() + 1
+      )
+        .toString()
+        .padStart(2, "0")}-${checkInDate.getFullYear()}`;
+      record.checkInTime = `${checkInDate
+        .getDate()
+        .toString()
+        .padStart(2, "0")}-${(checkInDate.getMonth() + 1)
+        .toString()
+        .padStart(2, "0")}-${checkInDate.getFullYear()} ${checkInDate
+        .getHours()
+        .toString()
+        .padStart(2, "0")}:${checkInDate
+        .getMinutes()
+        .toString()
+        .padStart(2, "0")}`;
+    }
+
+    if (record.checkOut) {
+      const checkOutDate = new Date(record.checkOut);
+      record.checkOutTime = `${checkOutDate
+        .getDate()
+        .toString()
+        .padStart(2, "0")}-${(checkOutDate.getMonth() + 1)
+        .toString()
+        .padStart(2, "0")}-${checkOutDate.getFullYear()} ${checkOutDate
+        .getHours()
+        .toString()
+        .padStart(2, "0")}:${checkOutDate
+        .getMinutes()
+        .toString()
+        .padStart(2, "0")}`;
+    }
+
+    return record;
+  });
+};
+
+/**************************************
+ * UPDATE STAFF ATTENDANCE
+ **************************************/
+export const updateStaffAttendanceService = async (id, data) => {
+  const {
+    staffId,
+    branchId,
+    date,
+    shiftId,
+    mode,
+    checkInTime,
+    checkOutTime,
+    status,
+    notes,
+  } = data;
+
+  // Check if attendance record exists
+  const [existing] = await pool.query(
+    "SELECT id FROM staffattendance WHERE id = ?",
+    [id]
+  );
+  if (!existing.length) {
+    throw { status: 404, message: "Attendance record not found" };
+  }
+
+  // Parse check-in and check-out datetime
+  let checkIn = null;
+  let checkOut = null;
+
+  if (checkInTime) {
+    checkIn = new Date(checkInTime);
+  }
+
+  if (checkOutTime) {
+    checkOut = new Date(checkOutTime);
+  }
+
+  // If shiftId is provided, validate it
+  let shiftDetails = null;
+  if (shiftId) {
+    const [shiftRows] = await pool.query("SELECT * FROM shifts WHERE id = ?", [
+      shiftId,
+    ]);
+    if (!shiftRows.length) {
+      throw { status: 404, message: "Shift not found" };
+    }
+
+    shiftDetails = shiftRows[0];
+
+    // Verify the shift belongs to the same branch
+    if (shiftDetails.branchId !== branchId) {
+      throw { status: 400, message: "Shift does not belong to this branch" };
+    }
+
+    // Verify the staff is assigned to this shift
+    const staffIds = shiftDetails.staffIds
+      .split(",")
+      .map((id) => parseInt(id.trim()));
+    if (!staffIds.includes(staffId)) {
+      throw { status: 400, message: "Staff is not assigned to this shift" };
+    }
+  }
+
+  // Update the attendance record
+  const [result] = await pool.query(
+    `UPDATE staffattendance 
+     SET checkIn = ?, checkOut = ?, mode = ?, status = ?, notes = ?
+     WHERE id = ?`,
+    [checkIn, checkOut, mode, status, notes, id]
+  );
+
+  if (result.affectedRows === 0) {
+    throw { status: 500, message: "Failed to update attendance record" };
+  }
+
+  return {
+    message: "Staff attendance updated successfully",
+    id,
+    staffId,
+    branchId,
+    date,
+    checkIn,
+    checkOut,
+    mode,
+    status,
+    notes,
+    shiftId,
+    shiftDetails,
+  };
+};
+
+/**************************************
+ * DELETE STAFF ATTENDANCE
+ **************************************/
+export const deleteStaffAttendanceService = async (id) => {
+  // Check if attendance record exists
+  const [existing] = await pool.query(
+    "SELECT id FROM staffattendance WHERE id = ?",
+    [id]
+  );
+  if (!existing.length) {
+    throw { status: 404, message: "Attendance record not found" };
+  }
+
+  // Delete the attendance record
+  const [result] = await pool.query(
+    "DELETE FROM staffattendance WHERE id = ?",
+    [id]
+  );
+
+  if (result.affectedRows === 0) {
+    throw { status: 500, message: "Failed to delete attendance record" };
+  }
+
+  return {
+    message: "Staff attendance deleted successfully",
+    id,
+  };
+};
+
+/**************************************
+ * GET ALL STAFF ATTENDANCE
+ **************************************/
+export const getAllStaffAttendanceService = async (options = {}) => {
+  const { date, branchId, staffId, limit = 20, offset = 0 } = options;
+
+  let query = `
+    SELECT sa.*, u.fullName as staffName, b.name as branchName 
+    FROM staffattendance sa
+    JOIN staff s ON sa.staffId = s.id
+    JOIN user u ON s.userId = u.id
+    JOIN branch b ON sa.branchId = b.id
+    WHERE 1=1
+  `;
+
+  const params = [];
+
+  if (date) {
+    // Parse date from "06-12-2025" format to "2025-06-12"
+    const dateParts = date.split("-");
+    const formattedDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+    query += " AND DATE(sa.checkIn) = ?";
+    params.push(formattedDate);
+  }
+
+  if (branchId) {
+    query += " AND sa.branchId = ?";
+    params.push(branchId);
+  }
+
+  if (staffId) {
+    query += " AND sa.staffId = ?";
+    params.push(staffId);
+  }
+
+  query += " ORDER BY sa.checkIn DESC LIMIT ? OFFSET ?";
+  params.push(limit, offset);
+
+  const [attendance] = await pool.query(query, params);
+
+  // Format dates for frontend
+  return attendance.map((record) => {
+    if (record.checkIn) {
+      const checkInDate = new Date(record.checkIn);
+      record.date = `${checkInDate.getDate().toString().padStart(2, "0")}-${(
+        checkInDate.getMonth() + 1
+      )
+        .toString()
+        .padStart(2, "0")}-${checkInDate.getFullYear()}`;
+      record.checkInTime = `${checkInDate
+        .getDate()
+        .toString()
+        .padStart(2, "0")}-${(checkInDate.getMonth() + 1)
+        .toString()
+        .padStart(2, "0")}-${checkInDate.getFullYear()} ${checkInDate
+        .getHours()
+        .toString()
+        .padStart(2, "0")}:${checkInDate
+        .getMinutes()
+        .toString()
+        .padStart(2, "0")}`;
+    }
+
+    if (record.checkOut) {
+      const checkOutDate = new Date(record.checkOut);
+      record.checkOutTime = `${checkOutDate
+        .getDate()
+        .toString()
+        .padStart(2, "0")}-${(checkOutDate.getMonth() + 1)
+        .toString()
+        .padStart(2, "0")}-${checkOutDate.getFullYear()} ${checkOutDate
+        .getHours()
+        .toString()
+        .padStart(2, "0")}:${checkOutDate
+        .getMinutes()
+        .toString()
+        .padStart(2, "0")}`;
+    }
+
+    return record;
+  });
+};
