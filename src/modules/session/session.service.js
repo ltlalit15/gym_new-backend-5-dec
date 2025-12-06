@@ -21,8 +21,8 @@ export const listSessionsService = async (branchId, search) => {
   const [rows] = await pool.query(
     `SELECT s.*, t.id AS trainerId, t.fullName AS trainerName, b.id AS branchId, b.name AS branchName
      FROM session s
-     LEFT JOIN User t ON s.trainerId = t.id
-     LEFT JOIN Branch b ON s.branchId = b.id
+     LEFT JOIN user t ON s.trainerId = t.id
+     LEFT JOIN branch b ON s.branchId = b.id
      WHERE s.branchId = ? AND s.sessionName LIKE ?
      ORDER BY 
        FIELD(s.status, 'Upcoming', 'Ongoing', 'Completed') ASC,
