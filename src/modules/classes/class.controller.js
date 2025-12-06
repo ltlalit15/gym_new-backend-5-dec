@@ -86,12 +86,53 @@ export const listSchedules = async (req, res, next) => {
 export const bookClass = async (req, res, next) => {
   try {
     const { memberId, scheduleId } = req.body;
-    const r = await bookClassService(memberId, scheduleId);
-    res.json({ success: true, booking: r });
-  } catch (err) {
-    next(err);
+
+    if (!memberId || !scheduleId) {
+      return res.status(400).json({
+        success: false,
+        message: "memberId & scheduleId are required",
+      });
+    }
+
+    // 1️⃣ booking table me entry
+    const booking = await bookClassService(memberId, scheduleId);
+
+    // 2️⃣ ab schedule + trainer ka full detail lao
+    const schedule = await getScheduleByIdService(scheduleId);
+
+    // 3️⃣ response me merge karke bhejo
+    return res.status(200).json({
+      success: true,
+      message: "Class booked successfully!",
+      booking: {
+        id: booking.id,
+        memberId: booking.memberId,
+        scheduleId: booking.scheduleId,
+
+        // 🔽 ye sab modal ke liye extra
+        className: schedule.className,
+        date: schedule.date,
+        day: schedule.day,
+        startTime: schedule.startTime,
+        endTime: schedule.endTime,
+        trainerName: schedule.trainerName,
+        trainerExpertise: schedule.trainerExpertise, // agar field banayi hai
+        price: schedule.price,
+        
+        durationMinutes: schedule.durationMinutes,
+        branchName: schedule.branchName,
+      },
+    });
+
+  } catch (error) {
+    console.error("Book Class Error:", error);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Booking failed",
+    });
   }
 };
+
 
 export const cancelBooking = async (req, res, next) => {
   try {
@@ -227,3 +268,6 @@ export const deleteSchedule = async (req, res) => {
     });
   }
 };
+
+
+

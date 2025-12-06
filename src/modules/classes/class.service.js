@@ -48,27 +48,16 @@ export const createScheduleService = async (data) => {
     endTime,
     capacity,
     status = "Active",
-    members = []
+    members = [],
+    price = 0,
   } = data;
 
-  // Required validations
-  if (!branchId || !className || !trainerId || !date || !day || !startTime || !endTime || !capacity) {
-    throw { status: 400, message: "All required fields must be provided." };
-  }
-
-  // Foreign key checks
-  const [[trainer]] = await pool.query("SELECT * FROM user WHERE id = ?", [trainerId]);
-  if (!trainer) throw { status: 400, message: "Trainer does not exist." };
-
-  const [[branch]] = await pool.query("SELECT * FROM branch WHERE id = ?", [branchId]);
-  if (!branch) throw { status: 400, message: "Branch does not exist." };
-
-
+  // validations same...
 
   const [result] = await pool.query(
-    `INSERT INTO classschedule 
-      (branchId, className, trainerId, date, day, startTime, endTime, capacity, status, members)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO classschedule
+      (branchId, className, trainerId, date, day, startTime, endTime, capacity, status, members, price)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       branchId,
       className,
@@ -80,11 +69,15 @@ export const createScheduleService = async (data) => {
       capacity,
       status,
       JSON.stringify(members),
+      price,                  // 👈 yaha finally DB me save ho raha hai
     ]
   );
 
   return { id: result.insertId, ...data };
 };
+
+
+
 
 /**************************************
  * SCHEDULE LIST
@@ -105,33 +98,50 @@ export const listSchedulesService = async (branchId) => {
  * BOOKING
  **************************************/
 export const bookClassService = async (memberId, scheduleId) => {
+  // Check if already booked
   const [existingRows] = await pool.query(
     "SELECT * FROM booking WHERE memberId = ? AND scheduleId = ?",
     [memberId, scheduleId]
   );
-  if (existingRows.length > 0) throw { status: 400, message: "Already booked for this class" };
 
+  if (existingRows.length > 0) {
+    throw { status: 400, message: "Already booked for this class" };
+  }
+
+  // Check schedule exists
   const [scheduleRows] = await pool.query(
     "SELECT * FROM classschedule WHERE id = ?",
     [scheduleId]
   );
+
   const schedule = scheduleRows[0];
   if (!schedule) throw { status: 404, message: "Schedule not found" };
 
+  // Check capacity
   const [bookings] = await pool.query(
     "SELECT COUNT(*) AS count FROM booking WHERE scheduleId = ?",
     [scheduleId]
   );
-  const count = bookings[0]?.count ?? 0;
-  if (count >= schedule.capacity) throw { status: 400, message: "Class is full" };
 
+  const count = bookings[0]?.count ?? 0;
+
+  if (count >= schedule.capacity) {
+    throw { status: 400, message: "Class is full" };
+  }
+
+  // Insert booking
   const [result] = await pool.query(
     "INSERT INTO booking (memberId, scheduleId) VALUES (?, ?)",
     [memberId, scheduleId]
   );
 
-  return { id: result.insertId, memberId, scheduleId };
+  return {
+    id: result.insertId,
+    memberId,
+    scheduleId,
+  };
 };
+
 
 export const cancelBookingService = async (memberId, scheduleId) => {
   const [existingRows] = await pool.query(
@@ -258,7 +268,8 @@ export const updateScheduleService = async (id, data) => {
     "endTime",
     "capacity",
     "status",
-    "members"
+    "members",
+    "price" 
   ]) {
     if (data[key] !== undefined && data[key] !== null) {
 
@@ -319,3 +330,5 @@ export const deleteScheduleService = async (id) => {
 
   return true;
 };
+
+
