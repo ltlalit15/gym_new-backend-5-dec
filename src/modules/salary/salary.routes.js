@@ -11,7 +11,7 @@ router.post("/create", createSalary);
  router.get("/", getAllSalaries);
  router.get("/:id", getSalaryById);
  router.get("/staff/:staffId", getSalaryByStaffId);
- router.delete("/:id", deleteSalary);
+ router.delete("/:salaryId", deleteSalary);
  router.put("/:id", updateSalary);
 
 export default router;

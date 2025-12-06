@@ -48,7 +48,7 @@ export const getSalaryById = async (req, res) => {
 // ====== DELETE ======
 export const deleteSalary = async (req, res) => {
   try {
-    await deleteSalaryService(req.params.id);
+    await deleteSalaryService(req.params.salaryId);
     return res.json({ success: true, message: "Salary deleted successfully" });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
