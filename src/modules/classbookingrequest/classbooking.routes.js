@@ -26,7 +26,8 @@ createUnifiedBooking,
   getUnifiedBookingsByTrainer,
 //   getPTBookingById,
   updateUnifiedBooking,
-  deleteUnifiedBooking
+  deleteUnifiedBooking,
+  getUnifiedBookingById
 } from "./classbooking.controller.js";
 // import { verifyToken } from "./classbookingrequest.js";   // adminId lene ke liye
 
@@ -96,25 +97,28 @@ router.get("/unifiedbybranch/:branchId", getUnifiedBookingsByBranch);
 /* -----------------------------------------------------
     ⭐ GET BOOKINGS BY MEMBER (PT + GROUP)
 ----------------------------------------------------- */
-router.get("/by-member/:memberId", getUnifiedBookingsByMember);
+router.get("/unifiedbymember/:memberId", getUnifiedBookingsByMember);
 
 /* -----------------------------------------------------
     ⭐ GET BOOKINGS BY TRAINER (PT ONLY)
 ----------------------------------------------------- */
-router.get("/by-trainer/:trainerId", getUnifiedBookingsByTrainer);
+router.get("/unifiedbytrainer/:trainerId", getUnifiedBookingsByTrainer);
 
 /* -----------------------------------------------------
     ⭐ GET SINGLE BOOKING BY ID
 ----------------------------------------------------- */
-router.get("/:bookingId", getPTBookingById);
+router.get("/unifiedbybookin/:bookingId", getPTBookingById);
+
+router.get("/unifiedbybooking/:id", getUnifiedBookingById);
+
 
 /* -----------------------------------------------------
     ⭐ UPDATE BOOKING (PT + GROUP)
 ----------------------------------------------------- */
-router.put("/update/:bookingId", updateUnifiedBooking);
+router.put("/unifiedupdate/:id", updateUnifiedBooking);
 
 /* -----------------------------------------------------
     ⭐ DELETE BOOKING (PT + GROUP)
 ----------------------------------------------------- */
-router.delete("/delete/:bookingId", deleteUnifiedBooking);
+router.delete("/deleteunified/:bookingId", deleteUnifiedBooking);
 export default router;

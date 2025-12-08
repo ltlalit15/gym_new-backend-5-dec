@@ -890,7 +890,7 @@ export const getUnifiedBookingsByTrainer = async (req, res) => {
       `
       SELECT 
         b.*,
-        um.fullName AS memberName,
+        m.fullName AS memberName,
         s.sessionName
       FROM unified_bookings b
       LEFT JOIN member m ON m.id = b.memberId
@@ -910,28 +910,179 @@ export const getUnifiedBookingsByTrainer = async (req, res) => {
   }
 };
 
+export const getUnifiedBookingById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Booking ID is required",
+      });
+    }
+
+    const [rows] = await pool.query(
+      `
+      SELECT 
+        b.*,
+        ut.fullName AS trainerName,       -- trainer name
+        s.sessionName,                    -- session name (for PT)
+        cs.className                      -- class name (for GROUP)
+      FROM unified_bookings b
+      LEFT JOIN staff t ON t.id = b.trainerId
+      LEFT JOIN user ut ON ut.id = t.userId
+      LEFT JOIN session s ON s.id = b.sessionId
+      LEFT JOIN classschedule cs ON cs.id = b.classId   -- class name yahi se aata hai
+      WHERE b.id = ?
+      `,
+      [id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      booking: rows[0],
+    });
+
+  } catch (err) {
+    console.error("getUnifiedBookingById ERROR →", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+// export const updateUnifiedBooking = async (req, res) => {
+//   try {
+//     const { bookingId } = req.params;
+//     const { date, startTime, endTime, bookingStatus, paymentStatus, notes } = req.body;
+
+//     const [result] = await pool.query(
+//       `
+//       UPDATE unified_bookings
+//       SET date=?, startTime=?, endTime=?, bookingStatus=?, paymentStatus=?, notes=?, updatedAt=NOW()
+//       WHERE id=?
+//       `,
+//       [date, startTime, endTime, bookingStatus, paymentStatus, notes, bookingId]
+//     );
+
+//     if (!result.affectedRows)
+//       return res.status(404).json({ success: false, message: "Booking not found" });
+
+//     res.json({ success: true, message: "Booking updated!" });
+
+//   } catch (err) {
+//     console.error("ERROR →", err);
+//     res.status(500).json({ success: false, message: err.message });
+//   }
+// };
+
 
 export const updateUnifiedBooking = async (req, res) => {
   try {
-    const { bookingId } = req.params;
-    const { date, startTime, endTime, bookingStatus, paymentStatus, notes } = req.body;
+    const { id } = req.params;
 
-    const [result] = await pool.query(
-      `
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Booking ID is required",
+      });
+    }
+
+    const {
+      trainerId,
+      sessionId,
+      classId,
+      date,
+      startTime,
+      endTime,
+      bookingType,
+      bookingStatus,
+      paymentStatus,
+      notes,
+    } = req.body;
+
+    // Build dynamic SET query
+    let fields = [];
+    let params = [];
+
+    if (trainerId !== undefined) {
+      fields.push("trainerId = ?");
+      params.push(trainerId);
+    }
+    if (sessionId !== undefined) {
+      fields.push("sessionId = ?");
+      params.push(sessionId);
+    }
+    if (classId !== undefined) {
+      fields.push("classId = ?");
+      params.push(classId);
+    }
+    if (date !== undefined) {
+      fields.push("date = ?");
+      params.push(date);
+    }
+    if (startTime !== undefined) {
+      fields.push("startTime = ?");
+      params.push(startTime);
+    }
+    if (endTime !== undefined) {
+      fields.push("endTime = ?");
+      params.push(endTime);
+    }
+    if (bookingType !== undefined) {
+      fields.push("bookingType = ?");
+      params.push(bookingType);
+    }
+    if (bookingStatus !== undefined) {
+      fields.push("bookingStatus = ?");
+      params.push(bookingStatus);
+    }
+    if (paymentStatus !== undefined) {
+      fields.push("paymentStatus = ?");
+      params.push(paymentStatus);
+    }
+    if (notes !== undefined) {
+      fields.push("notes = ?");
+      params.push(notes);
+    }
+
+    if (fields.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one field is required to update",
+      });
+    }
+
+    params.push(id);
+
+    const updateQuery = `
       UPDATE unified_bookings
-      SET date=?, startTime=?, endTime=?, bookingStatus=?, paymentStatus=?, notes=?, updatedAt=NOW()
-      WHERE id=?
-      `,
-      [date, startTime, endTime, bookingStatus, paymentStatus, notes, bookingId]
-    );
+      SET ${fields.join(", ")}
+      WHERE id = ?
+    `;
 
-    if (!result.affectedRows)
-      return res.status(404).json({ success: false, message: "Booking not found" });
+    const [result] = await pool.query(updateQuery, params);
 
-    res.json({ success: true, message: "Booking updated!" });
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Booking updated successfully",
+    });
 
   } catch (err) {
-    console.error("ERROR →", err);
+    console.error("updateUnifiedBooking ERROR →", err);
     res.status(500).json({ success: false, message: err.message });
   }
 };
