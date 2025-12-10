@@ -204,6 +204,8 @@ export const fetchUserById = async (id) => {
  * UPDATE USER
  **************************************/
 export const modifyUser = async (id, data) => {
+    const [rows] = await pool.query("SELECT * FROM user WHERE id = ?", [id]); // <-- added
+  const existingUser = rows[0]; // <-- added
   if (data.password) {
     data.password = await bcrypt.hash(data.password, 10);
   }
@@ -220,7 +222,7 @@ export const modifyUser = async (id, data) => {
     data.fullName,
     data.email,
     data.phone,
-    data.roleId,
+    existingUser.roleId,
     data.branchId,
     data.gymName,
     data.address,
