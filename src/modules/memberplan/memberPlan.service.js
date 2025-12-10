@@ -12,15 +12,16 @@ export const saveMemberPlan = async (payload) => {
   const price = Number(payload.price ?? 0);
   const type = payload.type || null;
   const adminId = payload.adminId;
+  const branchId = payload.branchId ?? null;
 
   if (!adminId) throw { status: 400, message: "adminId is required" };
   if (!name) throw { status: 400, message: "Plan name is required" };
 
   const [result] = await pool.query(
     `INSERT INTO memberplan 
-      (name, sessions, validityDays, price, type, adminId)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [name, sessions, validityDays, price, type, adminId]
+      (name, sessions, validityDays, price, type, adminId,branchId)
+     VALUES (?, ?, ?, ?, ?, ?,?)`,
+    [name, sessions, validityDays, price, type, adminId,branchId]
   );
 
   const [rows] = await pool.query(
@@ -55,6 +56,7 @@ export const getMemberPlansByAdminIdService = async (adminId) => {
         price,
         type,
         adminId,
+        branchId,
         createdAt,
         updatedAt
      FROM memberplan
@@ -107,14 +109,34 @@ export const deleteMemberPlan = async (id) => {
 
 
 
+// export const updateMemberPlan = async (planId, payload, adminId) => {
+//   const { planName, sessions, validity, price,branchId  } = payload;
+
+//   const [result] = await pool.query(
+//     `UPDATE memberplan 
+//      SET name = ?, sessions = ?, validityDays = ?, price = ?, branchId= ?,updatedAt = NOW(3)
+//      WHERE id = ? AND adminId = ?`,
+//     [planName, sessions, validity, price, planId, adminId,branchId]
+//   );
+
+//   if (result.affectedRows === 0) return null;
+
+//   const [rows] = await pool.query(
+//     `SELECT * FROM memberplan WHERE id = ? AND adminId = ?`,
+//     [planId, adminId]
+//   );
+
+//   return rows[0];
+// };
+
 export const updateMemberPlan = async (planId, payload, adminId) => {
-  const { planName, sessions, validity, price } = payload;
+  const { planName, sessions, validity, price, branchId } = payload;
 
   const [result] = await pool.query(
     `UPDATE memberplan 
-     SET name = ?, sessions = ?, validityDays = ?, price = ?
+     SET name = ?, sessions = ?, validityDays = ?, price = ?, branchId = ?, updatedAt = NOW(3)
      WHERE id = ? AND adminId = ?`,
-    [planName, sessions, validity, price, planId, adminId]
+    [planName, sessions, validity, price, branchId ?? null, planId, adminId]
   );
 
   if (result.affectedRows === 0) return null;
@@ -126,5 +148,3 @@ export const updateMemberPlan = async (planId, payload, adminId) => {
 
   return rows[0];
 };
-
-
