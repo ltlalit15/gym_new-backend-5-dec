@@ -135,6 +135,7 @@ export const deleteBranchService = async (id) => {
   if (!branchId) throw { status: 400, message: "Invalid branch id" };
 
   // Check exists
+    await pool.query("DELETE FROM alert WHERE branchId = ?", [id]);
   const [existing] = await pool.query("SELECT id FROM branch WHERE id = ?", [branchId]);
   if (existing.length === 0) throw { status: 404, message: "Branch not found" };
 
