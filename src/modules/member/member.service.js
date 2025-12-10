@@ -240,6 +240,122 @@ export const memberDetailService = async (id) => {
 /**************************************
  * UPDATE MEMBER
  **************************************/
+// export const updateMemberService = async (id, data) => {
+//   // 1️⃣ Fetch existing member
+//   const [[existing]] = await pool.query(
+//     "SELECT * FROM member WHERE id = ?",
+//     [id]
+//   );
+
+//   if (!existing) throw { status: 404, message: "Member not found" };
+
+//   // 2️⃣ Extract fields
+//   const {
+//     fullName = existing.fullName,
+//     email = existing.email,
+//     phone = existing.phone,
+//     password,
+    
+//     planId,
+//     membershipFrom,
+//     dateOfBirth,
+//     paymentMode,
+//     amountPaid,
+//     branchId,
+//     gender,
+//     interestedIn,
+//     address,
+//     adminId,
+//     status  // <-- NEW
+//   } = data;
+
+//   // 3️⃣ Hash password only if updating
+//   let hashedPassword = existing.password;
+//   if (password) {
+//     hashedPassword = await bcrypt.hash(password, 10);
+//   }
+
+//   let startDate = membershipFrom ? new Date(membershipFrom) : undefined;
+//   let endDate = undefined;
+
+//   // 5️⃣ Recalculate membershipTo if plan changed
+//   // let startDate = new Date(membershipFrom);
+//   // let endDate = existing.membershipTo;
+
+//   if (planId) {
+//     const [planRows] = await pool.query("SELECT * FROM memberplan WHERE id = ?", [planId]);
+//     if (!planRows.length) throw { status: 404, message: "Invalid plan selected" };
+
+//     const plan = planRows[0];
+//     endDate = new Date(startDate);
+//     endDate.setDate(endDate.getDate() + Number(plan.duration || 0));
+//   }
+
+//   // 6️⃣ Update member table
+//   await pool.query(
+//     `UPDATE member SET
+//       fullName = ?,
+//       email = ?,
+//       password = ?,
+//       phone = ?,
+//       planId = ?,
+//       membershipFrom = ?,
+//       membershipTo = ?,
+//       dateOfBirth = ?,
+//       paymentMode = ?,
+//       amountPaid = ?,
+//       branchId = ?,
+//       gender = ?,
+//       interestedIn = ?,
+//       address = ?,
+//       adminId = ?,
+//       status=?
+//      WHERE id = ?`,
+//     [
+//       fullName,
+//       email,
+//       hashedPassword,
+//       phone,
+//       planId,
+//       startDate,
+//       endDate,
+//       dateOfBirth ? new Date(dateOfBirth) : null,
+//       paymentMode,
+//       amountPaid,
+//       branchId,
+//       gender,
+//       interestedIn,
+//       address,
+//       adminId,
+//       status,
+//       id
+//     ]
+//   );
+
+//   // 7️⃣ Update user table also (important)
+//   await pool.query(
+//     `UPDATE user SET 
+//       fullName = ?, 
+//       email = ?, 
+//       phone = ?, 
+//       password = ?, 
+//       branchId = ?, 
+//       address = ?
+//      WHERE id = ?`,
+//     [
+//       fullName,
+//       email,
+//       phone,
+//       hashedPassword,
+//       branchId,
+//       address,
+//       existing.userId
+//     ]
+//   );
+
+//   return memberDetailService(id);
+// };
+
 export const updateMemberService = async (id, data) => {
   // 1️⃣ Fetch existing member
   const [[existing]] = await pool.query(
@@ -249,24 +365,23 @@ export const updateMemberService = async (id, data) => {
 
   if (!existing) throw { status: 404, message: "Member not found" };
 
-  // 2️⃣ Extract fields
+  // 2️⃣ Extract fields WITH fallbacks
   const {
     fullName = existing.fullName,
     email = existing.email,
     phone = existing.phone,
     password,
-    
-    planId,
-    membershipFrom,
-    dateOfBirth,
-    paymentMode,
-    amountPaid,
-    branchId,
-    gender,
-    interestedIn,
-    address,
-    adminId,
-    status  // <-- NEW
+    planId = existing.planId,
+    membershipFrom = existing.membershipFrom,
+    dateOfBirth = existing.dateOfBirth,
+    paymentMode = existing.paymentMode,
+    amountPaid = existing.amountPaid,
+    branchId = existing.branchId,
+    gender = existing.gender,
+    interestedIn = existing.interestedIn,
+    address = existing.address,
+    adminId = existing.adminId,
+    status = existing.status      // ⭐ FIXED: fallback added
   } = data;
 
   // 3️⃣ Hash password only if updating
@@ -275,14 +390,12 @@ export const updateMemberService = async (id, data) => {
     hashedPassword = await bcrypt.hash(password, 10);
   }
 
-  let startDate = membershipFrom ? new Date(membershipFrom) : undefined;
-  let endDate = undefined;
+  // 4️⃣ Prepare membership dates
+  const startDate = membershipFrom ? new Date(membershipFrom) : null;
+  let endDate = existing.membershipTo;
 
-  // 5️⃣ Recalculate membershipTo if plan changed
-  // let startDate = new Date(membershipFrom);
-  // let endDate = existing.membershipTo;
-
-  if (planId) {
+  // 5️⃣ Recalculate membershipTo if plan is changed
+  if (planId && membershipFrom) {
     const [planRows] = await pool.query("SELECT * FROM memberplan WHERE id = ?", [planId]);
     if (!planRows.length) throw { status: 404, message: "Invalid plan selected" };
 
@@ -308,7 +421,8 @@ export const updateMemberService = async (id, data) => {
       gender = ?,
       interestedIn = ?,
       address = ?,
-      adminId = ?
+      adminId = ?,
+      status = ?
      WHERE id = ?`,
     [
       fullName,
@@ -326,11 +440,12 @@ export const updateMemberService = async (id, data) => {
       interestedIn,
       address,
       adminId,
+      status,
       id
     ]
   );
 
-  // 7️⃣ Update user table also (important)
+  // 7️⃣ Update user table also
   await pool.query(
     `UPDATE user SET 
       fullName = ?, 
@@ -338,7 +453,8 @@ export const updateMemberService = async (id, data) => {
       phone = ?, 
       password = ?, 
       branchId = ?, 
-      address = ?
+      address = ?,
+      status = ?        -- ⭐ Added to sync user & member status
      WHERE id = ?`,
     [
       fullName,
@@ -347,13 +463,13 @@ export const updateMemberService = async (id, data) => {
       hashedPassword,
       branchId,
       address,
+      status,           // ⭐ syncing status
       existing.userId
     ]
   );
 
   return memberDetailService(id);
 };
-
 
 /**************************************
  * DELETE (SOFT DELETE)
