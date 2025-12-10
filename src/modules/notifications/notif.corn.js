@@ -12,7 +12,7 @@ cron.schedule("0 10 * * *", async () => {
     // Fetch members whose membership expires in the next 3 days
     const [members] = await pool.query(
       `SELECT id, fullName, email 
-       FROM Member 
+       FROM member 
        WHERE membershipTo <= ?`,
       [soon]
     );
