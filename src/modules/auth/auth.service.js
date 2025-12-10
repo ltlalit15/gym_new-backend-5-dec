@@ -243,12 +243,41 @@ export const modifyUser = async (id, data) => {
  * DELETE USER
  **************************************/
 export const removeUser = async (id) => {
-   // ⭐ CHANGE 1: Remove user from branch.adminId before deleting
-  await pool.query("UPDATE branch SET adminId = NULL WHERE adminId = ?", [id]); // <-- added
+  const userId = Number(id);
 
-  await pool.query("DELETE FROM user WHERE id = ?", [id]);
+  // ⭐ 1) Delete alerts where user is staff
+  await pool.query("DELETE FROM alert WHERE staffId = ?", [userId]); // <-- added
+
+  // ⭐ 2) Delete salary records where user is staff
+  await pool.query("DELETE FROM salary WHERE staffId = ?", [userId]); // <-- added
+
+  // ⭐ 3) Delete class schedules where user is trainer
+  await pool.query("DELETE FROM classschedule WHERE trainerId = ?", [userId]); // <-- added
+
+  // ⭐ 4) Delete sessions where user is trainer
+  await pool.query("DELETE FROM session WHERE trainerId = ?", [userId]); // <-- added
+
+  // ⭐ 5) Delete members where user is assigned
+  await pool.query("DELETE FROM member WHERE userId = ?", [userId]); // <-- added
+
+  // ⭐ 6) Set adminId = NULL in memberplan (not delete)
+  await pool.query(
+    "UPDATE memberplan SET adminId = NULL WHERE adminId = ?",
+    [userId]
+  ); // <-- added
+
+  // ⭐ 7) Set adminId = NULL in branch (not delete)
+  await pool.query(
+    "UPDATE branch SET adminId = NULL WHERE adminId = ?",
+    [userId]
+  ); // <-- added
+
+  // ⭐ 8) Finally delete user
+  await pool.query("DELETE FROM user WHERE id = ?", [userId]); // <-- unchanged
+
   return true;
 };
+
 
 
 /**************************************
