@@ -131,7 +131,7 @@ export const renewMembershipService = async (memberId, body) => {
 
   // 2️⃣ Fetch plan
   const [[plan]] = await pool.query(
-    "SELECT * FROM plan WHERE id = ?",
+    "SELECT * FROM memberplan WHERE id = ?",
     [planId]
   );
 

@@ -1,6 +1,9 @@
 import { pool } from "../../config/db.js";
 import { startOfWeek } from "date-fns";
 
+
+
+
 export const housekeepingDashboardService = async () => {
   const today = new Date();
   const weekStart = startOfWeek(today, { weekStartsOn: 1 });
@@ -10,14 +13,17 @@ export const housekeepingDashboardService = async () => {
 
   const conn = pool;
 
+
+
   const [[todayShiftsRow]] = await conn.query(
-    `SELECT COUNT(*) AS shifts
-   FROM shifts
+  `SELECT COUNT(*) AS shifts
+   FROM Shifts
    WHERE DATE(CONVERT_TZ(shiftDate, '+00:00', '+05:30')) = ?`,
-    [todayStr]
-  );
+  [todayStr]
+);
 
   const todayShifts = Number(todayShiftsRow.shifts || 0);
+
 
   // --- Tasks Completed this Week
   const [[taskCountRow]] = await conn.query(
@@ -30,6 +36,7 @@ export const housekeepingDashboardService = async () => {
   );
   const tasksCompleted = Number(taskCountRow.completed);
   const tasksTotal = Number(taskCountRow.total);
+
 
   // --- Maintenance Pending
   const [[pendingMaintenanceRow]] = await conn.query(
@@ -44,8 +51,8 @@ export const housekeepingDashboardService = async () => {
     `SELECT 
         SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END) AS present,
         COUNT(*) AS total
-     FROM staffattendance
-     WHERE checkIn >= ?`,
+     FROM housekeepingAttendance
+     WHERE attendanceDate >= ?`,
     [weekStartStr]
   );
   const attendancePresent = Number(attendanceRow.present);
@@ -54,19 +61,22 @@ export const housekeepingDashboardService = async () => {
   // --- Weekly Roster (Shift Table)
   const [weeklyRosterRows] = await conn.query(
     `SELECT shiftDate, startTime, endTime, branchId, status
-     FROM shifts
+     FROM Shifts
      WHERE shiftDate >= ?
      ORDER BY shiftDate ASC`,
     [weekStartStr]
   );
 
-  const weeklyRoster = weeklyRosterRows.map((r) => ({
-    date: new Date(r.shiftDate).toISOString().slice(0, 10), // clean yyyy-mm-dd
-    start: r.startTime,
-    end: r.endTime,
-    branch: r.branchId,
-    status: r.status,
-  }));
+
+
+  const weeklyRoster = weeklyRosterRows.map(r => ({
+  date: new Date(r.shiftDate).toISOString().slice(0, 10), // clean yyyy-mm-dd
+  start: r.startTime,
+  end: r.endTime,
+  branch: r.branchId,
+  status: r.status,
+}));
+
 
   // --- 7 Day Task Completion Graph
   const [taskGraphRows] = await conn.query(
@@ -79,7 +89,7 @@ export const housekeepingDashboardService = async () => {
     [todayStr]
   );
 
-  const taskGraph = taskGraphRows.map((r) => ({
+  const taskGraph = taskGraphRows.map(r => ({
     day: r.day,
     count: Number(r.completed),
   }));
@@ -104,6 +114,6 @@ export const housekeepingDashboardService = async () => {
     maintenanceStats: {
       completed: Number(maintenanceStatsRow.completed),
       pending: Number(maintenanceStatsRow.pending),
-    },
-  };
+    }
+  };
 };

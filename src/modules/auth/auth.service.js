@@ -180,7 +180,6 @@ export const loginUser = async ({ email, password }) => {
 
 
 
-
 /**************************************
  * GET USER BY ID
  **************************************/
