@@ -9,12 +9,28 @@ getMemberPlansByAdminIdService,
 
 export const createMemberPlan = async (req, res, next) => {
   try {
-    const data = await saveMemberPlan(req.body);
+    // Prefer explicit branchId in body; fall back to authenticated user's branch
+    const branchIdRaw = req.body?.branchId ?? req.user?.branchId;
+    const branchId = branchIdRaw !== undefined ? Number(branchIdRaw) : NaN;
+
+    if (branchIdRaw === undefined || Number.isNaN(branchId)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'branchId is required when creating a member plan. Provide it in the request body { "branchId": 2 } or ensure req.user.branchId is set.',
+      });
+    }
+
+    // Build payload to pass to service (explicitly include branchId)
+    const payload = { ...req.body, branchId };
+
+    const data = await saveMemberPlan(payload);
     res.json({ success: true, plan: data });
   } catch (err) {
     next(err);
   }
 };
+
 
 export const getMemberPlans = async (req, res, next) => { 
   try {
