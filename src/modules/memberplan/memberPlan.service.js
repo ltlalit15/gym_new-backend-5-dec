@@ -148,3 +148,24 @@ export const updateMemberPlan = async (planId, payload, adminId) => {
 
   return rows[0];
 };
+
+
+export const getAllMemberPlansService = async () => {
+  const [rows] = await pool.query(
+    `SELECT 
+        id,
+        name,
+        sessions,
+        validityDays,
+        price,
+        type,
+        adminId,
+        branchId,
+        createdAt,
+        updatedAt
+     FROM memberplan
+     ORDER BY createdAt DESC`
+  );
+
+  return rows;
+};
