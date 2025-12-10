@@ -243,6 +243,9 @@ export const modifyUser = async (id, data) => {
  * DELETE USER
  **************************************/
 export const removeUser = async (id) => {
+   // ⭐ CHANGE 1: Remove user from branch.adminId before deleting
+  await pool.query("UPDATE branch SET adminId = NULL WHERE adminId = ?", [id]); // <-- added
+
   await pool.query("DELETE FROM user WHERE id = ?", [id]);
   return true;
 };
