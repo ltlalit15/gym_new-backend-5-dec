@@ -53,7 +53,7 @@ router.put("/approve/:requestId", approveBooking);
 /* ----------------------------------------------------
    ADMIN → REJECT BOOKING REQUEST
 ---------------------------------------------------- */
-router.put("/reject/:requestId", rejectBooking);
+router.put("/reject/:requestId", rejectBooking); 
 
 
 // // group class booking

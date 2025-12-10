@@ -29,7 +29,7 @@ export const renewMembershipPlan = async (req, res, next) => {
     if (!planId || !paymentMode || amountPaid === undefined) {
       return res.status(400).json({
         success: false,
-        message: "planId, paymentMode और amountPaid required हैं",
+        message: "planId, paymentMode and amountPaid required ",
       });
     }
 
