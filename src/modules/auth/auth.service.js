@@ -203,6 +203,8 @@ export const fetchUserById = async (id) => {
  * UPDATE USER
  **************************************/
 export const modifyUser = async (id, data) => {
+    const [rows] = await pool.query("SELECT * FROM user WHERE id = ?", [id]); // <-- added
+  const existingUser = rows[0]; // <-- added
   if (data.password) {
     data.password = await bcrypt.hash(data.password, 10);
   }
@@ -219,7 +221,7 @@ export const modifyUser = async (id, data) => {
     data.fullName,
     data.email,
     data.phone,
-    data.roleId,
+    existingUser.roleId,
     data.branchId,
     data.gymName,
     data.address,
@@ -240,6 +242,9 @@ export const modifyUser = async (id, data) => {
  * DELETE USER
  **************************************/
 export const removeUser = async (id) => {
+   // ⭐ CHANGE 1: Remove user from branch.adminId before deleting
+  await pool.query("UPDATE branch SET adminId = NULL WHERE adminId = ?", [id]); // <-- added
+
   await pool.query("DELETE FROM user WHERE id = ?", [id]);
   return true;
 };

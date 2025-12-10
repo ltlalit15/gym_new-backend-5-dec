@@ -130,14 +130,55 @@ export const updateBranchService = async (id, data) => {
 /**************************************
  * DELETE BRANCH
  **************************************/
+// export const deleteBranchService = async (id) => {
+//   const branchId = Number(id);
+//   if (!branchId) throw { status: 400, message: "Invalid branch id" };
+
+
+//   // Check exists
+//     await pool.query("DELETE FROM alert WHERE branchId = ?", [id]);
+//   const [existing] = await pool.query("SELECT id FROM branch WHERE id = ?", [branchId]);
+//   if (existing.length === 0) throw { status: 404, message: "Branch not found" };
+
+//   await pool.query("DELETE FROM branch WHERE id = ?", [branchId]);
+//   return { message: "Branch deleted successfully" };
+// };
+
+
 export const deleteBranchService = async (id) => {
   const branchId = Number(id);
   if (!branchId) throw { status: 400, message: "Invalid branch id" };
 
-  // Check exists
+  await pool.query(
+  "DELETE FROM pt_bookings WHERE sessionId IN (SELECT id FROM session WHERE branchId = ?)",
+  [branchId]
+); // <-- added
+
+  // ⭐ NEW CHANGE: Delete bookings BEFORE deleting classschedule
+  await pool.query("DELETE FROM booking WHERE scheduleId IN (SELECT id FROM classschedule WHERE branchId = ?)", [branchId]); // <-- added
+
+
+  // ⭐ CHANGE 1: Delete related class schedules
+  await pool.query("DELETE FROM classschedule WHERE branchId = ?", [branchId]); // <-- added
+
+  // ⭐ CHANGE 2: Delete related staff
+  await pool.query("DELETE FROM staff WHERE branchId = ?", [branchId]); // <-- added
+
+  // ⭐ CHANGE 3: Delete related members
+  await pool.query("DELETE FROM member WHERE branchId = ?", [branchId]); // <-- added
+
+  // ⭐ CHANGE 4: Delete related sessions
+  await pool.query("DELETE FROM session WHERE branchId = ?", [branchId]); // <-- added
+
+  // ⭐ CHANGE 5: Delete related alerts
+  await pool.query("DELETE FROM alert WHERE branchId = ?", [branchId]); // <-- moved + updated
+
+  // Check if branch exists 
   const [existing] = await pool.query("SELECT id FROM branch WHERE id = ?", [branchId]);
   if (existing.length === 0) throw { status: 404, message: "Branch not found" };
 
-  await pool.query("DELETE FROM branch WHERE id = ?", [branchId]);
+  // ⭐ CHANGE 6: Now delete branch safely
+  await pool.query("DELETE FROM branch WHERE id = ?", [branchId]); // <-- same but now safe
+
   return { message: "Branch deleted successfully" };
 };
