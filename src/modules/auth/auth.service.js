@@ -180,7 +180,6 @@ export const loginUser = async ({ email, password }) => {
 
 
 
-
 /**************************************
  * GET USER BY ID
  **************************************/
@@ -204,6 +203,8 @@ export const fetchUserById = async (id) => {
  * UPDATE USER
  **************************************/
 export const modifyUser = async (id, data) => {
+    const [rows] = await pool.query("SELECT * FROM user WHERE id = ?", [id]); // <-- added
+  const existingUser = rows[0]; // <-- added
   if (data.password) {
     data.password = await bcrypt.hash(data.password, 10);
   }
@@ -220,7 +221,7 @@ export const modifyUser = async (id, data) => {
     data.fullName,
     data.email,
     data.phone,
-    data.roleId,
+    existingUser.roleId,
     data.branchId,
     data.gymName,
     data.address,
@@ -241,9 +242,41 @@ export const modifyUser = async (id, data) => {
  * DELETE USER
  **************************************/
 export const removeUser = async (id) => {
-  await pool.query("DELETE FROM user WHERE id = ?", [id]);
+  const userId = Number(id);
+
+  // ⭐ 1) Delete alerts where user is staff
+  await pool.query("DELETE FROM alert WHERE staffId = ?", [userId]); // <-- added
+
+  // ⭐ 2) Delete salary records where user is staff
+  await pool.query("DELETE FROM salary WHERE staffId = ?", [userId]); // <-- added
+
+  // ⭐ 3) Delete class schedules where user is trainer
+  await pool.query("DELETE FROM classschedule WHERE trainerId = ?", [userId]); // <-- added
+
+  // ⭐ 4) Delete sessions where user is trainer
+  await pool.query("DELETE FROM session WHERE trainerId = ?", [userId]); // <-- added
+
+  // ⭐ 5) Delete members where user is assigned
+  await pool.query("DELETE FROM member WHERE userId = ?", [userId]); // <-- added
+
+  // ⭐ 6) Set adminId = NULL in memberplan (not delete)
+  await pool.query(
+    "UPDATE memberplan SET adminId = NULL WHERE adminId = ?",
+    [userId]
+  ); // <-- added
+
+  // ⭐ 7) Set adminId = NULL in branch (not delete)
+  await pool.query(
+    "UPDATE branch SET adminId = NULL WHERE adminId = ?",
+    [userId]
+  ); // <-- added
+
+  // ⭐ 8) Finally delete user
+  await pool.query("DELETE FROM user WHERE id = ?", [userId]); // <-- unchanged
+
   return true;
 };
+
 
 
 /**************************************
