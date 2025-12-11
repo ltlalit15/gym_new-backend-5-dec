@@ -177,6 +177,7 @@ export const deleteBranchService = async (id) => {
       [branchId]
     );
   }
+  await pool.query("DELETE FROM memberplan WHERE branchId = ?", [branchId]);
 
   // 4. Delete the branch
   await pool.query("DELETE FROM branch WHERE id = ?", [branchId]);
