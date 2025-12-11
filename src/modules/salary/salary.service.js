@@ -118,7 +118,7 @@ export const getSalaryByIdService = async (identifier) => {
 
 // ===== DELETE =====
 export const deleteSalaryService = async (salaryId) => {
-  await pool.query(`DELETE FROM salary WHERE salaryId = ?`, [salaryId]);
+  await pool.query(`DELETE FROM salary WHERE id = ?`, [salaryId]);
   return { success: true };
 };
 
