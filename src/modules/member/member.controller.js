@@ -8,7 +8,8 @@ import {
   updateMemberService,
   deleteMemberService,
   getMembersByAdminIdService,
-  renewMembershipService
+  renewMembershipService,
+  getRenewalPreviewService,
   
 } from "./member.service.js";
 
@@ -111,5 +112,23 @@ export const getMembersByAdminId = async (req, res, next) => {
     res.json({ success: true, data: members });
   } catch (error) {
     next(error);
+  }
+};
+
+export const getRenewalPreview = async (req, res, next) => {
+  try {
+    const memberId = parseInt(req.params.memberId);
+    if (Number.isNaN(memberId)) {
+      return res.status(400).json({ success: false, message: "Invalid memberId" });
+    }
+
+    const data = await getRenewalPreviewService(memberId);
+
+    return res.status(200).json({
+      success: true,
+      data, // { member: {...}, plans: [...] }
+    });
+  } catch (err) {
+    next(err);
   }
 };
