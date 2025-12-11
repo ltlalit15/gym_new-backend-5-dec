@@ -540,4 +540,66 @@ export const getMembersByAdminIdService = async (adminId) => {
   return rows;
 };
 
-     
+
+export const getRenewalPreviewService = async (memberId) => {
+  // 1) Fetch member
+  const [memberRows] = await pool.query(
+    `SELECT id, userId, fullName, email, phone, planId, membershipFrom, membershipTo, 
+            amountPaid, branchId, status
+     FROM member
+     WHERE id = ?`,
+    [memberId]
+  );
+
+  if (!memberRows.length) {
+    throw { status: 404, message: "Member not found" };
+  }
+
+  const member = memberRows[0];
+
+  // 2) Fetch plans WITHOUT 'status' filter (because column doesn't exist)
+  const [plansRaw] = await pool.query(
+    `SELECT id, name, sessions, validityDays, price, type, adminId, branchId,
+            createdAt, updatedAt
+     FROM memberplan
+     ORDER BY id ASC`
+  );
+
+  // 3) Safe member object
+  const safeMember = {
+    ...member,
+    membershipFrom: member.membershipFrom ? new Date(member.membershipFrom).toISOString() : null,
+    membershipTo: member.membershipTo ? new Date(member.membershipTo).toISOString() : null,
+  };
+
+  // 4) Base start = next day after membershipTo
+  const basePreviewStart = member.membershipTo ? new Date(member.membershipTo) : new Date();
+  basePreviewStart.setDate(basePreviewStart.getDate() + 1);
+
+  // 5) For each plan calculate preview dates
+  const plans = plansRaw.map((p) => {
+    const duration =
+      p.validityDays ??
+      p.duration ??
+      p.days ??
+      p.validity ??
+      p.period ??
+      p.duration_days ??
+      30;
+
+    const days = Number(duration) || 30;
+
+    const previewStart = new Date(basePreviewStart);
+    const previewEnd = new Date(previewStart);
+    previewEnd.setDate(previewEnd.getDate() + days);
+
+    return {
+      ...p,
+      previewDurationDays: days,
+      previewMembershipFrom: previewStart.toISOString(),
+      previewMembershipTo: previewEnd.toISOString(),
+    };
+  });
+
+  return { member: safeMember, plans };
+};

@@ -8,7 +8,8 @@ import {
   updateMember,
   deleteMember,
   getMembersByAdminId,
-  renewMembershipPlan
+  renewMembershipPlan,
+  getRenewalPreview
   
 } from "./member.controller.js";
 // import { verifyToken } from "../../middlewares/auth.js";
@@ -32,6 +33,7 @@ router.get(
   listMembers
 );
 
+router.get("/renew/:memberId", getRenewalPreview);
 /** Get Member Detail */
 router.get(
   "/detail/:id",
