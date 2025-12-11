@@ -4,7 +4,8 @@ import {
   getTaskByIdService,
   updateTaskService,
   updateTaskStatusService,
-  deleteTaskService
+  deleteTaskService,
+  getTaskByBranchIdService
 } from "./housekeepingtask.service.js";
 
 
@@ -59,6 +60,19 @@ export const getAllTasks = async (req, res) => {
   }
 };
 
+export const getTaskByBranchID=async(req,res)=>{
+  const task=await getTaskByBranchIdService(req.params.branchId);
+ try{ if (!task) {
+      return res.status(404).json({
+        success: false,
+        message: "Task not found"
+      });
+    }
+    return res.json({ success: true, data: task });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
 
 export const getTaskById = async (req, res) => {
   try {
