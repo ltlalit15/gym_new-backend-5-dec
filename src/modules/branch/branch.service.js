@@ -145,11 +145,50 @@ export const updateBranchService = async (id, data) => {
 // };
 
 
+// export const deleteBranchService = async (id) => {
+//   const branchId = Number(id);
+//   if (!branchId) throw { status: 400, message: "Invalid branch id" };
+
+//   // 1. Check branch exists
+//   const [existing] = await pool.query(
+//     "SELECT id FROM branch WHERE id = ?",
+//     [branchId]
+//   );
+//   if (existing.length === 0) {
+//     throw { status: 404, message: "Branch not found" };
+//   }
+
+//   // 2. Find all tables referencing branch.id
+//   const [fkTables] = await pool.query(`
+//     SELECT TABLE_NAME, COLUMN_NAME
+//     FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+//     WHERE REFERENCED_TABLE_NAME = 'branch'
+//       AND REFERENCED_COLUMN_NAME = 'id'
+//       AND TABLE_SCHEMA = DATABASE();
+//   `);
+
+//   // 3. Delete from all dependent tables
+//   for (const fk of fkTables) {
+//     const table = fk.TABLE_NAME;
+//     const column = fk.COLUMN_NAME;
+
+//     await pool.query(
+//       `DELETE FROM ${table} WHERE ${column} = ?`,
+//       [branchId]
+//     );
+//   }
+//   await pool.query("DELETE FROM memberplan WHERE branchId = ?", [branchId]);
+
+//   // 4. Delete the branch
+//   await pool.query("DELETE FROM branch WHERE id = ?", [branchId]);
+
+//   return { message: "Branch deleted successfully" };
+// };
 export const deleteBranchService = async (id) => {
   const branchId = Number(id);
   if (!branchId) throw { status: 400, message: "Invalid branch id" };
 
-  // 1. Check branch exists
+  // 1️⃣ Check if branch exists
   const [existing] = await pool.query(
     "SELECT id FROM branch WHERE id = ?",
     [branchId]
@@ -158,7 +197,7 @@ export const deleteBranchService = async (id) => {
     throw { status: 404, message: "Branch not found" };
   }
 
-  // 2. Find all tables referencing branch.id
+  // 2️⃣ Get FK-based tables referencing branch.id
   const [fkTables] = await pool.query(`
     SELECT TABLE_NAME, COLUMN_NAME
     FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
@@ -167,19 +206,35 @@ export const deleteBranchService = async (id) => {
       AND TABLE_SCHEMA = DATABASE();
   `);
 
-  // 3. Delete from all dependent tables
+  // 3️⃣ Delete from all FK-referencing tables
   for (const fk of fkTables) {
-    const table = fk.TABLE_NAME;
-    const column = fk.COLUMN_NAME;
-
     await pool.query(
-      `DELETE FROM ${table} WHERE ${column} = ?`,
+      `DELETE FROM \`${fk.TABLE_NAME}\` WHERE \`${fk.COLUMN_NAME}\` = ?`,
       [branchId]
     );
   }
-  await pool.query("DELETE FROM memberplan WHERE branchId = ?", [branchId]);
 
-  // 4. Delete the branch
+  // 4️⃣ Delete from NON-FK tables with branchId column
+  const nonFKTables = [
+    "memberplan",
+    "booking_requests",
+    "dietplan",
+    "group_class_bookings",
+    "pt_bookings",
+    "shifts",
+    "tasks",
+    "unified_bookings",
+    "workoutplan"
+  ];
+
+  for (const table of nonFKTables) {
+    await pool.query(
+      `DELETE FROM \`${table}\` WHERE branchId = ?`,
+      [branchId]
+    );
+  }
+
+  // 5️⃣ Delete branch
   await pool.query("DELETE FROM branch WHERE id = ?", [branchId]);
 
   return { message: "Branch deleted successfully" };

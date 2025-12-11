@@ -14,14 +14,20 @@ export const createSalaryService = async (data) => {
     commissionTotal,
     bonuses,
     deductions,
-    status
+    status,
   } = data;
 
   const hourlyTotal = (hoursWorked || 0) * (hourlyRate || 0);
   const bonusTotal = bonuses?.reduce((a, b) => a + Number(b.amount), 0) || 0;
-  const deductionTotal = deductions?.reduce((a, b) => a + Number(b.amount), 0) || 0;
+  const deductionTotal =
+    deductions?.reduce((a, b) => a + Number(b.amount), 0) || 0;
 
-  const netPay = hourlyTotal + (fixedSalary || 0) + (commissionTotal || 0) + bonusTotal - deductionTotal;
+  const netPay =
+    hourlyTotal +
+    (fixedSalary || 0) +
+    (commissionTotal || 0) +
+    bonusTotal -
+    deductionTotal;
 
   const [result] = await pool.query(
     `INSERT INTO salary 
@@ -29,12 +35,20 @@ export const createSalaryService = async (data) => {
        fixedSalary, commissionTotal, bonuses, deductions, netPay, status)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      salaryId, staffId, role, periodStart, periodEnd, hoursWorked, hourlyRate,
-      hourlyTotal, fixedSalary, commissionTotal,
+      salaryId,
+      staffId,
+      role,
+      periodStart,
+      periodEnd,
+      hoursWorked,
+      hourlyRate,
+      hourlyTotal,
+      fixedSalary,
+      commissionTotal,
       JSON.stringify(bonuses || []),
       JSON.stringify(deductions || []),
       netPay,
-      status
+      status,
     ]
   );
 
@@ -44,8 +58,8 @@ export const createSalaryService = async (data) => {
 // ===== GET ALL =====
 // export const getAllSalariesService = async () => {
 //   const [rows] = await pool.query(
-//     `SELECT s.*, st.fullName 
-//      FROM Salary s 
+//     `SELECT s.*, st.fullName
+//      FROM Salary s
 //      LEFT JOIN Staff st ON s.staffId = st.id
 //      ORDER BY s.id DESC`
 //   );
@@ -68,15 +82,11 @@ export const getAllSalariesService = async () => {
   `;
 
   const [rows] = await pool.query(sql);
-  return rows;
+  return rows;
 };
 
-
-
-
-// ===== GET BY ID =====
-export const getSalaryByIdService = async (id) => {
-  const sql = `
+export const getSalaryByIdService = async (identifier) => {
+  const sqlBySalaryId = `
     SELECT 
       s.*, 
       u.fullName AS staffName,
@@ -85,24 +95,29 @@ export const getSalaryByIdService = async (id) => {
       st.gender,
       st.joinDate
     FROM salary s
-    LEFT JOIN user u ON s.staffId = u.id     -- FIX
-    LEFT JOIN staff st ON st.userId = u.id   -- FIX
-    WHERE s.id = ?
+    LEFT JOIN user u ON s.staffId = u.id
+    LEFT JOIN staff st ON st.userId = u.id
+    WHERE s.salaryId = ?
+    LIMIT 1
   `;
 
-  const [rows] = await pool.query(sql, [id]);
+  // try treating identifier as salaryId first
+  const [rowsBySalaryId] = await pool.query(sqlBySalaryId, [identifier]);
+  if (rowsBySalaryId.length) return rowsBySalaryId[0];
 
-  if (!rows.length) throw new Error("Salary not found");
+  // fallback: try numeric id
+  const sqlById = sqlBySalaryId.replace(
+    "WHERE s.salaryId = ?",
+    "WHERE s.id = ?"
+  );
+  const [rowsById] = await pool.query(sqlById, [identifier]);
+  if (rowsById.length) return rowsById[0];
 
-  return rows[0];
+  throw new Error("Salary not found");
 };
 
-
-
-
-
 // ===== DELETE =====
-export const  deleteSalaryService = async (salaryId) => {
+export const deleteSalaryService = async (salaryId) => {
   await pool.query(`DELETE FROM salary WHERE salaryId = ?`, [salaryId]);
   return { success: true };
 };
@@ -169,12 +184,11 @@ export const  deleteSalaryService = async (salaryId) => {
 //     JSON.stringify(deductions || []),
 //     netPay,
 //     status,
-//     salaryId 
+//     salaryId
 //   ]);
 
 //   return { salaryId, ...data, netPay };
 // };
-
 
 export const updateSalaryService = async (salaryId, data) => {
   const {
@@ -188,12 +202,13 @@ export const updateSalaryService = async (salaryId, data) => {
     commissionTotal,
     bonuses,
     deductions,
-    status
+    status,
   } = data;
 
   const hourlyTotal = (hoursWorked || 0) * (hourlyRate || 0);
   const bonusTotal = bonuses?.reduce((a, b) => a + Number(b.amount), 0) || 0;
-  const deductionTotal = deductions?.reduce((a, b) => a + Number(b.amount), 0) || 0;
+  const deductionTotal =
+    deductions?.reduce((a, b) => a + Number(b.amount), 0) || 0;
 
   const netPay =
     hourlyTotal +
@@ -217,7 +232,7 @@ export const updateSalaryService = async (salaryId, data) => {
       deductions = ?,
       netPay = ?,
       status = ?
-    WHERE salaryId = ?
+    WHERE id = ?
   `;
 
   await pool.query(sql, [
@@ -234,13 +249,11 @@ export const updateSalaryService = async (salaryId, data) => {
     JSON.stringify(deductions || []),
     netPay,
     status,
-    salaryId        // 🔥 IMPORTANT: now updating by salaryId
+    salaryId, // 🔥 IMPORTANT: now updating by salaryId
   ]);
 
   return { salaryId, ...data, netPay };
 };
-
-
 
 // ===== GET BY STAFF ID =====
 export const getSalaryByStaffIdService = async (staffId) => {
@@ -265,5 +278,3 @@ export const getSalaryByStaffIdService = async (staffId) => {
 
   return rows;
 };
-
-

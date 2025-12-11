@@ -231,11 +231,36 @@ export const getTrainerByIdService = async (trainerId) => {
 //   return { message: "Staff deactivated successfully" };
 // };
 
+// export const deleteStaffService = async (staffId) => {
+//   // 1️⃣ Find staff entry using staff.id
+//   const [rows] = await pool.query(
+//     "SELECT userId FROM staff WHERE id = ?",
+//     [staffId]
+//   );
+
+//   if (rows.length === 0) {
+//     throw { status: 404, message: "Staff not found" };
+//   }
+
+//   const userId = rows[0].userId;
+
+//   // 2️⃣ Delete from staff table using staff.id
+//   await pool.query("DELETE FROM staff WHERE id = ?", [staffId]);
+
+//   // 3️⃣ Delete linked user
+//   await pool.query("DELETE FROM user WHERE id = ?", [userId]);
+
+//   return { message: "Staff deleted permanently" };
+// };
+
 export const deleteStaffService = async (staffId) => {
-  // 1️⃣ Find staff entry using staff.id
+  const sid = Number(staffId);
+  if (!sid) throw { status: 400, message: "Invalid staff id" };
+
+  // 1️⃣ Check staff exists
   const [rows] = await pool.query(
     "SELECT userId FROM staff WHERE id = ?",
-    [staffId]
+    [sid]
   );
 
   if (rows.length === 0) {
@@ -244,15 +269,55 @@ export const deleteStaffService = async (staffId) => {
 
   const userId = rows[0].userId;
 
-  // 2️⃣ Delete from staff table using staff.id
-  await pool.query("DELETE FROM staff WHERE id = ?", [staffId]);
+  // 2️⃣ DELETE FROM ALL FOREIGN-KEY CHILD TABLES
+  const fkTables = [
+    { table: "attendance", column: "staffId" },
+    { table: "dutyroster", column: "staffId" },
+    { table: "qrcheck", column: "staffId" },
+    { table: "salary", column: "staffId" },
+    { table: "shift", column: "staffId" },
+    { table: "swaprequest", column: "requesterId" },
+    { table: "swaprequest", column: "targetId" }
+  ];
 
-  // 3️⃣ Delete linked user
+  for (const fk of fkTables) {
+    await pool.query(
+      `DELETE FROM ${fk.table} WHERE ${fk.column} = ?`,
+      [sid]
+    );
+  }
+
+  // 3️⃣ DELETE FROM NON-FK TABLES
+  const nonFKTables = [
+    "alert",
+    "housekeepingattendance",
+    "housekeepingschedule",
+    "staffattendance"
+  ];
+
+  for (const table of nonFKTables) {
+    await pool.query(
+      `DELETE FROM ${table} WHERE staffId = ?`,
+      [sid]
+    );
+  }
+
+  // 4️⃣ SPECIAL CASE: remove staffId from shifts.staffIds (TEXT)
+  await pool.query(
+    `UPDATE shifts 
+     SET staffIds = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', staffIds, ','), CONCAT(',', ?, ','), ','))
+     WHERE FIND_IN_SET(?, staffIds);`,
+     [sid, sid]
+  );
+
+  // 5️⃣ DELETE STAFF entry
+  await pool.query("DELETE FROM staff WHERE id = ?", [sid]);
+
+  // 6️⃣ DELETE linked user
   await pool.query("DELETE FROM user WHERE id = ?", [userId]);
 
   return { message: "Staff deleted permanently" };
 };
-
 
 
 

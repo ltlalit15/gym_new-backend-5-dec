@@ -38,13 +38,14 @@ export const getAllSalaries = async (req, res) => {
 // ====== GET BY ID ======
 export const getSalaryById = async (req, res) => {
   try {
-    const data = await getSalaryByIdService(req.params.id);
+    // use the same param name as your routes (salaryId)
+    const identifier = req.params.salaryId ?? req.params.id;
+    const data = await getSalaryByIdService(identifier);
     return res.json({ success: true, data });
   } catch (error) {
     return res.status(404).json({ success: false, message: error.message });
   }
 };
-
 // ====== DELETE ======
 export const deleteSalary = async (req, res) => {
   try {
