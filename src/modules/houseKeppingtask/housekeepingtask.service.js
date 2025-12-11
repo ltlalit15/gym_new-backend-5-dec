@@ -37,6 +37,10 @@ export const getAllTasksService = async () => {
   return rows;
 };
 
+ export const getTaskByBranchIdService=async(branchId)=>{
+  const [rows]=await pool.query(`SELECT * FROM tasks WHERE branchId=? ORDER BY id DESC`,[branchId]);
+  return rows;
+ }
 export const getTaskByIdService = async (id) => {
   const [rows] = await pool.query(`SELECT * FROM tasks WHERE id = ?`, [id]);
   return rows[0];
