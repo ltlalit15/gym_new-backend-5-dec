@@ -1,10 +1,10 @@
 import {
-  saveMemberPlan,
-  getAllMemberPlans,
-getMemberPlansByAdminIdService,
-  getMemberPlanById,
-  updateMemberPlan,
   deleteMemberPlan,
+  getAllMemberPlansService,
+  getMemberPlanById,
+  getMemberPlansByAdminIdService,
+  saveMemberPlan,
+  updateMemberPlan
 } from "../memberplan/memberPlan.service.js";
 
 export const createMemberPlan = async (req, res, next) => {
@@ -33,26 +33,23 @@ export const getMemberPlans = async (req, res, next) => {
 
 
 
-export const getMemberPlansnewss = async () => {
-  const [rows] = await pool.query(
-    `SELECT 
-        id,
-        name,
-        sessions,
-        validityDays,
-        price,
-        type,
-        adminId,
-        branchId,
-        createdAt,
-        updatedAt
-     FROM memberplan
-     ORDER BY createdAt DESC`
-  );
+export const getMemberPlansnewss = async (req, res) => {
+  try {
+    const plans = await getAllMemberPlansService();
 
-  return rows;
+    return res.status(200).json({
+      success: true,
+      data: plans,
+    });
+  } catch (error) {
+    console.error("Get Member Plans Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
 };
-
 
 
 // 🔹 GET: /api/memberplan/2  => single plan by id

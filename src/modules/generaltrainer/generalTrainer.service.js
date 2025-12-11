@@ -406,9 +406,22 @@ export const getClassPerformanceReportService = async (branchId) => {
     const totalStudents = totalStudentsResult[0].count;
 
     // 2. Fetch Present Students for Today
+    // const [presentStudentsResult] = await pool.query(
+    //   "SELECT COUNT(DISTINCT memberId) as count FROM memberattendance WHERE branchId = ? AND DATE(checkIn) = CURDATE()",
+    //   [branchId]
+    // );
     const [presentStudentsResult] = await pool.query(
-      "SELECT COUNT(DISTINCT memberId) as count FROM memberattendance WHERE branchId = ? AND DATE(checkIn) = CURDATE()",
-      [branchId]
+      `
+      SELECT COUNT(DISTINCT ma.memberId) AS count
+      FROM memberattendance ma
+      JOIN member m ON ma.memberId = m.id
+      WHERE 
+        ma.branchId = ?
+        AND m.branchId = ?
+        AND DATE(ma.checkIn) = CURDATE()
+        AND m.status = 'ACTIVE'
+      `,
+      [branchId, branchId]
     );
     const presentStudents = presentStudentsResult[0].count;
 
