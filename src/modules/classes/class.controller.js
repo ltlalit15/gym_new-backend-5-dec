@@ -10,7 +10,8 @@ import {
   getScheduleByIdService,
   updateScheduleService,
   deleteScheduleService,
-   getTrainersService
+   getTrainersService,
+    getPersonalAndGeneralTrainersService
 } from "./class.service.js";
 
 export const createClassType = async (req, res, next) => {
@@ -246,6 +247,19 @@ export const updateSchedule = async (req, res) => {
   }
 };
 
+
+export const getPersonalAndGeneralTrainers = async (req, res, next) => {
+  try {
+    const trainers = await getPersonalAndGeneralTrainersService();
+    return res.status(200).json({
+      success: true,
+      trainers
+    });
+  } catch (err) {
+    console.error("Get Personal/General Trainers Error:", err);
+    next(err);
+  }
+};
 
 
 export const deleteSchedule = async (req, res) => {

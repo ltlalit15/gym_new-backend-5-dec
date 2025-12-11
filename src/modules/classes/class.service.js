@@ -305,6 +305,23 @@ export const updateScheduleService = async (id, data) => {
   return { ...exists, ...data };
 };
 
+// service: getPersonalAndGeneralTrainersService
+export const getPersonalAndGeneralTrainersService = async () => {
+  const [rows] = await pool.query(
+    `SELECT 
+       u.id,
+       u.fullName,
+       u.email,
+       u.phone,
+       u.branchId,
+       u.roleId
+     FROM user u
+     WHERE u.roleId IN (5, 6)
+     ORDER BY u.id DESC`
+  );
+
+  return rows;
+};
 
 
 

@@ -13,7 +13,8 @@ import {
   getScheduleById,
   updateSchedule,
   deleteSchedule,
-  getTrainers                
+  getTrainers ,
+  getPersonalAndGeneralTrainers                
 } from "./class.controller.js";
 
 const router = Router();
@@ -25,6 +26,7 @@ router.delete("/scheduled/delete/:id", deleteSchedule);
 
 router.get("/scheduled/all", getAllScheduledClasses);
 router.get("/scheduled/aan /:id", getScheduleById);
+router.get('/trainers/personal-general', getPersonalAndGeneralTrainers);
 
 // CLASS TYPES
 router.post(

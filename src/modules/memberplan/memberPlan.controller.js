@@ -34,11 +34,23 @@ export const getMemberPlans = async (req, res, next) => {
 
 
 export const getMemberPlansnewss = async () => {
-  return await prisma.memberPlan.findMany({
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+  const [rows] = await pool.query(
+    `SELECT 
+        id,
+        name,
+        sessions,
+        validityDays,
+        price,
+        type,
+        adminId,
+        branchId,
+        createdAt,
+        updatedAt
+     FROM memberplan
+     ORDER BY createdAt DESC`
+  );
+
+  return rows;
 };
 
 
