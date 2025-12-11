@@ -603,3 +603,43 @@ export const getRenewalPreviewService = async (memberId) => {
 
   return { member: safeMember, plans };
 };
+
+
+export const listPTBookingsService = async (branchId) => {
+  const [rows] = await pool.query(
+    `
+    SELECT 
+      pt.id,
+
+      -- MEMBER INFO
+      m.fullName AS memberName,
+
+      -- TRAINER INFO (Only personal trainer)
+      u.fullName AS trainerName,
+      u.roleId AS trainerRole,
+
+      -- PT DETAILS (price removed, type removed)
+      pt.date,
+      pt.startTime,
+      pt.endTime,
+      pt.paymentStatus,
+      pt.bookingStatus
+
+    FROM pt_bookings pt
+    LEFT JOIN member m ON pt.memberId = m.id
+    LEFT JOIN user u ON pt.trainerId = u.id
+
+    WHERE pt.branchId = ?
+      AND u.roleId = 5   -- Only personal trainer
+
+    ORDER BY pt.id DESC
+    `,
+    [branchId]
+  );
+
+  return rows.map(x => ({
+    ...x,
+    time: `${x.startTime} - ${x.endTime}`
+  }));
+};
+
