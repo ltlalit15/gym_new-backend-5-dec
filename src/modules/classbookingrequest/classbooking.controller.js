@@ -845,6 +845,42 @@ export const createUnifiedBooking = async (req, res) => {
   }
 };
 
+// export const getUnifiedBookingsByBranch = async (req, res) => {
+//   try {
+//     const { branchId } = req.params;
+
+//     const [rows] = await pool.query(
+//       `
+//       SELECT 
+//         b.*,
+//         um.fullName AS memberName,
+//         ut.fullName AS trainerName,
+//         s.sessionName,
+//         c.className
+//       FROM unified_bookings b
+//       LEFT JOIN member m ON m.id = b.memberId
+//       LEFT JOIN user um ON um.id = m.userId
+
+//       LEFT JOIN staff t ON t.id = b.trainerId
+//       LEFT JOIN user ut ON ut.id = t.userId
+
+//       LEFT JOIN session s ON s.id = b.sessionId
+//       LEFT JOIN classschedule c ON c.id = b.classId
+
+//       WHERE b.branchId = ?
+//       ORDER BY b.date DESC, b.startTime DESC
+//       `,
+//       [branchId]
+//     );
+
+//     res.json({ success: true, bookings: rows });
+
+//   } catch (err) {
+//     console.error("getUnifiedBookingsByBranch ERROR →", err);
+//     res.status(500).json({ success: false, message: err.message });
+//   }
+// };
+
 export const getUnifiedBookingsByBranch = async (req, res) => {
   try {
     const { branchId } = req.params;
@@ -858,12 +894,23 @@ export const getUnifiedBookingsByBranch = async (req, res) => {
         s.sessionName,
         c.className
       FROM unified_bookings b
+      
+      -- Member Details Join
       LEFT JOIN member m ON m.id = b.memberId
       LEFT JOIN user um ON um.id = m.userId
+      
+      /******************************************************
+       * TRAINER JOIN UPDATED  
+       * Pehle hum staff table join kar rahe the:
+       *   LEFT JOIN staff t ON t.id = b.trainerId
+       *   LEFT JOIN user ut ON ut.id = t.userId
+       *
+       * Lekin ab trainerId = user table ki ID hai,
+       * isliye direct user table se join kiya hai.
+       ******************************************************/
+      LEFT JOIN user ut ON ut.id = b.trainerId
 
-      LEFT JOIN staff t ON t.id = b.trainerId
-      LEFT JOIN user ut ON ut.id = t.userId
-
+      -- Session & Class Join
       LEFT JOIN session s ON s.id = b.sessionId
       LEFT JOIN classschedule c ON c.id = b.classId
 
