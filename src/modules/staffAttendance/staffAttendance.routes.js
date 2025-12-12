@@ -6,7 +6,8 @@ import {
   staffAttendanceDetail,
   getTodayStaffSummary,
   getHousekeepingAttendance     ,
-  getTodayHousekeeperHistory 
+  getTodayHousekeeperHistory ,
+  getAttendanceReportByAdmin
 } from "./staffAttendance.controller.js";
 
 const router = express.Router();
@@ -18,5 +19,7 @@ router.get("/detail/:id", staffAttendanceDetail);
 router.get("/summary/today", getTodayStaffSummary);
 router.get("/housekeeping/dashboard", getHousekeepingAttendance);
 router.get("/housekeeping/today/:staffId", getTodayHousekeeperHistory);
+router.get("/report", getAttendanceReportByAdmin);
+
 
 export default router;
