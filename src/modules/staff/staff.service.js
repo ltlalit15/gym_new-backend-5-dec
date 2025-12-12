@@ -270,22 +270,23 @@ export const deleteStaffService = async (staffId) => {
   const userId = rows[0].userId;
 
   // 2️⃣ DELETE FROM ALL FOREIGN-KEY CHILD TABLES
-  const fkTables = [
-    { table: "attendance", column: "staffId" },
-    { table: "dutyroster", column: "staffId" },
-    { table: "qrcheck", column: "staffId" },
-    { table: "salary", column: "staffId" },
-    { table: "shift", column: "staffId" },
-    { table: "swaprequest", column: "requesterId" },
-    { table: "swaprequest", column: "targetId" }
-  ];
+  // const fkTables = [
+  //   { table: "attendance", column: "staffId" },
+  //   { table: "dutyroster", column: "staffId" },
+  //   { table: "qrcheck", column: "staffId" },
+  //   { table: "salary", column: "staffId" },
+  //   { table: "shift", column: "staffId" },
+  //   { table: "swaprequest", column: "requesterId" },
+  //   { table: "swaprequest", column: "targetId" }
+  // ];
 
-  for (const fk of fkTables) {
-    await pool.query(
-      `DELETE FROM ${fk.table} WHERE ${fk.column} = ?`,
-      [sid]
-    );
-  }
+  // for (const fk of fkTables) {
+  //   await pool.query(
+  //     `DELETE FROM ${fk.table} WHERE ${fk.column} = ?`,
+  //     [sid]
+  //   );
+  // }
+  await pool.query("DELETE FROM salary WHERE staffId = ?", [sid]);
 
   // 3️⃣ DELETE FROM NON-FK TABLES
   const nonFKTables = [

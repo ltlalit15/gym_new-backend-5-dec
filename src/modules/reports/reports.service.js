@@ -195,85 +195,69 @@ export const generateGeneralTrainerReportService = async (adminId) => {
 
 export const generatePersonalTrainerReportService = async (adminId) => {
   try {
-    // Get booking statistics for personal training only
-    const [bookingStats] = await pool.query(
+    const [stats] = await pool.query(
       `SELECT 
         COUNT(*) as totalBookings,
-        0 as totalRevenue, -- Assuming no price field in unified_bookings
-        0 as avgTicket, -- Assuming no price field in unified_bookings
+        0 as totalRevenue,
+        0 as avgTicket,
         SUM(CASE WHEN bookingStatus = 'Confirmed' THEN 1 ELSE 0 END) as confirmed,
         SUM(CASE WHEN bookingStatus = 'Cancelled' THEN 1 ELSE 0 END) as cancelled,
         SUM(CASE WHEN bookingStatus = 'Booked' THEN 1 ELSE 0 END) as booked
-      FROM unified_bookings
-      WHERE adminId = ? AND bookingType = 'PT'`,
+      FROM unified_bookings ub
+      JOIN branch b ON ub.branchId = b.id
+      WHERE b.adminId = ? AND ub.bookingType = 'PT'`,
       [adminId]
     );
 
-    // Get bookings by day for personal training only
     const [bookingsByDay] = await pool.query(
       `SELECT 
-        DATE(createdAt) as date,
-        COUNT(*) as count
-      FROM unified_bookings
-      WHERE adminId = ? AND bookingType = 'PT'
-      GROUP BY DATE(createdAt)
+        DATE(ub.date) AS date,
+        COUNT(*) AS count,
+        0 AS revenue
+      FROM unified_bookings ub
+      JOIN branch b ON ub.branchId = b.id
+      WHERE b.adminId = ? AND ub.bookingType = 'PT'
+      GROUP BY DATE(ub.date)
       ORDER BY date ASC`,
       [adminId]
     );
 
-    // Get booking status distribution for personal training only
     const [bookingStatus] = await pool.query(
-      `SELECT 
-        bookingStatus,
-        COUNT(*) as count
-      FROM unified_bookings
-      WHERE adminId = ? AND bookingType = 'PT'
-      GROUP BY bookingStatus`,
+      `SELECT bookingStatus, COUNT(*) as count
+       FROM unified_bookings ub
+       JOIN branch b ON ub.branchId = b.id
+       WHERE b.adminId = ? AND ub.bookingType = 'PT'
+       GROUP BY bookingStatus`,
       [adminId]
     );
 
-    // Get transactions for personal training only
     const [transactions] = await pool.query(
       `SELECT 
-        date,
-        trainerId,
-        memberId,
-        'Personal Training' as type,
-        startTime as time,
-        bookingStatus as status
-      FROM unified_bookings
-      WHERE adminId = ? AND bookingType = 'PT'
-      ORDER BY date DESC`,
+        ub.date,
+        u.fullName AS trainer,
+        m.fullName AS username,
+        'Personal Training' AS type,
+        CONCAT(ub.startTime, ' - ', ub.endTime) AS time,
+        0 AS revenue,
+        ub.bookingStatus AS status
+      FROM unified_bookings ub
+      LEFT JOIN staff s ON ub.trainerId = s.id
+      LEFT JOIN user u ON s.userId = u.id
+      LEFT JOIN member m ON ub.memberId = m.id
+      JOIN branch b ON ub.branchId = b.id
+      WHERE b.adminId = ? AND ub.bookingType = 'PT'
+      ORDER BY ub.date DESC`,
       [adminId]
     );
 
-    // Format the data for the UI
-    const formattedStats = {
-      totalBookings: bookingStats[0].totalBookings || 0,
-      totalRevenue: bookingStats[0].totalRevenue || 0,
-      avgTicket: bookingStats[0].avgTicket || 0,
-      confirmed: bookingStats[0].confirmed || 0,
-      cancelled: bookingStats[0].cancelled || 0,
-      booked: bookingStats[0].booked || 0
-    };
-
-    // Format transactions data
-    const formattedTransactions = transactions.map(transaction => ({
-      date: transaction.date,
-      trainer: transaction.trainerId || 'N/A',
-      username: transaction.memberId || 'N/A',
-      type: transaction.type,
-      time: transaction.time,
-      status: transaction.status
-    }));
-
     return {
-      stats: formattedStats,
+      stats: stats[0],
       bookingsByDay,
       bookingStatus,
-      transactions: formattedTransactions
+      transactions
     };
+
   } catch (error) {
-    throw new Error(`Error generating personal trainer report: ${error.message}`);
+    throw new Error("PT Report Error: " + error.message);
   }
 };
