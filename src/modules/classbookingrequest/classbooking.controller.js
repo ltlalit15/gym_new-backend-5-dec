@@ -1196,3 +1196,158 @@ export const getUnifiedBookingsByMember = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+// export const getPTBookingsByAdminId = async (req, res) => {
+//   try {
+//     const { adminId } = req.params;
+
+//     // 1️⃣ Check admin exist & get his branch
+//     const [adminData] = await pool.query(
+//       `SELECT branchId FROM user WHERE id = ? LIMIT 1`,
+//       [adminId]
+//     );
+
+//     if (adminData.length === 0) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Admin not found"
+//       });
+//     }
+
+//     const branchId = adminData[0].branchId;
+
+//     // 2️⃣ Get all bookings based on branch
+//     const [bookings] = await pool.query(
+//       `
+//       SELECT 
+//         ub.*,
+//         m.fullName AS memberName,
+//         t.fullName AS trainerName
+//       FROM unified_bookings ub
+//       LEFT JOIN user m ON m.id = ub.memberId
+//       LEFT JOIN user t ON t.id = ub.trainerId
+//       WHERE ub.branchId = ?
+//       ORDER BY ub.date DESC
+//       `,
+//       [branchId]
+//     );
+
+//     return res.json({
+//       success: true,
+//       total: bookings.length,
+//       data: bookings
+//     });
+
+//   } catch (error) {
+//     console.log("Error fetching bookings:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Internal server error"
+//     });
+//   }
+// };
+
+// export const getPTBookingsByAdminId = async (req, res) => {
+//   try {
+//     const { adminId } = req.params;
+
+//     // 1️⃣ Check admin exist & get his branch
+//     const [adminData] = await pool.query(
+//       `SELECT branchId FROM user WHERE id = ? LIMIT 1`,
+//       [adminId]
+//     );
+
+//     if (adminData.length === 0) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Admin not found"
+//       });
+//     }
+
+//     const branchId = adminData[0].branchId;
+
+//     // 2️⃣ Get ONLY PT bookings for admin's branch
+//     const [bookings] = await pool.query(
+//       `
+//       SELECT 
+//         ub.*,
+//         m.fullName AS memberName,
+//         t.fullName AS trainerName
+//       FROM unified_bookings ub
+//       LEFT JOIN member m ON m.id = ub.memberId
+//       LEFT JOIN user t ON t.id = ub.trainerId
+//       WHERE ub.branchId = ?
+//       AND ub.bookingType = 'PT'
+//       ORDER BY ub.date DESC
+//       `,
+//       [branchId]
+//     );
+
+//     return res.json({
+//       success: true,
+//       total: bookings.length,
+//       data: bookings
+//     });
+
+//   } catch (error) {
+//     console.log("Error fetching PT bookings:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Internal server error"
+//     });
+//   }
+// };
+
+export const getPTBookingsByAdminId = async (req, res) => {
+  try {
+    const { adminId } = req.params;
+
+    // 1️⃣ Check admin exist & get his branch
+    const [adminData] = await pool.query(
+      `SELECT branchId FROM user WHERE id = ? LIMIT 1`,
+      [adminId]
+    );
+
+    if (adminData.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Admin not found"
+      });
+    }
+
+    const branchId = adminData[0].branchId;
+
+    // 2️⃣ Get ONLY PT bookings + session name
+    const [bookings] = await pool.query(
+      `
+      SELECT 
+        ub.*,
+        m.fullName AS memberName,
+        t.fullName AS trainerName,
+        s.sessionName
+      FROM unified_bookings ub
+      LEFT JOIN member m ON m.id = ub.memberId
+      LEFT JOIN user t ON t.id = ub.trainerId
+      LEFT JOIN session s ON s.id = ub.sessionId
+      WHERE ub.branchId = ?
+      AND ub.bookingType = 'PT'
+      ORDER BY ub.date DESC
+      `,
+      [branchId]
+    );
+
+    return res.json({
+      success: true,
+      total: bookings.length,
+      data: bookings
+    });
+
+  } catch (error) {
+    console.log("Error fetching PT bookings:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+};
+

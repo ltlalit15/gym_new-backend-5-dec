@@ -27,7 +27,8 @@ createUnifiedBooking,
 //   getPTBookingById,
   updateUnifiedBooking,
   deleteUnifiedBooking,
-  getUnifiedBookingById
+  getUnifiedBookingById,
+  getPTBookingsByAdminId
 } from "./classbooking.controller.js";
 // import { verifyToken } from "./classbookingrequest.js";   // adminId lene ke liye
 
@@ -121,4 +122,6 @@ router.put("/unifiedupdate/:id", updateUnifiedBooking);
     ⭐ DELETE BOOKING (PT + GROUP)
 ----------------------------------------------------- */
 router.delete("/deleteunified/:bookingId", deleteUnifiedBooking);
+
+router.get("/getptDetailsByAdminId/:adminId", getPTBookingsByAdminId);
 export default router;
