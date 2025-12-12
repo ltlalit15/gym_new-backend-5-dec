@@ -57,6 +57,8 @@ export const updateSessionStatusService = async (sessionId, status) => {
 
 // ➤ Delete session
 export const deleteSessionService = async (sessionId) => {
+  await pool.query(`DELETE FROM pt_bookings WHERE sessionId = ?`, [sessionId]);
+  await pool.query(`DELETE FROM unified_bookings WHERE sessionId = ?`, [sessionId]);
   await pool.query(`DELETE FROM session WHERE id = ?`, [sessionId]);
   return true;
 };

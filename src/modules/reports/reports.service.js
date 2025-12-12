@@ -107,3 +107,173 @@ export const generateMemberReportService = async (adminId) => {
     throw new Error(`Error generating member report: ${error.message}`);
   }
 };
+
+export const generateGeneralTrainerReportService = async (adminId) => {
+  try {
+    // Get booking statistics for group training only
+    const [bookingStats] = await pool.query(
+      `SELECT 
+        COUNT(*) as totalBookings,
+        0 as totalRevenue, -- Assuming no price field in unified_bookings
+        0 as avgTicket, -- Assuming no price field in unified_bookings
+        SUM(CASE WHEN bookingStatus = 'Confirmed' THEN 1 ELSE 0 END) as confirmed,
+        SUM(CASE WHEN bookingStatus = 'Cancelled' THEN 1 ELSE 0 END) as cancelled,
+        SUM(CASE WHEN bookingStatus = 'Booked' THEN 1 ELSE 0 END) as booked
+      FROM unified_bookings
+      WHERE adminId = ? AND bookingType = 'GROUP'`,
+      [adminId]
+    );
+
+    // Get bookings by day for group training only
+    const [bookingsByDay] = await pool.query(
+      `SELECT 
+        DATE(createdAt) as date,
+        COUNT(*) as count
+      FROM unified_bookings
+      WHERE adminId = ? AND bookingType = 'GROUP'
+      GROUP BY DATE(createdAt)
+      ORDER BY date ASC`,
+      [adminId]
+    );
+
+    // Get booking status distribution for group training only
+    const [bookingStatus] = await pool.query(
+      `SELECT 
+        bookingStatus,
+        COUNT(*) as count
+      FROM unified_bookings
+      WHERE adminId = ? AND bookingType = 'GROUP'
+      GROUP BY bookingStatus`,
+      [adminId]
+    );
+
+    // Get transactions for group training only
+    const [transactions] = await pool.query(
+      `SELECT 
+        date,
+        trainerId,
+        memberId,
+        'Group Training' as type,
+        startTime as time,
+        bookingStatus as status
+      FROM unified_bookings
+      WHERE adminId = ? AND bookingType = 'GROUP'
+      ORDER BY date DESC`,
+      [adminId]
+    );
+
+    // Format the data for the UI
+    const formattedStats = {
+      totalBookings: bookingStats[0].totalBookings || 0,
+      totalRevenue: bookingStats[0].totalRevenue || 0,
+      avgTicket: bookingStats[0].avgTicket || 0,
+      confirmed: bookingStats[0].confirmed || 0,
+      cancelled: bookingStats[0].cancelled || 0,
+      booked: bookingStats[0].booked || 0
+    };
+
+    // Format transactions data
+    const formattedTransactions = transactions.map(transaction => ({
+      date: transaction.date,
+      trainer: transaction.trainerId || 'N/A',
+      username: transaction.memberId || 'N/A',
+      type: transaction.type,
+      time: transaction.time,
+      status: transaction.status
+    }));
+
+    return {
+      stats: formattedStats,
+      bookingsByDay,
+      bookingStatus,
+      transactions: formattedTransactions
+    };
+  } catch (error) {
+    throw new Error(`Error generating general trainer report: ${error.message}`);
+  }
+};
+
+export const generatePersonalTrainerReportService = async (adminId) => {
+  try {
+    // Get booking statistics for personal training only
+    const [bookingStats] = await pool.query(
+      `SELECT 
+        COUNT(*) as totalBookings,
+        0 as totalRevenue, -- Assuming no price field in unified_bookings
+        0 as avgTicket, -- Assuming no price field in unified_bookings
+        SUM(CASE WHEN bookingStatus = 'Confirmed' THEN 1 ELSE 0 END) as confirmed,
+        SUM(CASE WHEN bookingStatus = 'Cancelled' THEN 1 ELSE 0 END) as cancelled,
+        SUM(CASE WHEN bookingStatus = 'Booked' THEN 1 ELSE 0 END) as booked
+      FROM unified_bookings
+      WHERE adminId = ? AND bookingType = 'PT'`,
+      [adminId]
+    );
+
+    // Get bookings by day for personal training only
+    const [bookingsByDay] = await pool.query(
+      `SELECT 
+        DATE(createdAt) as date,
+        COUNT(*) as count
+      FROM unified_bookings
+      WHERE adminId = ? AND bookingType = 'PT'
+      GROUP BY DATE(createdAt)
+      ORDER BY date ASC`,
+      [adminId]
+    );
+
+    // Get booking status distribution for personal training only
+    const [bookingStatus] = await pool.query(
+      `SELECT 
+        bookingStatus,
+        COUNT(*) as count
+      FROM unified_bookings
+      WHERE adminId = ? AND bookingType = 'PT'
+      GROUP BY bookingStatus`,
+      [adminId]
+    );
+
+    // Get transactions for personal training only
+    const [transactions] = await pool.query(
+      `SELECT 
+        date,
+        trainerId,
+        memberId,
+        'Personal Training' as type,
+        startTime as time,
+        bookingStatus as status
+      FROM unified_bookings
+      WHERE adminId = ? AND bookingType = 'PT'
+      ORDER BY date DESC`,
+      [adminId]
+    );
+
+    // Format the data for the UI
+    const formattedStats = {
+      totalBookings: bookingStats[0].totalBookings || 0,
+      totalRevenue: bookingStats[0].totalRevenue || 0,
+      avgTicket: bookingStats[0].avgTicket || 0,
+      confirmed: bookingStats[0].confirmed || 0,
+      cancelled: bookingStats[0].cancelled || 0,
+      booked: bookingStats[0].booked || 0
+    };
+
+    // Format transactions data
+    const formattedTransactions = transactions.map(transaction => ({
+      date: transaction.date,
+      trainer: transaction.trainerId || 'N/A',
+      username: transaction.memberId || 'N/A',
+      type: transaction.type,
+      time: transaction.time,
+      status: transaction.status
+    }));
+
+    return {
+      stats: formattedStats,
+      bookingsByDay,
+      bookingStatus,
+      transactions: formattedTransactions
+    };
+  } catch (error) {
+    throw new Error(`Error generating personal trainer report: ${error.message}`);
+  }
+};

@@ -1,4 +1,4 @@
-import { generateMemberReportService } from "./reports.service.js";
+import { generateGeneralTrainerReportService, generateMemberReportService, generatePersonalTrainerReportService } from "./reports.service.js";
 
 // Generate Member Report Controller
 export const generateMemberReportController = async (req, res) => {
@@ -24,6 +24,63 @@ export const generateMemberReportController = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to generate member report",
+      error: error.message
+    });
+  }
+};
+
+export const generatePersonalTrainerReportController = async (req, res) => {
+  try {
+    const { adminId } = req.query;
+    
+    if (!adminId) {
+      return res.status(400).json({
+        success: false,
+        message: "Admin ID is required"
+      });
+    }
+    
+    const reportData = await generatePersonalTrainerReportService(adminId);
+    
+    res.status(200).json({
+      success: true,
+      message: "Personal trainer report generated successfully",
+      data: reportData
+    });
+  } catch (error) {
+    console.error("Error in generatePersonalTrainerReportController:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to generate personal trainer report",
+      error: error.message
+    });
+  }
+};
+
+
+export const generateGeneralTrainerReportController = async (req, res) => {
+  try {
+    const { adminId } = req.query;
+    
+    if (!adminId) {
+      return res.status(400).json({
+        success: false,
+        message: "Admin ID is required"
+      });
+    }
+    
+    const reportData = await generateGeneralTrainerReportService(adminId);
+    
+    res.status(200).json({
+      success: true,
+      message: "General trainer report generated successfully",
+      data: reportData
+    });
+  } catch (error) {
+    console.error("Error in generateGeneralTrainerReportController:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to generate general trainer report",
       error: error.message
     });
   }
