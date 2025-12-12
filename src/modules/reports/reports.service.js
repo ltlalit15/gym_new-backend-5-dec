@@ -688,6 +688,190 @@ export const getReceptionReportService = async (adminId) => {
 };
 
 
+// export const getMemberAttendanceReportService = async (adminId) => {
+//   // 1️⃣ Fetch all branches of this admin
+//   const [branches] = await pool.query(
+//     `SELECT id FROM branch WHERE adminId = ?`,
+//     [adminId]
+//   );
+
+//   if (branches.length === 0) return { error: "No branches found" };
+
+//   const branchIds = branches.map(b => b.id);
+
+//   // ------------------------------------------------------------
+//   // 🔵 PART-1: ATTENDANCE HEATMAP (LAST 30 DAYS)
+//   // ------------------------------------------------------------
+
+//   const [heatmap] = await pool.query(
+//     `
+//     SELECT 
+//       DATE(checkIn) AS date,
+//       COUNT(*) AS checkins
+//     FROM memberattendance
+//     WHERE branchId IN (?)
+//       AND DATE(checkIn) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+//     GROUP BY DATE(checkIn)
+//     ORDER BY DATE(checkIn)
+//     `,
+//     [branchIds]
+//   );
+
+//   // ------------------------------------------------------------
+//   // 🔵 PART-2: MEMBER-WISE ATTENDANCE SUMMARY
+//   // ------------------------------------------------------------
+
+//   const [memberStats] = await pool.query(
+//     `
+//     SELECT 
+//       m.id AS memberId,
+//       m.fullName,
+//       COUNT(ma.id) AS totalCheckins,
+
+//       SUM(
+//         CASE 
+//           WHEN ma.checkOut IS NOT NULL THEN 
+//             TIMESTAMPDIFF(
+//               MINUTE, 
+//               ma.checkIn, 
+//               ma.checkOut
+//             )
+//           ELSE 0
+//         END
+//       ) AS totalMinutes,
+
+//       SUM(
+//         CASE 
+//           WHEN ma.checkOut IS NULL THEN 1 
+//           ELSE 0 
+//         END
+//       ) AS noShows
+
+//     FROM member m
+//     LEFT JOIN memberattendance ma 
+//       ON ma.memberId = m.id 
+//       AND ma.branchId IN (?)
+
+//     WHERE m.branchId IN (?)
+
+//     GROUP BY m.id, m.fullName
+//     ORDER BY m.fullName;
+//     `,
+//     [branchIds, branchIds]
+//   );
+
+//   // Convert session minutes → average session time
+//   const finalMemberStats = memberStats.map(m => ({
+//     memberId: m.memberId,
+//     fullName: m.fullName,
+//     checkins: m.totalCheckins,
+//     noShows: m.noShows,
+//     avgSessionTime: m.totalCheckins > 0 
+//       ? Math.round(m.totalMinutes / m.totalCheckins) + " min"
+//       : "0 min"
+//   }));
+
+//   return {
+//     heatmap,
+//     members: finalMemberStats
+//   };
+// };
+
+export const getMemberAttendanceReportService = async (adminId) => {
+  // 1️⃣ Get all branches under this admin
+  const [branches] = await pool.query(
+    `SELECT id FROM branch WHERE adminId = ?`,
+    [adminId]
+  );
+
+  if (branches.length === 0) return { error: "No branches found" };
+
+  const branchIds = branches.map(b => b.id);
+
+  // ------------------------------------------------------------
+  // 🔵 PART-1: ATTENDANCE HEATMAP (LAST 30 DAYS)
+  // ------------------------------------------------------------
+
+  const [heatmap] = await pool.query(
+    `
+    SELECT 
+      DATE(checkIn) AS date,
+      COUNT(*) AS checkins
+    FROM memberattendance
+    WHERE branchId IN (?)
+      AND DATE(checkIn) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+    GROUP BY DATE(checkIn)
+    ORDER BY DATE(checkIn)
+    `,
+    [branchIds]
+  );
+
+  // ------------------------------------------------------------
+  // 🔵 PART-2: MEMBER-WISE ATTENDANCE SUMMARY (NO JOIN ISSUES)
+  // ------------------------------------------------------------
+
+  // First → get all attendance grouped by memberId
+  const [attendanceSummary] = await pool.query(
+    `
+    SELECT 
+      memberId,
+      COUNT(id) AS totalCheckins,
+      
+      SUM(
+        CASE 
+          WHEN checkOut IS NULL THEN 1 
+          ELSE 0 
+        END
+      ) AS noShows,
+
+      SUM(
+        CASE 
+          WHEN checkOut IS NOT NULL THEN 
+            TIMESTAMPDIFF(MINUTE, checkIn, checkOut)
+          ELSE 0 
+        END
+      ) AS totalMinutes
+
+    FROM memberattendance
+    WHERE branchId IN (?)
+    GROUP BY memberId
+    `,
+    [branchIds]
+  );
+
+  // Fetch member names separately
+  const [members] = await pool.query(
+    `
+    SELECT id, fullName
+    FROM member
+    WHERE branchId IN (?)
+    `,
+    [branchIds]
+  );
+
+  // Convert to map for fast lookup
+  const memberMap = {};
+  members.forEach(m => {
+    memberMap[m.id] = m.fullName;
+  });
+
+  // Final formatted response
+  const finalMembers = attendanceSummary.map(r => ({
+    memberId: r.memberId,
+    fullName: memberMap[r.memberId] || "Unknown Member",
+    checkins: r.totalCheckins,
+    noShows: r.noShows,
+    avgSessionTime:
+      r.totalCheckins > 0
+        ? Math.round(r.totalMinutes / r.totalCheckins) + " min"
+        : "0 min"
+  }));
+
+  return {
+    heatmap,
+    members: finalMembers
+  };
+};
 
 
 
