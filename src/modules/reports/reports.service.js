@@ -430,3 +430,265 @@ export const generatePersonalTrainerReportService = async (adminId) => {
     throw new Error(`Error generating personal trainer report: ${error.message}`);
   }
 };
+
+
+// export const getReceptionReportService = async (adminId) => {
+
+//   // 1️⃣ Get admin's branchId
+//   const [adminData] = await pool.query(
+//     `SELECT branchId FROM user WHERE id = ? LIMIT 1`,
+//     [adminId]
+//   );
+
+//   if (adminData.length === 0) {
+//     return { error: "Admin not found" };
+//   }
+
+//   const branchId = adminData[0].branchId;
+
+//   // ------------------ SUMMARY (ALL TIME) ------------------
+
+//   // ✔ All-time check-ins
+//   const [[checkinsSummary]] = await pool.query(
+//     `SELECT COUNT(*) AS total 
+//      FROM memberattendance
+//      WHERE branchId = ?`,
+//     [branchId]
+//   );
+
+//   // ✔ All-time new members
+//   const [[newMembersSummary]] = await pool.query(
+//     `SELECT COUNT(*) AS total 
+//      FROM member
+//      WHERE branchId = ?`,
+//     [branchId]
+//   );
+
+//   // ✔ All-time payments (No branchId column)
+//   const [[paymentsSummary]] = await pool.query(
+//     `SELECT IFNULL(SUM(amount), 0) AS total 
+//      FROM payment`
+//   );
+
+//   // ✔ All PT bookings
+//   const [[ptSummary]] = await pool.query(
+//     `SELECT COUNT(*) AS total 
+//      FROM unified_bookings
+//      WHERE branchId = ?
+//      AND bookingType = 'PT'`,
+//     [branchId]
+//   );
+
+//   // ✔ All Class bookings
+//   const [[classSummary]] = await pool.query(
+//     `SELECT COUNT(*) AS total 
+//      FROM unified_bookings
+//      WHERE branchId = ?
+//      AND bookingType = 'CLASS'`,
+//     [branchId]
+//   );
+
+//   // ------------------ FULL LISTS (ALL TIME) ------------------
+
+//   // All Check-ins list
+//   const [checkinsList] = await pool.query(
+//     `SELECT * 
+//      FROM memberattendance
+//      WHERE branchId = ?`,
+//     [branchId]
+//   );
+
+//   // All Members list
+//   const [newMembersList] = await pool.query(
+//     `SELECT *
+//      FROM member
+//      WHERE branchId = ?`,
+//     [branchId]
+//   );
+
+//   // All Payments list
+//   const [paymentsList] = await pool.query(
+//     `SELECT * 
+//      FROM payment`
+//   );
+
+//   // All PT Bookings list
+//   const [ptList] = await pool.query(
+//     `SELECT *
+//      FROM unified_bookings
+//      WHERE branchId = ?
+//      AND bookingType = 'PT'`,
+//     [branchId]
+//   );
+
+//   // All Class Bookings list
+//   const [classList] = await pool.query(
+//     `SELECT *
+//      FROM unified_bookings
+//      WHERE branchId = ?
+//      AND bookingType = 'CLASS'`,
+//     [branchId]
+//   );
+
+//   // ------------------ FINAL RETURN ------------------
+
+//   return {
+//     success: true,
+//     summary: {
+//       totalCheckins: checkinsSummary.total,
+//       totalMembers: newMembersSummary.total,
+//       totalPayments: paymentsSummary.total,
+//       totalPTBookings: ptSummary.total,
+//       totalClassBookings: classSummary.total
+//     },
+//     checkins: checkinsList,
+//     members: newMembersList,
+//     payments: paymentsList,
+//     ptSessions: ptList,
+//     classSessions: classList
+//   };
+// };
+
+export const getReceptionReportService = async (adminId) => {
+  // 1️⃣ Fetch all branches of this admin
+  const [branches] = await pool.query(
+    `SELECT id FROM branch WHERE adminId = ?`,
+    [adminId]
+  );
+
+  if (branches.length === 0) {
+    return { error: "No branches found for this admin" };
+  }
+
+  const branchIds = branches.map(b => b.id);
+
+  // ---------------- WEEKLY ATTENDANCE (ALL BRANCHES) ----------------
+  const [weekly] = await pool.query(
+    `
+    SELECT 
+        DAYNAME(checkIn) AS day,
+        COUNT(*) AS count,
+        DAYOFWEEK(checkIn) AS sortOrder
+    FROM memberattendance
+    WHERE DATE(checkIn) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+      AND branchId IN (?)
+    GROUP BY day, sortOrder
+    ORDER BY sortOrder
+    `,
+    [branchIds]
+  );
+
+  // ---------------- TODAY SUMMARY (ALL BRANCHES) ----------------
+
+  const [[present]] = await pool.query(
+    `SELECT COUNT(*) AS count 
+     FROM memberattendance
+     WHERE DATE(checkIn)=CURDATE() 
+       AND branchId IN (?)`,
+    [branchIds]
+  );
+
+  const [[active]] = await pool.query(
+    `SELECT COUNT(*) AS count 
+     FROM memberattendance
+     WHERE DATE(checkIn)=CURDATE() 
+       AND checkOut IS NULL
+       AND branchId IN (?)`,
+    [branchIds]
+  );
+
+  const [[completed]] = await pool.query(
+    `SELECT COUNT(*) AS count 
+     FROM memberattendance
+     WHERE DATE(checkIn)=CURDATE() 
+       AND checkOut IS NOT NULL
+       AND branchId IN (?)`,
+    [branchIds]
+  );
+
+  // TODAY CHECK-INS COUNT (ALL BRANCHES)
+  const [[todayCheckinsCount]] = await pool.query(
+    `
+    SELECT COUNT(*) AS count
+    FROM memberattendance
+    WHERE DATE(checkIn) = CURDATE()
+      AND branchId IN (?)
+    `,
+    [branchIds]
+  );
+
+  // ---------------- REVENUE ----------------
+  const [[revenue]] = await pool.query(
+    `SELECT SUM(amount) AS total FROM payment`
+  );
+
+  // ---------------- RECEPTIONIST LIST (ALL BRANCHES) ----------------
+  const [receptionists] = await pool.query(
+    `
+    SELECT id, fullName, branchId
+    FROM user
+    WHERE branchId IN (?)
+      AND roleId = 7
+    `,
+    [branchIds]
+  );
+
+  let receptionistStats = [];
+
+  for (const r of receptionists) {
+    // Metrics specific to each receptionist branch
+    const branchId = r.branchId;
+
+    const [[totalCheckins]] = await pool.query(
+      `SELECT COUNT(*) AS count 
+       FROM memberattendance 
+       WHERE branchId = ?`,
+      [branchId]
+    );
+
+    const [[activeMembers]] = await pool.query(
+      `SELECT COUNT(*) AS count 
+       FROM memberattendance 
+       WHERE branchId = ? AND checkOut IS NULL`,
+      [branchId]
+    );
+
+    const [[completedMembers]] = await pool.query(
+      `SELECT COUNT(*) AS count 
+       FROM memberattendance 
+       WHERE branchId = ? AND checkOut IS NOT NULL`,
+      [branchId]
+    );
+
+    receptionistStats.push({
+      receptionistId: r.id,
+      name: r.fullName,
+      branchId,
+      totalCheckins: totalCheckins.count,
+      activeMembers: activeMembers.count,
+      completedMembers: completedMembers.count,
+      totalRevenue: revenue?.total || 0
+    });
+  }
+
+  return {
+    branches: branchIds,
+    weeklyTrend: weekly,
+    todayCheckinsCount: todayCheckinsCount.count,
+    summary: {
+      present: present.count,
+      active: active.count,
+      completed: completed.count
+    },
+    revenue: {
+      total: revenue?.total || 0
+    },
+    receptionists: receptionistStats
+  };
+};
+
+
+
+
+
+ 

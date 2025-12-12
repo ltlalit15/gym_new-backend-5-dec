@@ -1,4 +1,4 @@
-import { generateGeneralTrainerReportService, generateMemberReportService, generatePersonalTrainerReportService } from "./reports.service.js";
+import { generateGeneralTrainerReportService, generateMemberReportService, generatePersonalTrainerReportService ,getReceptionReportService} from "./reports.service.js";
 
 // Generate Member Report Controller
 export const generateMemberReportController = async (req, res) => {
@@ -82,6 +82,33 @@ export const generateGeneralTrainerReportController = async (req, res) => {
       success: false,
       message: "Failed to generate general trainer report",
       error: error.message
+    });
+  }
+};
+
+
+// import { getReceptionReportService } from "./receptionReport.service.js";
+
+export const getReceptionReportForAdmin = async (req, res) => {
+  try {
+    const { adminId } = req.params;
+
+    const report = await getReceptionReportService(adminId);
+
+    if (report.error) {
+      return res.status(404).json({ success: false, message: report.error });
+    }
+
+    return res.json({
+      success: true,
+      ...report
+    });
+
+  } catch (error) {
+    console.error("Reception Report Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error"
     });
   }
 };
