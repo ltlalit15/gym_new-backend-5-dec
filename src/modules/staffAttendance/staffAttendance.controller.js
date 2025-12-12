@@ -1,9 +1,10 @@
 import { pool } from "../../config/db.js";
 
+// staffId = staff.id (from frontend)
 export const staffCheckIn = async (req, res, next) => {
   try {
     const {
-      staffId,
+      staffId,   // EXPECT staff.id directly
       branchId,
       mode,
       status,
@@ -19,53 +20,31 @@ export const staffCheckIn = async (req, res, next) => {
       });
     }
 
-    // Handle manual or auto check-in
     const finalCheckIn = checkIn ? new Date(checkIn) : new Date();
-    if (isNaN(finalCheckIn.getTime())) {
-      return res.status(400).json({
+    const finalCheckOut = checkOut ? new Date(checkOut) : null;
+
+    // Prevent duplicate check-in
+    const [existing] = await pool.query(
+      `SELECT id FROM staffattendance
+       WHERE staffId = ?
+       AND DATE(checkIn) = CURDATE()
+       AND checkOut IS NULL
+      `,
+      [staffId]
+    );
+
+    if (existing.length > 0) {
+      return res.json({
         success: false,
-        message: "Invalid checkIn format (YYYY-MM-DD HH:mm:ss)"
+        message: "Staff already checked in"
       });
-    }
-
-    let finalCheckOut = null;
-    if (checkOut) {
-      finalCheckOut = new Date(checkOut);
-      if (isNaN(finalCheckOut.getTime())) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid checkOut format"
-        });
-      }
-    }
-
-    // Prevent duplicate check-in for today (only if no manual checkout)
-    if (!finalCheckOut) {
-      const [existing] = await pool.query(
-        `
-        SELECT id FROM staffattendance
-        WHERE staffId = ?
-        AND DATE(checkIn) = CURDATE()
-        AND checkOut IS NULL
-        `,
-        [staffId]
-      );
-
-      if (existing.length > 0) {
-        return res.status(400).json({
-          success: false,
-          message: "Staff already checked in"
-        });
-      }
     }
 
     // Insert attendance
     await pool.query(
-      `
-      INSERT INTO staffattendance
-      (staffId, branchId, checkIn, checkOut, mode, status, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-      `,
+      `INSERT INTO staffattendance 
+       (staffId, branchId, checkIn, checkOut, mode, status, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         staffId,
         branchId,
@@ -86,6 +65,7 @@ export const staffCheckIn = async (req, res, next) => {
     next(err);
   }
 };
+
 
 
 export const staffCheckOut = async (req, res, next) => {
@@ -482,3 +462,114 @@ export const getTodayHousekeeperHistory = async (req, res, next) => {
   }
 };
 
+export const getAttendanceReportByAdmin = async (req, res, next) => {
+  try {
+    const { adminId, from, to } = req.query;
+
+    if (!adminId || !from || !to) {
+      return res.status(400).json({
+        success: false,
+        message: "adminId, from, to are required"
+      });
+    }
+
+    // Convert to MySQL date format
+    const fromDate = new Date(from).toISOString().slice(0, 10);
+    const toDate = new Date(to).toISOString().slice(0, 10);
+
+    // 1️⃣ STAFF LIST (under admin)
+    const [staff] = await pool.query(
+      `
+      SELECT 
+        s.id AS staffId,
+        u.fullName,
+        r.name AS role,
+        'Straight' AS shiftName,
+        48 AS hoursPerWeek
+      FROM staff s
+      JOIN user u ON u.id = s.userId
+      LEFT JOIN role r ON r.id = u.roleId
+      WHERE u.adminId = ?
+      `,
+      [adminId]
+    );
+
+    // 2️⃣ ATTENDANCE LIST (within date range)
+    const [attendance] = await pool.query(
+      `
+      SELECT 
+        sa.id,
+        sa.staffId,
+        sa.checkIn,
+        sa.checkOut
+      FROM staffattendance sa
+      JOIN staff s ON s.id = sa.staffId
+      JOIN user u ON u.id = s.userId
+      WHERE u.adminId = ?
+      AND DATE(sa.checkIn) BETWEEN ? AND ?
+      `,
+      [adminId, fromDate, toDate]
+    );
+
+    // 3️⃣ HEATMAP (Day Vs Date)
+    const heatmap = {};
+    attendance.forEach(a => {
+      const dateStr = new Date(a.checkIn).toISOString().split("T")[0];
+      const day = new Date(dateStr).toLocaleString("en-US", { weekday: "short" });
+
+      if (!heatmap[day]) heatmap[day] = {};
+      heatmap[day][dateStr] = (heatmap[day][dateStr] || 0) + 1;
+    });
+
+    // 4️⃣ HOURS CALCULATION
+    const attendanceMap = {};
+    attendance.forEach(a => {
+      if (!attendanceMap[a.staffId]) {
+        attendanceMap[a.staffId] = { presentHours: 0 };
+      }
+
+      if (a.checkIn && a.checkOut) {
+        const diffMs = new Date(a.checkOut) - new Date(a.checkIn);
+        const hours = diffMs / (1000 * 60 * 60);
+        attendanceMap[a.staffId].presentHours += hours;
+      }
+    });
+
+    // 5️⃣ FINAL TABLE DATA (per staff)
+    const table = staff.map(s => {
+      const att = attendanceMap[s.staffId] || {};
+      const scheduled = 48;   // Default weekly hours
+      const present = att.presentHours || 0;
+
+      return {
+        name: s.fullName,
+        role: s.role,
+        shift: s.shiftName,
+        scheduledHrs: scheduled,
+        presentHrs: Number(present.toFixed(1)),
+        ot: 0,
+        compliance: `${Math.round((present / scheduled) * 100)}%`
+      };
+    });
+
+    // 6️⃣ OVERALL COMPLIANCE
+    const totalScheduled = table.reduce((a, b) => a + b.scheduledHrs, 0);
+    const totalPresent = table.reduce((a, b) => a + b.presentHrs, 0);
+
+    const overallCompliance =
+      totalScheduled > 0
+        ? Math.round((totalPresent / totalScheduled) * 100)
+        : 0;
+
+    // 7️⃣ FINAL RESPONSE
+    res.json({
+      success: true,
+      heatmap,
+      overallCompliance,
+      table
+    });
+
+  } catch (err) {
+    next(err);
+  }
+};

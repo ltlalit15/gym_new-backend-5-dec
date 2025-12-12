@@ -1,4 +1,5 @@
-import { generateGeneralTrainerReportService, generateMemberReportService, generatePersonalTrainerReportService ,getReceptionReportService,getMemberAttendanceReportService} from "./reports.service.js";
+import { generateGeneralTrainerReportService, generateMemberReportService, generatePersonalTrainerReportService ,getReceptionReportService,getMemberAttendanceReportService,generateManagerReportService} from "./reports.service.js";
+// import { generateGeneralTrainerReportService, generateManagerReportService, generateMemberReportService, generatePersonalTrainerReportService ,getReceptionReportService} from "./reports.service.js";
 
 // Generate Member Report Controller
 export const generateMemberReportController = async (req, res) => {
@@ -128,5 +129,28 @@ export const getMemberAttendanceReport = async (req, res) => {
   } catch (err) {
     console.log("Attendance Report Error:", err);
     res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+export const getManagerReportController = async (req, res) => {
+  try {
+    const { adminId } = req.query;  
+
+    if (!adminId) {
+      return res.status(400).json({ message: "Admin ID missing" });
+    }
+
+    const report = await generateManagerReportService(adminId);
+
+    return res.status(200).json({
+      success: true,
+      message: "Manager report fetched successfully",
+      data: report
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
