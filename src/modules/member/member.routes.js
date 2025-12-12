@@ -9,7 +9,8 @@ import {
   deleteMember,
   getMembersByAdminId,
   renewMembershipPlan,
-  getRenewalPreview
+  getRenewalPreview,
+  listPTBookings
   
 } from "./member.controller.js";
 // import { verifyToken } from "../../middlewares/auth.js";
@@ -56,6 +57,8 @@ router.delete(
 );
 
 router.get("/admin/:adminId", getMembersByAdminId);
+
+router.get("/pt-bookings/:branchId", listPTBookings);
 
 export default router;
 

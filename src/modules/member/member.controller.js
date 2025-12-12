@@ -10,6 +10,7 @@ import {
   getMembersByAdminIdService,
   renewMembershipService,
   getRenewalPreviewService,
+  listPTBookingsService
   
 } from "./member.service.js";
 
@@ -127,6 +128,22 @@ export const getRenewalPreview = async (req, res, next) => {
     return res.status(200).json({
       success: true,
       data, // { member: {...}, plans: [...] }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+export const listPTBookings = async (req, res, next) => {
+  try {
+    const branchId = req.params.branchId;
+    const data = await listPTBookingsService(branchId);
+
+    res.json({
+      success: true,
+      total: data.length,
+      items: data
     });
   } catch (err) {
     next(err);
