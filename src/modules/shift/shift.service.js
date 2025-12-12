@@ -57,6 +57,21 @@ export const getShiftByIdService = async (id) => {
   return rows[0];
 };
 
+export const getShiftByStaffIdService = async (staffId) => {
+  const [shift] = await pool.query(
+    `SELECT * FROM shifts WHERE FIND_IN_SET(?, staffIds)`,
+    [staffId]
+  );
+
+  if (shift.length === 0) {
+    throw { status: 404, message: "No shift assigned to this staff" };
+  }
+
+  return shift[0];
+};
+
+
+
 export const updateShiftService = async (id, data) => {
   const {
     staffIds,
