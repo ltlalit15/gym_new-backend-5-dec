@@ -38,6 +38,20 @@ export const getAllShiftsService = async () => {
   return rows;
 };
 
+export const getShiftByShiftIdService = async (shiftId) => {
+  const [rows] = await pool.query(
+    `SELECT * FROM shifts WHERE id = ?`,
+    [shiftId]
+  );
+
+  if (rows.length === 0) {
+    throw { status: 404, message: "Shift not found" };
+  }
+
+  return rows[0];
+};
+
+
 export const getShiftByIdService = async (id) => {
   const [rows] = await pool.query(`SELECT * FROM shifts WHERE id = ?`, [id]);
   return rows[0];

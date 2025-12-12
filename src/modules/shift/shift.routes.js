@@ -5,7 +5,8 @@ import {
   getShiftById,
   updateShift,
   deleteShift,
-  updateShiftStatus
+  updateShiftStatus,
+  getShiftByShiftId
 } from "./shift.controller.js";
 
 const router = express.Router();
@@ -13,6 +14,7 @@ const router = express.Router();
 router.post("/create", createShift);
 router.get("/all", getAllShifts);
 router.get("/:id", getShiftById);
+router.get("/byshiftId/:shiftId", getShiftByShiftId);
 router.put("/:id", updateShift);
 router.put("/status/:id", updateShiftStatus);
 router.delete("/:id", deleteShift);

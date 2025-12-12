@@ -5,7 +5,8 @@ import {
   getAllShiftsService,
   getShiftByIdService,
   updateShiftService,
-  deleteShiftService
+  deleteShiftService,
+  getShiftByShiftIdService
 } from "./shift.service.js";
 
 export const createShift = async (req, res) => {
@@ -51,6 +52,19 @@ export const getAllShifts = async (req, res) => {
   const shifts = await getAllShiftsService();
   return res.json({ success: true, data: shifts });
 };
+
+export const getShiftByShiftId = async (req, res, next) => {
+  try {
+    const { shiftId } = req.params;
+
+    const shift = await getShiftByShiftIdService(shiftId);
+
+    return res.json({ success: true, data: shift });
+  } catch (err) {
+    next(err);
+  }
+};
+
 
 export const getShiftById = async (req, res) => {
   const shift = await getShiftByIdService(req.params.id);
