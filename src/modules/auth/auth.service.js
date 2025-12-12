@@ -151,12 +151,22 @@ export const loginUser = async ({ email, password }) => {
   const match = await bcrypt.compare(password, user.password);
   if (!match) throw { status: 401, message: "Invalid password" };
 
+    // ✅ Staff table check
+  const [staffRows] = await pool.query(
+    `SELECT id FROM staff WHERE userId = ?`,
+    [user.id]
+  );
+
+  const staffId = staffRows.length ? staffRows[0].id : null;
+  // //
+
   const token = jwt.sign(
     {
       id: user.id,
       roleId: user.roleId,
       branchId: user.branchId,
-      adminId: user.adminId,   // ✅ token me bhi adminId
+      adminId: user.adminId,
+            staffId: staffId,               // ✅ token me bhi adminId
     },
     ENV.jwtSecret,
     { expiresIn: "7d" }
@@ -173,7 +183,8 @@ export const loginUser = async ({ email, password }) => {
       roleName: user.roleName,
       branchId: user.branchId,
       branchName: user.branchName,
-      adminId: user.adminId,   // ✅ yaha se controller ko milega
+      adminId: user.adminId,
+       staffId: staffId    // ✅ yaha se controller ko milega
     }
   };
 };
