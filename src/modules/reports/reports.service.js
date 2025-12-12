@@ -109,77 +109,314 @@ export const generateMemberReportService = async (adminId) => {
 };
 
 export const generateGeneralTrainerReportService = async (adminId) => {
-  try {
-    // Get booking statistics for group training only
+   try {
+    // 1️⃣ Get all branches owned by this admin
+    const [branches] = await pool.query(
+      `SELECT id FROM branch WHERE adminId = ?`,
+      [adminId]
+    );
+
+    if (branches.length === 0) {
+      return {
+        stats: {
+          totalBookings: 0,
+          totalRevenue: 0,
+          avgTicket: 0,
+          confirmed: 0,
+          cancelled: 0,
+          booked: 0
+        },
+        bookingsByDay: [],
+        bookingStatus: [],
+        transactions: []
+      };
+    }
+
+    // Extract branch IDs
+    const branchIds = branches.map(b => b.id);
+
+    // Convert to SQL IN (?,?,?)
+    const branchIdPlaceholders = branchIds.map(() => '?').join(',');
+
+    // 2️⃣ Get booking statistics for GROUP bookings in these branches
     const [bookingStats] = await pool.query(
       `SELECT 
         COUNT(*) as totalBookings,
-        0 as totalRevenue, -- Assuming no price field in unified_bookings
-        0 as avgTicket, -- Assuming no price field in unified_bookings
+        0 as totalRevenue,
+        0 as avgTicket,
         SUM(CASE WHEN bookingStatus = 'Confirmed' THEN 1 ELSE 0 END) as confirmed,
         SUM(CASE WHEN bookingStatus = 'Cancelled' THEN 1 ELSE 0 END) as cancelled,
         SUM(CASE WHEN bookingStatus = 'Booked' THEN 1 ELSE 0 END) as booked
       FROM unified_bookings
-      WHERE adminId = ? AND bookingType = 'GROUP'`,
-      [adminId]
+      WHERE branchId IN (${branchIdPlaceholders})
+        AND bookingType = 'GROUP'`,
+      branchIds
     );
 
-    // Get bookings by day for group training only
+    // 3️⃣ Bookings by day
     const [bookingsByDay] = await pool.query(
       `SELECT 
         DATE(createdAt) as date,
         COUNT(*) as count
       FROM unified_bookings
-      WHERE adminId = ? AND bookingType = 'GROUP'
+      WHERE branchId IN (${branchIdPlaceholders})
+        AND bookingType = 'GROUP'
       GROUP BY DATE(createdAt)
       ORDER BY date ASC`,
-      [adminId]
+      branchIds
     );
 
-    // Get booking status distribution for group training only
+    // 4️⃣ Booking status distribution
     const [bookingStatus] = await pool.query(
       `SELECT 
         bookingStatus,
         COUNT(*) as count
       FROM unified_bookings
-      WHERE adminId = ? AND bookingType = 'GROUP'
+      WHERE branchId IN (${branchIdPlaceholders})
+        AND bookingType = 'GROUP'
       GROUP BY bookingStatus`,
-      [adminId]
+      branchIds
     );
 
-    // Get transactions for group training only
-    const [transactions] = await pool.query(
-      `SELECT 
-        date,
-        trainerId,
-        memberId,
-        'Group Training' as type,
-        startTime as time,
-        bookingStatus as status
-      FROM unified_bookings
-      WHERE adminId = ? AND bookingType = 'GROUP'
-      ORDER BY date DESC`,
-      [adminId]
-    );
-
-    // Format the data for the UI
+    // 5️⃣ Transactions list for UI
+    // const [transactions] = await pool.query(
+    //   `SELECT 
+    //     date,
+    //     trainerId,
+    //     memberId,
+    //     'Group Training' as type,
+    //     startTime as time,
+    //     bookingStatus as status
+    //   FROM unified_bookings
+    //   WHERE branchId IN (${branchIdPlaceholders})
+    //     AND bookingType = 'GROUP'
+    //   ORDER BY date DESC`,
+    //   branchIds
+    // );
+const [transactions] = await pool.query(
+  `SELECT 
+      ub.date,
+      trainerUser.fullName AS trainerName,
+      memberUser.fullName AS memberName,
+      'Group Training' AS type,
+      ub.startTime AS time,
+      ub.bookingStatus AS status
+    FROM unified_bookings ub
+    LEFT JOIN user AS trainerUser 
+        ON ub.trainerId = trainerUser.id
+    LEFT JOIN member AS m
+        ON ub.memberId = m.id
+    LEFT JOIN user AS memberUser
+        ON m.userId = memberUser.id
+    WHERE ub.branchId IN (${branchIdPlaceholders})
+      AND ub.bookingType = 'GROUP'
+    ORDER BY ub.date DESC`,
+  branchIds
+);
+    // Format summary stats
     const formattedStats = {
       totalBookings: bookingStats[0].totalBookings || 0,
-      totalRevenue: bookingStats[0].totalRevenue || 0,
-      avgTicket: bookingStats[0].avgTicket || 0,
+    //   totalRevenue: bookingStats[0].totalRevenue || 0,
+    //   avgTicket: bookingStats[0].avgTicket || 0,
       confirmed: bookingStats[0].confirmed || 0,
       cancelled: bookingStats[0].cancelled || 0,
       booked: bookingStats[0].booked || 0
     };
 
-    // Format transactions data
-    const formattedTransactions = transactions.map(transaction => ({
-      date: transaction.date,
-      trainer: transaction.trainerId || 'N/A',
-      username: transaction.memberId || 'N/A',
-      type: transaction.type,
-      time: transaction.time,
-      status: transaction.status
+    // Format transaction list
+   const formattedTransactions = transactions.map(tx => ({
+  date: tx.date,
+  trainer: tx.trainerName || 'N/A',
+  username: tx.memberName || 'N/A',
+  type: tx.type,
+  time: tx.time,
+  status: tx.status
+}));
+
+    return {
+      stats: formattedStats,
+      bookingsByDay,
+      bookingStatus,
+      transactions: formattedTransactions
+    };
+
+  } catch (error) {
+    throw new Error(`Error generating general trainer report: ${error.message}`);
+  }
+};
+
+// export const generatePersonalTrainerReportService = async (adminId) => {
+
+//   try {
+//     const [stats] = await pool.query(
+//       `SELECT 
+//         COUNT(*) as totalBookings,
+//         0 as totalRevenue,
+//         0 as avgTicket,
+//         SUM(CASE WHEN bookingStatus = 'Confirmed' THEN 1 ELSE 0 END) as confirmed,
+//         SUM(CASE WHEN bookingStatus = 'Cancelled' THEN 1 ELSE 0 END) as cancelled,
+//         SUM(CASE WHEN bookingStatus = 'Booked' THEN 1 ELSE 0 END) as booked
+//       FROM unified_bookings ub
+//       JOIN branch b ON ub.branchId = b.id
+//       WHERE b.adminId = ? AND ub.bookingType = 'PT'`,
+//       [adminId]
+//     );
+
+//     const [bookingsByDay] = await pool.query(
+//       `SELECT 
+//         DATE(ub.date) AS date,
+//         COUNT(*) AS count,
+//         0 AS revenue
+//       FROM unified_bookings ub
+//       JOIN branch b ON ub.branchId = b.id
+//       WHERE b.adminId = ? AND ub.bookingType = 'PT'
+//       GROUP BY DATE(ub.date)
+//       ORDER BY date ASC`,
+//       [adminId]
+//     );
+
+//     const [bookingStatus] = await pool.query(
+//       `SELECT bookingStatus, COUNT(*) as count
+//        FROM unified_bookings ub
+//        JOIN branch b ON ub.branchId = b.id
+//        WHERE b.adminId = ? AND ub.bookingType = 'PT'
+//        GROUP BY bookingStatus`,
+//       [adminId]
+//     );
+
+//     const [transactions] = await pool.query(
+//       `SELECT 
+//         ub.date,
+//         u.fullName AS trainer,
+//         m.fullName AS username,
+//         'Personal Training' AS type,
+//         CONCAT(ub.startTime, ' - ', ub.endTime) AS time,
+//         0 AS revenue,
+//         ub.bookingStatus AS status
+//       FROM unified_bookings ub
+//       LEFT JOIN staff s ON ub.trainerId = s.id
+//       LEFT JOIN user u ON s.userId = u.id
+//       LEFT JOIN member m ON ub.memberId = m.id
+//       JOIN branch b ON ub.branchId = b.id
+//       WHERE b.adminId = ? AND ub.bookingType = 'PT'
+//       ORDER BY ub.date DESC`,
+//       [adminId]
+//     );
+
+//     return {
+//       stats: stats[0],
+//       bookingsByDay,
+//       bookingStatus,
+//       transactions
+//     };
+
+//   } catch (error) {
+//     throw new Error("PT Report Error: " + error.message);
+//   }
+// };
+
+export const generatePersonalTrainerReportService = async (adminId) => {
+  try {
+
+    // 1️⃣ Get all branches for this admin
+    const [branches] = await pool.query(
+      `SELECT id FROM branch WHERE adminId = ?`,
+      [adminId]
+    );
+
+    if (branches.length === 0) {
+      return {
+        stats: {
+          totalBookings: 0,
+          confirmed: 0,
+          cancelled: 0,
+          booked: 0
+        },
+        bookingsByDay: [],
+        bookingStatus: [],
+        transactions: []
+      };
+    }
+
+    // Extract branch IDs
+    const branchIds = branches.map(b => b.id);
+    const placeholders = branchIds.map(() => '?').join(',');
+
+    // 2️⃣ PT booking stats
+    const [bookingStats] = await pool.query(
+      `SELECT 
+        COUNT(*) as totalBookings,
+        SUM(CASE WHEN bookingStatus = 'Completed' THEN 1 ELSE 0 END) as confirmed,
+        SUM(CASE WHEN bookingStatus = 'Cancelled' THEN 1 ELSE 0 END) as cancelled,
+        SUM(CASE WHEN bookingStatus = 'Booked' THEN 1 ELSE 0 END) as booked
+      FROM unified_bookings
+      WHERE branchId IN (${placeholders})
+        AND bookingType = 'PT'`,
+      branchIds
+    );
+
+    // 3️⃣ PT bookings group by day
+    const [bookingsByDay] = await pool.query(
+      `SELECT 
+        DATE(createdAt) AS date,
+        COUNT(*) AS count
+      FROM unified_bookings
+      WHERE branchId IN (${placeholders})
+        AND bookingType = 'PT'
+      GROUP BY DATE(createdAt)
+      ORDER BY date ASC`,
+      branchIds
+    );
+
+    // 4️⃣ PT booking status distribution
+    const [bookingStatus] = await pool.query(
+      `SELECT 
+        bookingStatus,
+        COUNT(*) AS count
+      FROM unified_bookings
+      WHERE branchId IN (${placeholders})
+        AND bookingType = 'PT'
+      GROUP BY bookingStatus`,
+      branchIds
+    );
+
+    // 5️⃣ PT transactions list
+    const [transactions] = await pool.query(
+      `SELECT 
+          ub.date,
+          trainerUser.fullName AS trainerName,
+          memberUser.fullName AS memberName,
+          'Personal Training' AS type,
+          ub.startTime AS time,
+          ub.bookingStatus AS status
+        FROM unified_bookings ub
+        LEFT JOIN user AS trainerUser 
+              ON ub.trainerId = trainerUser.id
+        LEFT JOIN member AS m
+              ON ub.memberId = m.id
+        LEFT JOIN user AS memberUser
+              ON m.userId = memberUser.id
+        WHERE ub.branchId IN (${placeholders})
+          AND ub.bookingType = 'PT'
+        ORDER BY ub.date DESC`,
+      branchIds
+    );
+
+    // Format output for UI
+    const formattedStats = {
+      totalBookings: bookingStats[0].totalBookings || 0,
+      confirmed: bookingStats[0].confirmed || 0,
+      cancelled: bookingStats[0].cancelled || 0,
+      booked: bookingStats[0].booked || 0
+    };
+
+    const formattedTransactions = transactions.map(tx => ({
+      date: tx.date,
+      trainer: tx.trainerName || 'N/A',
+      username: tx.memberName || 'N/A',
+      type: tx.type,
+      time: tx.time,
+      status: tx.status
     }));
 
     return {
@@ -188,76 +425,8 @@ export const generateGeneralTrainerReportService = async (adminId) => {
       bookingStatus,
       transactions: formattedTransactions
     };
-  } catch (error) {
-    throw new Error(`Error generating general trainer report: ${error.message}`);
-  }
-};
-
-export const generatePersonalTrainerReportService = async (adminId) => {
-  try {
-    const [stats] = await pool.query(
-      `SELECT 
-        COUNT(*) as totalBookings,
-        0 as totalRevenue,
-        0 as avgTicket,
-        SUM(CASE WHEN bookingStatus = 'Confirmed' THEN 1 ELSE 0 END) as confirmed,
-        SUM(CASE WHEN bookingStatus = 'Cancelled' THEN 1 ELSE 0 END) as cancelled,
-        SUM(CASE WHEN bookingStatus = 'Booked' THEN 1 ELSE 0 END) as booked
-      FROM unified_bookings ub
-      JOIN branch b ON ub.branchId = b.id
-      WHERE b.adminId = ? AND ub.bookingType = 'PT'`,
-      [adminId]
-    );
-
-    const [bookingsByDay] = await pool.query(
-      `SELECT 
-        DATE(ub.date) AS date,
-        COUNT(*) AS count,
-        0 AS revenue
-      FROM unified_bookings ub
-      JOIN branch b ON ub.branchId = b.id
-      WHERE b.adminId = ? AND ub.bookingType = 'PT'
-      GROUP BY DATE(ub.date)
-      ORDER BY date ASC`,
-      [adminId]
-    );
-
-    const [bookingStatus] = await pool.query(
-      `SELECT bookingStatus, COUNT(*) as count
-       FROM unified_bookings ub
-       JOIN branch b ON ub.branchId = b.id
-       WHERE b.adminId = ? AND ub.bookingType = 'PT'
-       GROUP BY bookingStatus`,
-      [adminId]
-    );
-
-    const [transactions] = await pool.query(
-      `SELECT 
-        ub.date,
-        u.fullName AS trainer,
-        m.fullName AS username,
-        'Personal Training' AS type,
-        CONCAT(ub.startTime, ' - ', ub.endTime) AS time,
-        0 AS revenue,
-        ub.bookingStatus AS status
-      FROM unified_bookings ub
-      LEFT JOIN staff s ON ub.trainerId = s.id
-      LEFT JOIN user u ON s.userId = u.id
-      LEFT JOIN member m ON ub.memberId = m.id
-      JOIN branch b ON ub.branchId = b.id
-      WHERE b.adminId = ? AND ub.bookingType = 'PT'
-      ORDER BY ub.date DESC`,
-      [adminId]
-    );
-
-    return {
-      stats: stats[0],
-      bookingsByDay,
-      bookingStatus,
-      transactions
-    };
 
   } catch (error) {
-    throw new Error("PT Report Error: " + error.message);
+    throw new Error(`Error generating personal trainer report: ${error.message}`);
   }
 };
