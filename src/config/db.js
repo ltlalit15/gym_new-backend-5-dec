@@ -7,8 +7,8 @@
 //   .createPool({
 //     host: "localhost",
 //     user: "root",
-//     password: "Gopal_1820",
-//     database: "gym_db2",
+//     password: "",
+//     database: "gym_db",
 //     port: 3306,
 //     waitForConnections: true,
 //     connectionLimit: 10,
