@@ -389,32 +389,263 @@ export const changeUserPassword = async (id, oldPassword, newPassword) => {
 };
 
 
-export const getAdminDashboardData = async () => {
-  const sql = `
+// export const getAdminDashboardData = async () => {
+//   const sql = `
+//     SELECT 
+//       -- Total Branches
+//       (SELECT COUNT(*) FROM branch WHERE status = 'Active') AS totalBranches,
+
+//       -- Total Members (roleId = 4)
+//       (SELECT COUNT(*) FROM user WHERE roleId = 4 AND status = 'Active') AS totalMembers,
+
+//       -- Active Staff Count
+//       (SELECT COUNT(*) FROM staff WHERE status = 'Active') AS totalStaff,
+
+//       -- Today's Member Check-ins
+//       (SELECT COUNT(*) FROM memberattendance 
+//        WHERE DATE(checkIn) = CURDATE()) AS todaysMemberCheckins,
+
+//       -- Today's Staff Check-ins
+//       (SELECT COUNT(*) FROM staffattendance 
+//        WHERE DATE(checkIn) = CURDATE()) AS todaysStaffCheckins
+//   `;
+
+//   const [rows] = await pool.query(sql);
+
+//   if (!rows.length) {
+//     throw { status: 404, message: "No dashboard data found" };
+//   }
+
+//   return rows[0];
+// };
+
+
+
+
+
+// export const getAdminDashboardData = async (adminId) => {
+//   // 5 CARDS
+//   const statsQuery = `
+//     SELECT 
+//       -- Branch count
+//       (SELECT COUNT(*) FROM branch 
+//         WHERE status = 'ACTIVE' AND adminId = ?) AS totalBranches,
+
+//       -- Member count (roleId = 4)
+//       (SELECT COUNT(*) FROM user 
+//         WHERE roleId = 4 AND status = 'ACTIVE' AND adminId = ?) AS totalMembers,
+
+//       -- Staff count
+//       (SELECT COUNT(*) FROM staff 
+//         WHERE status = 'Active' AND adminId = ?) AS totalStaff,
+
+//       -- Today's Member Check-ins (JOIN member → user → adminId)
+//       (SELECT COUNT(*) FROM memberattendance ma
+//         JOIN user u ON ma.memberId = u.id
+//         WHERE u.adminId = ?
+//         AND DATE(ma.checkIn) = CURDATE()
+//       ) AS todaysMemberCheckins,
+
+//       -- Today's Staff Check-ins (JOIN staff → adminId)
+//       (SELECT COUNT(*) FROM staffattendance sa
+//         JOIN staff s ON sa.staffId = s.id
+//         WHERE s.adminId = ?
+//         AND DATE(sa.checkIn) = CURDATE()
+//       ) AS todaysStaffCheckins
+//   `;
+
+//   // MEMBER GROWTH (Admin-wise last 6 months)
+//   const memberGrowthQuery = `
+//     SELECT 
+//       DATE_FORMAT(MIN(createdAt), '%b') AS month,
+//       COUNT(*) AS count
+//     FROM user
+//     WHERE roleId = 4
+//       AND adminId = ?
+//       AND createdAt >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+//     GROUP BY YEAR(createdAt), MONTH(createdAt)
+//     ORDER BY YEAR(createdAt), MONTH(createdAt);
+//   `;
+
+//   // recent activity
+// const recentActivitiesQuery = `
+// (
+//   SELECT 
+//     CONCAT('New member registration: ', fullName) AS activity,
+//     joinDate AS time,
+//     'member' AS type
+//   FROM member
+//   WHERE adminId = ?
+// )
+
+// UNION ALL
+
+// (
+//   SELECT 
+//     CONCAT('Payment received: ₹', amount) AS activity,
+//     createdAt AS time,
+//     'payment' AS type
+//   FROM payment
+//   WHERE adminId = ?
+// )
+
+// UNION ALL
+
+// (
+//   SELECT 
+//     CONCAT('Class booking by Member ID ', memberId) AS activity,
+//     createdAt AS time,
+//     'class_booking' AS type
+//   FROM booking_requests
+//   WHERE adminId = ?
+// )
+
+// UNION ALL
+
+// (
+//   SELECT 
+//     CONCAT('Staff check-in: Staff ID ', sa.staffId) AS activity,
+//     sa.checkIn AS time,
+//     'staff_checkin' AS type
+//   FROM staffattendance sa
+//   JOIN staff s ON sa.staffId = s.id
+//   WHERE s.adminId = ?
+// )
+
+// ORDER BY time DESC
+// LIMIT 5;
+// `;
+  
+
+// const [recentActivities] = await pool.query(recentActivitiesQuery, [
+//   adminId,
+//   adminId,
+//   adminId,
+//   adminId
+// ]);
+
+//   const [stats] = await pool.query(statsQuery, [
+//     adminId,
+//     adminId,
+//     adminId,
+//     adminId,
+//     adminId,
+//   ]);
+
+//   const [memberGrowth] = await pool.query(memberGrowthQuery, [adminId]);
+
+//   return {
+//     ...stats[0],
+//     memberGrowth,
+//      recentActivities
+//   };
+// };
+
+
+export const getAdminDashboardData = async (adminId) => {
+  // 5 CARDS
+  const statsQuery = `
     SELECT 
-      -- Total Branches
-      (SELECT COUNT(*) FROM branch WHERE status = 'Active') AS totalBranches,
+      -- Branch count
+      (SELECT COUNT(*) FROM branch 
+        WHERE status = 'ACTIVE' AND adminId = ?) AS totalBranches,
 
-      -- Total Members (roleId = 4)
-      (SELECT COUNT(*) FROM user WHERE roleId = 4 AND status = 'Active') AS totalMembers,
+      -- Member count (roleId = 4)
+      (SELECT COUNT(*) FROM user 
+        WHERE roleId = 4 AND status = 'ACTIVE' AND adminId = ?) AS totalMembers,
 
-      -- Active Staff Count
-      (SELECT COUNT(*) FROM staff WHERE status = 'Active') AS totalStaff,
+      -- Staff count
+      (SELECT COUNT(*) FROM staff 
+        WHERE status = 'Active' AND adminId = ?) AS totalStaff,
 
-      -- Today's Member Check-ins
-      (SELECT COUNT(*) FROM memberattendance 
-       WHERE DATE(checkIn) = CURDATE()) AS todaysMemberCheckins,
+      -- Today's Member Check-ins (JOIN member → user → adminId)
+      (SELECT COUNT(*) FROM memberattendance ma
+        JOIN user u ON ma.memberId = u.id
+        WHERE u.adminId = ?
+        AND DATE(ma.checkIn) = CURDATE()
+      ) AS todaysMemberCheckins,
 
-      -- Today's Staff Check-ins
-      (SELECT COUNT(*) FROM staffattendance 
-       WHERE DATE(checkIn) = CURDATE()) AS todaysStaffCheckins
+      -- Today's Staff Check-ins (JOIN staff → adminId)
+      (SELECT COUNT(*) FROM staffattendance sa
+        JOIN staff s ON sa.staffId = s.id
+        WHERE s.adminId = ?
+        AND DATE(sa.checkIn) = CURDATE()
+      ) AS todaysStaffCheckins
   `;
 
-  const [rows] = await pool.query(sql);
+  // MEMBER GROWTH (Admin-wise last 6 months)
+  const memberGrowthQuery = `
+    SELECT 
+      DATE_FORMAT(MIN(createdAt), '%b') AS month,
+      COUNT(*) AS count
+    FROM user
+    WHERE roleId = 4
+      AND adminId = ?
+      AND createdAt >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+    GROUP BY YEAR(createdAt), MONTH(createdAt)
+    ORDER BY YEAR(createdAt), MONTH(createdAt);
+  `;
 
-  if (!rows.length) {
-    throw { status: 404, message: "No dashboard data found" };
-  }
+  // recent activity
+const recentActivitiesQuery = `
+  (
+    SELECT 
+      CONCAT('New member registration: ', fullName) AS activity,
+      joinDate AS time,
+      'member' AS type
+    FROM member
+    WHERE adminId = ?
+  )
 
-  return rows[0];
+  UNION ALL
+
+  (
+    SELECT 
+      CONCAT('Class booking by Member ID ', memberId) AS activity,
+      createdAt AS time,
+      'class_booking' AS type
+    FROM booking_requests
+    WHERE adminId = ?
+  )
+
+  UNION ALL
+
+  (
+    SELECT 
+      CONCAT('Staff check-in: Staff ID ', sa.staffId) AS activity,
+      sa.checkIn AS time,
+      'staff_checkin' AS type
+    FROM staffattendance sa
+    JOIN staff s ON sa.staffId = s.id
+    WHERE s.adminId = ?
+  )
+
+  ORDER BY time DESC
+  LIMIT 5;
+  `;
+
+const [recentActivities] = await pool.query(recentActivitiesQuery, [
+  adminId,
+  adminId,
+  adminId,
+  adminId
+]);
+
+  const [stats] = await pool.query(statsQuery, [
+    adminId,
+    adminId,
+    adminId,
+    adminId,
+    adminId,
+  ]);
+
+  const [memberGrowth] = await pool.query(memberGrowthQuery, [adminId]);
+
+  return {
+    ...stats[0],
+    memberGrowth,
+     recentActivities
+  };
 };
+
+

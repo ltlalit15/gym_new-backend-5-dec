@@ -14,7 +14,7 @@ router.delete("/user/:id", deleteUser);
 router.get("/admins", getAdmins);
 router.get("/dashboard", getDashboardStats);
 router.put("/changepassword",changePasswordController);
-router.get("/admindashboard",getAdminDashboard);
+router.get("/admindashboard/:id",getAdminDashboard);
 
 
 export default router;
