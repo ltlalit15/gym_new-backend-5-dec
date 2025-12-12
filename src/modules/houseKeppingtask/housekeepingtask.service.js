@@ -52,33 +52,54 @@ export const getTaskByIdService = async (id) => {
 };
 
 export const updateTaskService = async (id, data) => {
-  const {
-    assignedTo,
-    branchId,
-    taskTitle,
-    dueDate,
-    priority,
-    description,
-    status,
-  } = data;
+  // 1️⃣ Pahle old task fetch karo
+  const [existing] = await pool.query(`SELECT * FROM tasks WHERE id = ?`, [id]);
 
+  if (!existing.length) {
+    throw { status: 404, message: "Task not found" };
+  }
+
+  const old = existing[0];
+
+  // 2️⃣ New data ko merge karo → undefined fields old values le lenge
+  const updatedData = {
+    assignedTo: data.assignedTo ?? old.assignedTo,
+    branchId: data.branchId ?? old.branchId,
+    taskTitle: data.taskTitle ?? old.taskTitle,
+    dueDate: data.dueDate ?? old.dueDate,
+    priority: data.priority ?? old.priority,
+    description: data.description ?? old.description,
+    status: data.status ?? old.status,
+  };
+
+  // 3️⃣ Now update final merged data
   await pool.query(
-    `UPDATE tasks SET assignedTo=?, branchId=?, taskTitle=?, dueDate=?, priority=?,description=?, status=? WHERE id=?`,
+    `UPDATE tasks SET 
+      assignedTo = ?, 
+      branchId = ?, 
+      taskTitle = ?, 
+      dueDate = ?, 
+      priority = ?, 
+      description = ?, 
+      status = ?
+     WHERE id = ?`,
     [
-      assignedTo,
-      branchId,
-      taskTitle,
-      dueDate,
-      priority,
-      description,
-      status,
-      id,
+      updatedData.assignedTo,
+      updatedData.branchId,
+      updatedData.taskTitle,
+      updatedData.dueDate,
+      updatedData.priority,
+      updatedData.description,
+      updatedData.status,
+      id
     ]
   );
 
+  // 4️⃣ Updated data return karo
   const [rows] = await pool.query(`SELECT * FROM tasks WHERE id = ?`, [id]);
   return rows[0];
 };
+
 
 export const updateTaskStatusService = async (id, status) => {
   await pool.query(`UPDATE tasks SET status = ? WHERE id = ?`, [status, id]);
