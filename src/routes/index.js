@@ -43,6 +43,8 @@ import adminStaffAttendanceRoutes from "../modules/adminStaffAttendance/adminSta
 import memberSelfRoutes from "../modules/member/memberSelf.routes.js";
 
 import personalTrainerDashboardRoutes from "../modules/dashboard/personalTrainerDashboard.routes.js";
+import reportsRoutes from "../modules/reports/reports.routes.js"
+
 const router = Router();
 
 // test route
@@ -83,7 +85,7 @@ router.use("/personal-trainer-dashboard", personalTrainerDashboardRoutes);
 router.use("/member-dashboard",memberDeshboardRoutes);
 router.use("/admin-staff-attendance", adminStaffAttendanceRoutes);
 router.use("/member-self", memberSelfRoutes);
-
+router.use("/reports",reportsRoutes);
 router.use("/booking", bookingRoutes);
 
 export default router;
