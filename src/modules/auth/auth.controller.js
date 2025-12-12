@@ -162,9 +162,26 @@ export const changePasswordController = async (req, res, next) => {
 };
 
 
+// export const getAdminDashboard = async (req, res, next) => {
+//   try {
+//     const data = await getAdminDashboardData();
+
+//     res.json({
+//       success: true,
+//       message: "Dashboard data fetched successfully",
+//       data,
+//     });
+//   } catch (err) {
+//     next(err);
+//   }
+// };
+
+
 export const getAdminDashboard = async (req, res, next) => {
   try {
-    const data = await getAdminDashboardData();
+    const adminId = req.params.id; // or req.user.adminId
+
+    const data = await getAdminDashboardData(adminId);
 
     res.json({
       success: true,
@@ -173,5 +190,5 @@ export const getAdminDashboard = async (req, res, next) => {
     });
   } catch (err) {
     next(err);
-  }
+  }
 };
