@@ -49,7 +49,6 @@ export const generateMemberReportService = async (adminId) => {
         m.fullName as username,
         'Personal Training' as type,
         ptb.startTime as time,
-        ptb.price as revenue,
         ptb.bookingStatus as status
       FROM pt_bookings ptb
       LEFT JOIN member m ON ptb.memberId = m.id
@@ -77,7 +76,6 @@ export const generateMemberReportService = async (adminId) => {
       username: transaction.username || 'N/A',
       type: transaction.type,
       time: transaction.time,
-      revenue: transaction.revenue || 0,
       status: transaction.status
     }));
 
