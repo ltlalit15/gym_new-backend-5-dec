@@ -9,9 +9,9 @@ export const generateMemberReportService = async (adminId) => {
         COUNT(*) as totalBookings,
         SUM(price) as totalRevenue,
         AVG(price) as avgTicket,
-        SUM(CASE WHEN status = 'Confirmed' THEN 1 ELSE 0 END) as confirmed,
-        SUM(CASE WHEN status = 'Cancelled' THEN 1 ELSE 0 END) as cancelled,
-        SUM(CASE WHEN status = 'Booked' THEN 1 ELSE 0 END) as booked
+        SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as confirmed,
+        SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as cancelled,
+        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as booked
       FROM booking_requests
       WHERE adminId = ?`,
       [adminId]
@@ -42,23 +42,41 @@ export const generateMemberReportService = async (adminId) => {
     );
 
     // Get transactions from pt_bookings table
-    const [transactions] = await pool.query(
-      `SELECT 
-        ptb.date,
-        u.fullName as trainer,
-        m.fullName as username,
-        'Personal Training' as type,
-        ptb.startTime as time,
-        ptb.bookingStatus as status
-      FROM pt_bookings ptb
-      LEFT JOIN member m ON ptb.memberId = m.id
-      LEFT JOIN staff s ON ptb.trainerId = s.id
-      LEFT JOIN user u ON s.userId = u.id
-      WHERE m.adminId = ?
-      ORDER BY ptb.date DESC`,
-      [adminId]
-    );
-
+    // const [transactions] = await pool.query(
+    //   `SELECT 
+    //     ptb.date,
+    //     u.fullName as trainer,
+    //     m.fullName as username,
+    //     'Personal Training' as type,
+    //     ptb.startTime as time,
+    //     ptb.bookingStatus as status
+    //   FROM pt_bookings ptb
+    //   LEFT JOIN member m ON ptb.memberId = m.id
+    //   LEFT JOIN staff s ON ptb.trainerId = s.id
+    //   LEFT JOIN user u ON s.userId = u.id
+    //   WHERE m.adminId = ?
+    //   ORDER BY ptb.date DESC`,
+    //   [adminId]
+    // );
+   const [transactions] = await pool.query(
+  `SELECT 
+    ptb.date,
+    u.fullName as trainer,
+    m.fullName as username,
+    CASE 
+      WHEN ptb.bookingType = 'PT' THEN 'Personal Training' 
+      WHEN ptb.bookingType = 'GROUP' THEN 'Group Class' 
+      ELSE ptb.bookingType 
+    END as type,
+    ptb.startTime as time,
+    ptb.bookingStatus as status
+  FROM unified_bookings ptb
+  LEFT JOIN member m ON ptb.memberId = m.id
+  LEFT JOIN user u ON ptb.trainerId = u.id
+  WHERE m.adminId = ?
+  ORDER BY ptb.date DESC`,
+  [adminId]
+);
     // Format the data for the UI
     const formattedStats = {
       totalBookings: bookingStats[0].totalBookings || 0,
