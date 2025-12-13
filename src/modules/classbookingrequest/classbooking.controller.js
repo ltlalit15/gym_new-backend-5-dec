@@ -120,6 +120,38 @@ export const approveBooking = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+export const getBookingRequestsByMember = async (req, res) => {
+  try {
+    const { memberId } = req.params;
+
+    const [rows] = await pool.query(
+      `
+      SELECT 
+        br.*,
+        c.className,
+        IFNULL(a.fullName, 'Pending') AS adminName
+      FROM booking_requests br
+      LEFT JOIN classschedule c ON c.id = br.classId
+      LEFT JOIN user a ON a.id = br.adminId
+      WHERE br.memberId = ?
+      ORDER BY br.createdAt DESC
+      `,
+      [memberId]
+    );
+
+    res.json({
+      success: true,
+      requests: rows,
+    });
+
+  } catch (err) {
+    console.error("getBookingRequestsByMember Error:", err);
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
 
 
 
