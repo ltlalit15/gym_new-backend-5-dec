@@ -558,8 +558,8 @@ export const getAdminDashboardData = async (adminId) => {
   const statsQuery = `
     SELECT 
       -- Member count (roleId = 4)
-      (SELECT COUNT(*) FROM user 
-        WHERE roleId = 4 AND status = 'ACTIVE' AND adminId = ?) AS totalMembers,
+      (SELECT COUNT(*) FROM member 
+        WHERE status = 'ACTIVE' AND adminId = ?) AS totalMembers,
 
       -- Staff count
       (SELECT COUNT(*) FROM staff 
