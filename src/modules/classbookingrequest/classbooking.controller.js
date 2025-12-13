@@ -6,32 +6,41 @@ import { pool } from "../../config/db.js";
 
 
 export const createBookingRequest = async (req, res) => {
-  console.log("Booking Request Body:", req.body);
-
   try {
-    const { memberId, classId, branchId, price, adminId, upiId } = req.body;
-
-    if (!memberId || !classId || !branchId || !price) {
-      return res.status(400).json({
-        success: false,
-        message: "memberId, classId, branchId and price are required"
-      });
-    }
+    const {
+      memberId = null,
+      classId = null,
+      branchId = null,
+      price = null,
+      adminId = null,
+      upiId = null
+    } = req.body;
 
     await pool.query(
-      `INSERT INTO booking_requests (adminId, memberId, classId, branchId, price, upiId, status)
+      `INSERT INTO booking_requests 
+        (adminId, memberId, classId, branchId, price, upiId, status)
        VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
-      [adminId || null, memberId, classId, branchId, price, upiId || null]
+      [
+        adminId,
+        memberId,
+        classId,
+        branchId,
+        price,
+        upiId
+      ]
     );
 
     res.json({
       success: true,
-      message: "Booking request sent to admin",
+      message: "Booking request created "
     });
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: err.message });
+    res.status(500).json({
+      success: false,
+      message: "Failed to create booking request"
+    });
   }
 };
 

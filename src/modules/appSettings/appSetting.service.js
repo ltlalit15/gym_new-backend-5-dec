@@ -162,10 +162,11 @@ export const createAppSettingsService = async (adminId, data, file) => {
   /* CREATE SETTINGS */
   const [result] = await pool.query(
     `INSERT INTO app_settings 
-     (logo, description, url, memberPlanId, adminId)
+     (logo, gym_name,description, url, memberPlanId, adminId)
      VALUES (?, ?, ?, ?, ?)`,
     [
       logoUrl ?? null,
+      data.gym_name ?? null,
       data.description ?? null,
       data.url ?? null,
       validMemberPlanId,
@@ -218,7 +219,10 @@ export const updateAppSettingsService = async (id, adminId, data, file) => {
   ) {
     finalMemberPlanId = await validateMemberPlanId(data.memberPlanId);
   }
-
+const finalGymName =
+  data.gym_name !== undefined && data.gym_name !== ""
+    ? data.gym_name
+    : existing.gym_name;
   /* TEXT FIELDS */
   const finalDescription =
     data.description !== undefined && data.description !== ""
@@ -234,6 +238,7 @@ export const updateAppSettingsService = async (id, adminId, data, file) => {
     `UPDATE app_settings
      SET 
        logo = ?,
+       gym_name = ?,
        description = ?,
        url = ?,
        memberPlanId = ?,
@@ -241,6 +246,7 @@ export const updateAppSettingsService = async (id, adminId, data, file) => {
      WHERE id = ?`,
     [
       logoUrl,
+      finalGymName,
       finalDescription,
       finalUrl,
       finalMemberPlanId,

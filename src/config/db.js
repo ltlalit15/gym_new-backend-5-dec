@@ -87,3 +87,4 @@ pool.getConnection()
   .catch((err) => {
     console.error("❌ MySQL connection failed:", err.message);
   });
+  
