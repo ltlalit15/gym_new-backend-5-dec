@@ -21,18 +21,25 @@ export const createStaffService = async (data) => {
   } = data;
 
   // check duplicate email
-  const [exists] = await pool.query(
-    "SELECT id FROM user WHERE email = ?",
-    [email]
-  );
+  const [exists] = await pool.query("SELECT id FROM user WHERE email = ?", [
+    email,
+  ]);
   if (exists.length > 0) throw { status: 400, message: "Email already exists" };
 
   // insert staff user
   const [result] = await pool.query(
     `INSERT INTO user 
-      (fullName, email, phone, password, roleId, branchId) 
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [fullName, email, phone || null,password,  roleId, branchId || null]
+      (adminId,fullName, email, phone, password, roleId, branchId) 
+     VALUES (?,?, ?, ?, ?, ?, ?)`,
+    [
+      adminId,
+      fullName,
+      email,
+      phone || null,
+      password,
+      roleId,
+      branchId || null,
+    ]
   );
 
   const userId = result.insertId;
@@ -74,7 +81,6 @@ export const listStaffService = async (branchId) => {
   return rows;
 };
 
-
 /**************************************
  * STAFF DETAIL
  **************************************/
@@ -91,7 +97,6 @@ export const staffDetailService = async (id) => {
   if (rows.length === 0) throw { status: 404, message: "Staff not found" };
   return rows[0];
 };
-
 
 /**************************************
  * UPDATE STAFF
@@ -113,7 +118,14 @@ export const updateStaffService = async (staffId, data) => {
   const userFields = [];
   const userValues = [];
 
-  const userColumns = ["fullName", "email", "phone", "password", "roleId", "branchId"];
+  const userColumns = [
+    "fullName",
+    "email",
+    "phone",
+    "password",
+    "roleId",
+    "branchId",
+  ];
 
   for (const col of userColumns) {
     if (data[col] !== undefined) {
@@ -139,7 +151,14 @@ export const updateStaffService = async (staffId, data) => {
   const staffFields = [];
   const staffValues = [];
 
-  const staffColumns = ["adminId", "gender", "dateOfBirth", "joinDate", "exitDate", "profilePhoto"];
+  const staffColumns = [
+    "adminId",
+    "gender",
+    "dateOfBirth",
+    "joinDate",
+    "exitDate",
+    "profilePhoto",
+  ];
 
   for (const col of staffColumns) {
     if (data[col] !== undefined) {
@@ -159,8 +178,6 @@ export const updateStaffService = async (staffId, data) => {
   // 4️⃣ Return updated row
   return staffDetailService(staffId);
 };
-
-
 
 export const getAllStaffService = async () => {
   const sql = `
@@ -211,9 +228,6 @@ export const getTrainerByIdService = async (trainerId) => {
   return rows[0];
 };
 
-
-
-
 /**************************************
  * DELETE STAFF
  **************************************/
@@ -258,10 +272,9 @@ export const deleteStaffService = async (staffId) => {
   if (!sid) throw { status: 400, message: "Invalid staff id" };
 
   // 1️⃣ Check staff exists
-  const [rows] = await pool.query(
-    "SELECT userId FROM staff WHERE id = ?",
-    [sid]
-  );
+  const [rows] = await pool.query("SELECT userId FROM staff WHERE id = ?", [
+    sid,
+  ]);
 
   if (rows.length === 0) {
     throw { status: 404, message: "Staff not found" };
@@ -293,14 +306,11 @@ export const deleteStaffService = async (staffId) => {
     "alert",
     "housekeepingattendance",
     "housekeepingschedule",
-    "staffattendance"
+    "staffattendance",
   ];
 
   for (const table of nonFKTables) {
-    await pool.query(
-      `DELETE FROM ${table} WHERE staffId = ?`,
-      [sid]
-    );
+    await pool.query(`DELETE FROM ${table} WHERE staffId = ?`, [sid]);
   }
 
   // 4️⃣ SPECIAL CASE: remove staffId from shifts.staffIds (TEXT)
@@ -308,7 +318,7 @@ export const deleteStaffService = async (staffId) => {
     `UPDATE shifts 
      SET staffIds = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', staffIds, ','), CONCAT(',', ?, ','), ','))
      WHERE FIND_IN_SET(?, staffIds);`,
-     [sid, sid]
+    [sid, sid]
   );
 
   // 5️⃣ DELETE STAFF entry
@@ -319,9 +329,6 @@ export const deleteStaffService = async (staffId) => {
 
   return { message: "Staff deleted permanently" };
 };
-
-
-
 
 export const getAdminStaffService = async (adminId) => {
   const sql = `
