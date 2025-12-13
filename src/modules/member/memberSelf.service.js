@@ -217,7 +217,7 @@ export const updateMemberPersonalService = async (userId, data) => {
   const {
     first_name,
     last_name,
-    gender,
+    
     dateOfBirth,    // FIX: match payload
     email,
     phone,
@@ -252,7 +252,7 @@ export const updateMemberPersonalService = async (userId, data) => {
    **********************************************/
   const updatedEmail = email || userRow.email;
   const updatedPhone = phone || userRow.phone || "0000000000";
-  const updatedGender = gender || userRow.gender || null;
+ 
 
   const updatedDob = dateOfBirth
     ? new Date(dateOfBirth)
@@ -292,7 +292,7 @@ export const updateMemberPersonalService = async (userId, data) => {
         fullName = ?,
         email = ?,
         phone = ?,
-        gender = ?,
+       
         dateOfBirth = ?,
         address = ?
       WHERE id = ?
@@ -301,7 +301,7 @@ export const updateMemberPersonalService = async (userId, data) => {
       fullName,
       updatedEmail,
       updatedPhone,
-      updatedGender,
+      
       updatedDob,
       address,
       userId

@@ -5,10 +5,6 @@ import { pool } from "../../config/db.js";
  **************************************/
 import bcrypt from "bcryptjs";
 
-
-
-
-
 export const createMemberService = async (data) => {
   const {
     fullName,
@@ -24,11 +20,14 @@ export const createMemberService = async (data) => {
     gender,
     interestedIn,
     address,
-    adminId
+    adminId,
   } = data;
 
   if (!fullName || !email || !password) {
-    throw { status: 400, message: "fullName, email, and password are required" };
+    throw {
+      status: 400,
+      message: "fullName, email, and password are required",
+    };
   }
 
   // HASH PASSWORD
@@ -36,8 +35,11 @@ export const createMemberService = async (data) => {
 
   // Check duplicate email
   const [u1] = await pool.query("SELECT id FROM user WHERE email = ?", [email]);
-  const [m1] = await pool.query("SELECT id FROM member WHERE email = ?", [email]);
-  if (u1.length > 0 || m1.length > 0) throw { status: 400, message: "Email already exists" };
+  const [m1] = await pool.query("SELECT id FROM member WHERE email = ?", [
+    email,
+  ]);
+  if (u1.length > 0 || m1.length > 0)
+    throw { status: 400, message: "Email already exists" };
 
   // Membership Start Date
   const startDate = membershipFrom ? new Date(membershipFrom) : new Date();
@@ -45,8 +47,12 @@ export const createMemberService = async (data) => {
 
   // Membership End Date (Based on Plan Duration)
   if (planId) {
-    const [planRows] = await pool.query("SELECT * FROM memberplan WHERE id = ?", [planId]);
-    if (!planRows.length) throw { status: 404, message: "Invalid plan selected" };
+    const [planRows] = await pool.query(
+      "SELECT * FROM memberplan WHERE id = ?",
+      [planId]
+    );
+    if (!planRows.length)
+      throw { status: 404, message: "Invalid plan selected" };
 
     const plan = planRows[0];
 
@@ -67,9 +73,9 @@ export const createMemberService = async (data) => {
       email,
       hashedPassword,
       phone || null,
-      4,                  // roleId = 3 = MEMBER
+      4, // roleId = 3 = MEMBER
       branchId || null,
-      address || null
+      address || null,
     ]
   );
 
@@ -100,7 +106,7 @@ export const createMemberService = async (data) => {
       gender || null,
       interestedIn || null,
       address || null,
-      adminId || null
+      adminId || null,
     ]
   );
 
@@ -113,27 +119,24 @@ export const createMemberService = async (data) => {
     branchId,
     membershipFrom: startDate,
     membershipTo: endDate,
-    status: "Active"
+    status: "Active",
   };
 };
-
 
 export const renewMembershipService = async (memberId, body) => {
   const { planId, paymentMode, amountPaid, adminId } = body;
 
   // 1️⃣ Member check
-  const [[member]] = await pool.query(
-    "SELECT * FROM member WHERE id = ?",
-    [memberId]
-  );
+  const [[member]] = await pool.query("SELECT * FROM member WHERE id = ?", [
+    memberId,
+  ]);
 
   if (!member) throw { status: 404, message: "Member not found" };
 
   // 2️⃣ Fetch plan
-  const [[plan]] = await pool.query(
-    "SELECT * FROM memberplan WHERE id = ?",
-    [planId]
-  );
+  const [[plan]] = await pool.query("SELECT * FROM memberplan WHERE id = ?", [
+    planId,
+  ]);
 
   if (!plan) throw { status: 404, message: "Invalid Plan" };
 
@@ -178,11 +181,15 @@ export const renewMembershipService = async (memberId, body) => {
   };
 };
 
-
 /**************************************
  * LIST MEMBERS
  **************************************/
-export const listMembersService = async (branchId, page = 1, limit = 20, search = "") => {
+export const listMembersService = async (
+  branchId,
+  page = 1,
+  limit = 20,
+  search = ""
+) => {
   const offset = (page - 1) * limit;
   let query = `
     SELECT * FROM member
@@ -223,19 +230,15 @@ export const listMembersService = async (branchId, page = 1, limit = 20, search 
  * MEMBER DETAIL
  **************************************/
 export const memberDetailService = async (id) => {
-  const [rows] = await pool.query(
-    "SELECT * FROM member WHERE id = ?",
-    [id]
-  );
+  const [rows] = await pool.query("SELECT * FROM member WHERE id = ?", [id]);
 
   if (rows.length === 0) throw { status: 404, message: "Member not found" };
 
   const member = rows[0];
-  delete member.password;   // 👈 Remove password from response
+  delete member.password; // 👈 Remove password from response
 
   return member;
 };
-
 
 /**************************************
  * UPDATE MEMBER
@@ -255,7 +258,7 @@ export const memberDetailService = async (id) => {
 //     email = existing.email,
 //     phone = existing.phone,
 //     password,
-    
+
 //     planId,
 //     membershipFrom,
 //     dateOfBirth,
@@ -334,12 +337,12 @@ export const memberDetailService = async (id) => {
 
 //   // 7️⃣ Update user table also (important)
 //   await pool.query(
-//     `UPDATE user SET 
-//       fullName = ?, 
-//       email = ?, 
-//       phone = ?, 
-//       password = ?, 
-//       branchId = ?, 
+//     `UPDATE user SET
+//       fullName = ?,
+//       email = ?,
+//       phone = ?,
+//       password = ?,
+//       branchId = ?,
 //       address = ?
 //      WHERE id = ?`,
 //     [
@@ -358,10 +361,9 @@ export const memberDetailService = async (id) => {
 
 export const updateMemberService = async (id, data) => {
   // 1️⃣ Fetch existing member
-  const [[existing]] = await pool.query(
-    "SELECT * FROM member WHERE id = ?",
-    [id]
-  );
+  const [[existing]] = await pool.query("SELECT * FROM member WHERE id = ?", [
+    id,
+  ]);
 
   if (!existing) throw { status: 404, message: "Member not found" };
 
@@ -381,7 +383,7 @@ export const updateMemberService = async (id, data) => {
     interestedIn = existing.interestedIn,
     address = existing.address,
     adminId = existing.adminId,
-    status = existing.status      // ⭐ FIXED: fallback added
+    status = existing.status, // ⭐ FIXED: fallback added
   } = data;
 
   // 3️⃣ Hash password only if updating
@@ -396,8 +398,12 @@ export const updateMemberService = async (id, data) => {
 
   // 5️⃣ Recalculate membershipTo if plan is changed
   if (planId && membershipFrom) {
-    const [planRows] = await pool.query("SELECT * FROM memberplan WHERE id = ?", [planId]);
-    if (!planRows.length) throw { status: 404, message: "Invalid plan selected" };
+    const [planRows] = await pool.query(
+      "SELECT * FROM memberplan WHERE id = ?",
+      [planId]
+    );
+    if (!planRows.length)
+      throw { status: 404, message: "Invalid plan selected" };
 
     const plan = planRows[0];
     endDate = new Date(startDate);
@@ -441,7 +447,7 @@ export const updateMemberService = async (id, data) => {
       address,
       adminId,
       status,
-      id
+      id,
     ]
   );
 
@@ -463,8 +469,8 @@ export const updateMemberService = async (id, data) => {
       hashedPassword,
       branchId,
       address,
-      status,           // ⭐ syncing status
-      existing.userId
+      status, // ⭐ syncing status
+      existing.userId,
     ]
   );
 
@@ -475,10 +481,9 @@ export const updateMemberService = async (id, data) => {
  * DELETE (SOFT DELETE)
  **************************************/
 export const deleteMemberService = async (id) => {
-  const [rows] = await pool.query(
-    "SELECT userId FROM member WHERE id = ?",
-    [id]
-  );
+  const [rows] = await pool.query("SELECT userId FROM member WHERE id = ?", [
+    id,
+  ]);
 
   if (rows.length === 0) {
     throw { status: 404, message: "Member not found" };
@@ -504,12 +509,7 @@ export const deleteMemberService = async (id) => {
   return { message: "Member deleted permanently" };
 };
 
-
-
-
-
 // member.service.js
-
 
 // ===== GET MEMBERS BY ADMIN ID =====
 export const getMembersByAdminIdService = async (adminId) => {
@@ -540,7 +540,6 @@ export const getMembersByAdminIdService = async (adminId) => {
   return rows;
 };
 
-
 export const getRenewalPreviewService = async (memberId) => {
   // 1) Fetch member with required fields
   const [memberRows] = await pool.query(
@@ -561,8 +560,12 @@ export const getRenewalPreviewService = async (memberId) => {
   // Convert to ISO-safe return
   const safeMember = {
     ...member,
-    membershipFrom: member.membershipFrom ? new Date(member.membershipFrom).toISOString() : null,
-    membershipTo: member.membershipTo ? new Date(member.membershipTo).toISOString() : null,
+    membershipFrom: member.membershipFrom
+      ? new Date(member.membershipFrom).toISOString()
+      : null,
+    membershipTo: member.membershipTo
+      ? new Date(member.membershipTo).toISOString()
+      : null,
   };
 
   // 2) Fetch plans
@@ -574,7 +577,9 @@ export const getRenewalPreviewService = async (memberId) => {
   );
 
   // 3) Preview Calculation
-  const basePreviewStart = member.membershipTo ? new Date(member.membershipTo) : new Date();
+  const basePreviewStart = member.membershipTo
+    ? new Date(member.membershipTo)
+    : new Date();
   basePreviewStart.setDate(basePreviewStart.getDate() + 1);
 
   const plans = plansRaw.map((p) => {
@@ -593,8 +598,7 @@ export const getRenewalPreviewService = async (memberId) => {
   });
 
   return { member: safeMember, plans };
-}
-
+};
 
 export const listPTBookingsService = async (branchId) => {
   const [rows] = await pool.query(
@@ -628,9 +632,8 @@ export const listPTBookingsService = async (branchId) => {
     [branchId]
   );
 
-  return rows.map(x => ({
+  return rows.map((x) => ({
     ...x,
-    time: `${x.startTime} - ${x.endTime}`
+    time: `${x.startTime} - ${x.endTime}`,
   }));
 };
-
