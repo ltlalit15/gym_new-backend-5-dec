@@ -19,7 +19,7 @@ router.post(
 
 // ➤ List sessions (Superadmin + Admin + Staff)
 router.get(
-  "/:branchId",
+  "/:adminId",
   // verifyToken(["Superadmin", "Admin", "Staff"]),
   listSessions
 );

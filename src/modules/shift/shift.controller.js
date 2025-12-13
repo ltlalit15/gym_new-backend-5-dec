@@ -14,22 +14,32 @@ export const createShift = async (req, res) => {
   try {
     const createdById = req.user?.id || 7;
 
-    let { staffIds, branchId, shiftDate, startTime, endTime, shiftType, description } = req.body;
+    let {
+      staffIds,
+      branchId = null,        // ✅ OPTIONAL NOW
+      shiftDate,
+      startTime,
+      endTime,
+      shiftType,
+      description
+    } = req.body;
 
-    if (!staffIds || !branchId || !shiftDate || !startTime || !endTime || !shiftType) {
+    /* REQUIRED VALIDATIONS (branchId REMOVED) */
+    if (!staffIds || !shiftDate || !startTime || !endTime || !shiftType) {
       return res.status(400).json({
         success: false,
         message: "Please fill all required fields"
       });
     }
 
+    /* STAFF IDS */
     if (Array.isArray(staffIds)) {
       staffIds = staffIds.join(",");
     }
 
     const shift = await createShiftService({
       staffIds,
-      branchId,
+      branchId,              // ✅ can be null
       shiftDate,
       startTime,
       endTime,
@@ -45,9 +55,13 @@ export const createShift = async (req, res) => {
     });
 
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
+
 
 export const getAllShifts = async (req, res) => {
   const shifts = await getAllShiftsService();

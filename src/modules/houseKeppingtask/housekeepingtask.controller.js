@@ -15,9 +15,9 @@ import {
 export const createTask = async (req, res) => {
   try {
     const createdById = req.user?.id || 4; // admin id
-    const { assignedTo, branchId, taskTitle, dueDate, priority , description} = req.body;
+    const { assignedTo, branchId=null, taskTitle, dueDate, priority , description} = req.body;
 
-    if (!assignedTo || !branchId || !taskTitle || !dueDate || !priority || !description) {
+    if (!assignedTo || !taskTitle || !dueDate || !priority || !description) {
       return res.status(400).json({
         success: false,
         message: "Please fill all fields"

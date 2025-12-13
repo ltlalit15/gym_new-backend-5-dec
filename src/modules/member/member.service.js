@@ -59,10 +59,10 @@ export const createMemberService = async (data) => {
   // ---------------------------------------------------
   const [userResult] = await pool.query(
     `INSERT INTO user 
-      (fullName, email, password, phone, roleId, branchId, address, 
+      (adminId,fullName, email, password, phone, roleId, branchId, address, 
        description, duration, gymName, planName, price, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, 'Active')`,
-    [
+     VALUES (?,?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, 'Active')`,
+    [adminId,
       fullName,
       email,
       hashedPassword,

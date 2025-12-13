@@ -72,7 +72,47 @@ export const getShiftByStaffIdService = async (staffId) => {
 
 
 
+// export const updateShiftService = async (id, data) => {
+//   const {
+//     staffIds,
+//     branchId,
+//     shiftDate,
+//     startTime,
+//     endTime,
+//     shiftType,
+//     description,
+//     status,
+//   } = data;
+//   await pool.query(
+//     `UPDATE shifts SET staffIds=?, branchId=?, shiftDate=?, startTime=?, endTime=?, shiftType=?, description=?, status=? WHERE id=?`,
+//     [
+//       staffIds,
+//       branchId,
+//       shiftDate,
+//       startTime,
+//       endTime,
+//       shiftType,
+//       description,
+//       status,
+//       id,
+//     ]
+//   );
+//   const [rows] = await pool.query(`SELECT * FROM shifts WHERE id = ?`, [id]);
+//   return rows[0];
+// };
+
 export const updateShiftService = async (id, data) => {
+  const [existingRows] = await pool.query(
+    `SELECT * FROM shifts WHERE id = ?`,
+    [id]
+  );
+
+  if (existingRows.length === 0) {
+    throw { status: 404, message: "Shift not found" };
+  }
+
+  const existing = existingRows[0];
+
   const {
     staffIds,
     branchId,
@@ -83,21 +123,61 @@ export const updateShiftService = async (id, data) => {
     description,
     status,
   } = data;
+
+  /* KEEP OLD VALUE IF NOT SENT */
+  const finalStaffIds =
+    staffIds !== undefined ? staffIds : existing.staffIds;
+
+  const finalBranchId =
+    branchId !== undefined ? branchId : existing.branchId;
+
+  const finalShiftDate =
+    shiftDate !== undefined ? shiftDate : existing.shiftDate;
+
+  const finalStartTime =
+    startTime !== undefined ? startTime : existing.startTime;
+
+  const finalEndTime =
+    endTime !== undefined ? endTime : existing.endTime;
+
+  const finalShiftType =
+    shiftType !== undefined ? shiftType : existing.shiftType;
+
+  const finalDescription =
+    description !== undefined ? description : existing.description;
+
+  const finalStatus =
+    status !== undefined ? status : existing.status;
+
   await pool.query(
-    `UPDATE shifts SET staffIds=?, branchId=?, shiftDate=?, startTime=?, endTime=?, shiftType=?, description=?, status=? WHERE id=?`,
+    `UPDATE shifts
+     SET staffIds = ?,
+         branchId = ?,
+         shiftDate = ?,
+         startTime = ?,
+         endTime = ?,
+         shiftType = ?,
+         description = ?,
+         status = ?
+     WHERE id = ?`,
     [
-      staffIds,
-      branchId,
-      shiftDate,
-      startTime,
-      endTime,
-      shiftType,
-      description,
-      status,
+      finalStaffIds,
+      finalBranchId,
+      finalShiftDate,
+      finalStartTime,
+      finalEndTime,
+      finalShiftType,
+      finalDescription,
+      finalStatus,
       id,
     ]
   );
-  const [rows] = await pool.query(`SELECT * FROM shifts WHERE id = ?`, [id]);
+
+  const [rows] = await pool.query(
+    `SELECT * FROM shifts WHERE id = ?`,
+    [id]
+  );
+
   return rows[0];
 };
 

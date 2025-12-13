@@ -557,10 +557,6 @@ export const getAdminDashboardData = async (adminId) => {
   // 5 CARDS
   const statsQuery = `
     SELECT 
-      -- Branch count
-      (SELECT COUNT(*) FROM branch 
-        WHERE status = 'ACTIVE' AND adminId = ?) AS totalBranches,
-
       -- Member count (roleId = 4)
       (SELECT COUNT(*) FROM user 
         WHERE roleId = 4 AND status = 'ACTIVE' AND adminId = ?) AS totalMembers,

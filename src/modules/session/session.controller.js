@@ -10,19 +10,29 @@ import {
 export const createSession = async (req, res, next) => {
   try {
     const r = await createSessionService(req.body);
-    res.json({ success: true, message: "Session added successfully", session: r });
+    res.json({
+      success: true,
+      message: "Session added successfully",
+      session: r
+    });
   } catch (err) {
     next(err);
   }
 };
 
+
 // ➤ List (with search)
 export const listSessions = async (req, res, next) => {
   try {
-    const branchId = Number(req.params.branchId);
+    const adminId = Number(req.params.adminId);
     const search = req.query.search || "";
-    const r = await listSessionsService(branchId, search);
-    res.json({ success: true, sessions: r });
+
+    const r = await listSessionsService(adminId, search);
+
+    res.json({
+      success: true,
+      sessions: r
+    });
   } catch (err) {
     next(err);
   }

@@ -87,6 +87,7 @@ export const listSchedules = async (req, res, next) => {
 export const bookClass = async (req, res, next) => {
   try {
     const { memberId, scheduleId } = req.body;
+  
 
     if (!memberId || !scheduleId) {
       return res.status(400).json({

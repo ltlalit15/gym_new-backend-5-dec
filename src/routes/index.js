@@ -44,7 +44,7 @@ import memberSelfRoutes from "../modules/member/memberSelf.routes.js";
 
 import personalTrainerDashboardRoutes from "../modules/dashboard/personalTrainerDashboard.routes.js";
 import reportsRoutes from "../modules/reports/reports.routes.js"
-
+import adminSettingsRoutes from "../modules/appSettings/appSetting.routes.js"
 const router = Router();
 
 // test route
@@ -87,5 +87,6 @@ router.use("/admin-staff-attendance", adminStaffAttendanceRoutes);
 router.use("/member-self", memberSelfRoutes);
 router.use("/reports",reportsRoutes);
 router.use("/booking", bookingRoutes);
+router.use("/adminSettings", adminSettingsRoutes);
 
 export default router;

@@ -20,9 +20,17 @@ import morgan from "morgan";
 import { ENV } from "./config/env.js";
 import router from "./routes/index.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
+import fileUpload from "express-fileupload";
 
 
 const app = express();
+app.use(
+  fileUpload({
+    useTempFiles: true,
+    tempFileDir: "/tmp/",
+    limits: { fileSize: 50 * 1024 * 1024 }, // optional 50MB limit
+  })
+);
 
 // middlewares
 
