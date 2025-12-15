@@ -11,7 +11,6 @@ export const createStaffService = async (data) => {
     phone,
     password,
     roleId,
-    branchId,
     adminId,
     gender,
     dateOfBirth,
@@ -21,16 +20,18 @@ export const createStaffService = async (data) => {
   } = data;
 
   // check duplicate email
-  const [exists] = await pool.query("SELECT id FROM user WHERE email = ?", [
-    email,
-  ]);
-  if (exists.length > 0) throw { status: 400, message: "Email already exists" };
+  const [exists] = await pool.query(
+    "SELECT id FROM user WHERE email = ?",
+    [email]
+  );
+  if (exists.length > 0)
+    throw { status: 400, message: "Email already exists" };
 
-  // insert staff user
+  // insert user (staff)
   const [result] = await pool.query(
     `INSERT INTO user 
-      (adminId,fullName, email, phone, password, roleId, branchId) 
-     VALUES (?,?, ?, ?, ?, ?, ?)`,
+     (adminId, fullName, email, phone, password, roleId) 
+     VALUES (?, ?, ?, ?, ?, ?)`,
     [
       adminId,
       fullName,
@@ -38,7 +39,6 @@ export const createStaffService = async (data) => {
       phone || null,
       password,
       roleId,
-      branchId || null,
     ]
   );
 
@@ -47,12 +47,11 @@ export const createStaffService = async (data) => {
   // insert staff details
   await pool.query(
     `INSERT INTO staff 
-      (userId, adminId, branchId, gender, dateOfBirth, joinDate, exitDate, profilePhoto) 
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+     (userId, adminId, gender, dateOfBirth, joinDate, exitDate, profilePhoto) 
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [
       userId,
-      adminId || null,
-      branchId || null,
+      adminId,
       gender || null,
       dateOfBirth ? new Date(dateOfBirth) : null,
       joinDate ? new Date(joinDate) : null,
@@ -61,48 +60,91 @@ export const createStaffService = async (data) => {
     ]
   );
 
-  return { id: userId, ...data };
+  return {
+    id: userId,
+    fullName,
+    email,
+    roleId,
+    adminId,
+    gender,
+    dateOfBirth,
+    joinDate,
+    exitDate,
+    profilePhoto,
+
+  };
 };
+
 
 /**************************************
  * LIST STAFF
  **************************************/
-export const listStaffService = async (branchId) => {
+export const listStaffService = async (adminId) => {
   const sql = `
     SELECT 
-      u.id, u.fullName, u.email, u.phone, u.roleId, u.branchId,
-      s.adminId, s.gender, s.dateOfBirth, s.joinDate, s.exitDate, s.profilePhoto
-    FROM user u
-    LEFT JOIN staff s ON u.id = s.userId
-    WHERE u.roleId = 4 AND u.branchId = ?
-    ORDER BY u.id DESC
+      s.id AS staffId,
+      u.id AS userId,
+      u.fullName,
+      u.email,
+      u.phone,
+      u.roleId,
+      s.adminId,
+      s.gender,
+      s.dateOfBirth,
+      s.joinDate,
+      s.exitDate,
+      s.profilePhoto,
+      u.status
+    FROM staff s
+    JOIN user u ON u.id = s.userId
+    WHERE s.adminId = ?
+    ORDER BY s.id DESC
   `;
-  const [rows] = await pool.query(sql, [branchId]);
+
+  const [rows] = await pool.query(sql, [adminId]);
   return rows;
 };
+
 
 /**************************************
  * STAFF DETAIL
  **************************************/
-export const staffDetailService = async (id) => {
+export const staffDetailService = async (staffId) => {
   const sql = `
     SELECT 
-      u.id, u.fullName, u.email, u.phone, u.roleId, u.branchId,
-      s.adminId, s.gender, s.dateOfBirth, s.joinDate, s.exitDate, s.profilePhoto
-    FROM user u
-    LEFT JOIN staff s ON u.id = s.userId
+      s.id AS staffId,
+      u.id AS userId,
+      u.fullName,
+      u.email,
+      u.phone,
+      u.roleId,
+      s.adminId,
+      s.gender,
+      s.dateOfBirth,
+      s.joinDate,
+      s.exitDate,
+      s.profilePhoto,
+      u.status
+    FROM staff s
+    JOIN user u ON u.id = s.userId
     WHERE s.id = ?
   `;
-  const [rows] = await pool.query(sql, [id]);
-  if (rows.length === 0) throw { status: 404, message: "Staff not found" };
+
+  const [rows] = await pool.query(sql, [staffId]);
+
+  if (rows.length === 0) {
+    throw { status: 404, message: "Staff not found" };
+  }
+
   return rows[0];
 };
+
 
 /**************************************
  * UPDATE STAFF
  **************************************/
 export const updateStaffService = async (staffId, data) => {
-  // 1️⃣ Fetch userId from staff table
+  // get userId
   const [staffRows] = await pool.query(
     "SELECT userId FROM staff WHERE id = ?",
     [staffId]
@@ -114,28 +156,16 @@ export const updateStaffService = async (staffId, data) => {
 
   const userId = staffRows[0].userId;
 
-  // 2️⃣ Update USER table dynamically
+  // update USER
   const userFields = [];
   const userValues = [];
 
-  const userColumns = [
-    "fullName",
-    "email",
-    "phone",
-    "password",
-    "roleId",
-    "branchId",
-  ];
+  const userColumns = ["fullName", "email", "phone", "password", "roleId"];
 
   for (const col of userColumns) {
     if (data[col] !== undefined) {
-      if (col === "password") {
-        userFields.push(`password = ?`);
-        userValues.push(data[col]);
-      } else {
-        userFields.push(`${col} = ?`);
-        userValues.push(data[col]);
-      }
+      userFields.push(`${col} = ?`);
+      userValues.push(data[col]);
     }
   }
 
@@ -147,7 +177,7 @@ export const updateStaffService = async (staffId, data) => {
     );
   }
 
-  // 3️⃣ Update STAFF table dynamically
+  // update STAFF
   const staffFields = [];
   const staffValues = [];
 
@@ -175,9 +205,9 @@ export const updateStaffService = async (staffId, data) => {
     );
   }
 
-  // 4️⃣ Return updated row
   return staffDetailService(staffId);
 };
+
 
 export const getAllStaffService = async () => {
   const sql = `
@@ -188,7 +218,6 @@ export const getAllStaffService = async () => {
       u.email,
       u.phone,
       u.roleId,
-      u.branchId,
       s.adminId,
       s.gender,
       s.dateOfBirth,
@@ -204,6 +233,7 @@ export const getAllStaffService = async () => {
   const [rows] = await pool.query(sql);
   return rows;
 };
+
 
 export const getTrainerByIdService = async (trainerId) => {
   const sql = `
@@ -266,69 +296,96 @@ export const getTrainerByIdService = async (trainerId) => {
 
 //   return { message: "Staff deleted permanently" };
 // };
-
 export const deleteStaffService = async (staffId) => {
   const sid = Number(staffId);
-  if (!sid) throw { status: 400, message: "Invalid staff id" };
+  if (!sid) {
+    throw { status: 400, message: "Invalid staff id" };
+  }
 
-  // 1️⃣ Check staff exists
-  const [rows] = await pool.query("SELECT userId FROM staff WHERE id = ?", [
-    sid,
-  ]);
+  /* ----------------------------------------------------
+     1️⃣ FETCH STAFF ROW (DEBUG INCLUDED)
+  ---------------------------------------------------- */
+  const [staffRows] = await pool.query(
+    "SELECT id, userId FROM staff WHERE id = ?",
+    [sid]
+  );
 
-  if (rows.length === 0) {
+  console.log("DELETE STAFF → staffId:", sid);
+  console.log("STAFF ROW FOUND:", staffRows);
+
+  if (staffRows.length === 0) {
     throw { status: 404, message: "Staff not found" };
   }
 
-  const userId = rows[0].userId;
+  const userId = staffRows[0].userId;
 
-  // 2️⃣ DELETE FROM ALL FOREIGN-KEY CHILD TABLES
-  // const fkTables = [
-  //   { table: "attendance", column: "staffId" },
-  //   { table: "dutyroster", column: "staffId" },
-  //   { table: "qrcheck", column: "staffId" },
-  //   { table: "salary", column: "staffId" },
-  //   { table: "shift", column: "staffId" },
-  //   { table: "swaprequest", column: "requesterId" },
-  //   { table: "swaprequest", column: "targetId" }
-  // ];
+  /* ----------------------------------------------------
+     2️⃣ DELETE CLASSES ASSIGNED TO THIS TRAINER
+     (trainerId → user.id, NOT NULL SAFE)
+  ---------------------------------------------------- */
+  const [classResult] = await pool.query(
+    "DELETE FROM classschedule WHERE trainerId = ?",
+    [userId]
+  );
 
-  // for (const fk of fkTables) {
-  //   await pool.query(
-  //     `DELETE FROM ${fk.table} WHERE ${fk.column} = ?`,
-  //     [sid]
-  //   );
-  // }
+  console.log("CLASSES DELETED:", classResult.affectedRows);
+
+  /* ----------------------------------------------------
+     3️⃣ DELETE STAFF RELATED DATA (FK TABLES)
+  ---------------------------------------------------- */
   await pool.query("DELETE FROM salary WHERE staffId = ?", [sid]);
 
-  // 3️⃣ DELETE FROM NON-FK TABLES
-  const nonFKTables = [
+  const relatedTables = [
     "alert",
     "housekeepingattendance",
     "housekeepingschedule",
     "staffattendance",
   ];
 
-  for (const table of nonFKTables) {
-    await pool.query(`DELETE FROM ${table} WHERE staffId = ?`, [sid]);
+  for (const table of relatedTables) {
+    await pool.query(
+      `DELETE FROM ${table} WHERE staffId = ?`,
+      [sid]
+    );
   }
 
-  // 4️⃣ SPECIAL CASE: remove staffId from shifts.staffIds (TEXT)
+  /* ----------------------------------------------------
+     4️⃣ CLEAN shifts.staffIds (CSV TEXT FIELD)
+  ---------------------------------------------------- */
   await pool.query(
-    `UPDATE shifts 
-     SET staffIds = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', staffIds, ','), CONCAT(',', ?, ','), ','))
-     WHERE FIND_IN_SET(?, staffIds);`,
+    `UPDATE shifts
+     SET staffIds = TRIM(BOTH ',' FROM
+       REPLACE(CONCAT(',', staffIds, ','), CONCAT(',', ?, ','), ',')
+     )
+     WHERE FIND_IN_SET(?, staffIds)`,
     [sid, sid]
   );
 
-  // 5️⃣ DELETE STAFF entry
-  await pool.query("DELETE FROM staff WHERE id = ?", [sid]);
+  /* ----------------------------------------------------
+     5️⃣ DELETE STAFF ROW
+  ---------------------------------------------------- */
+  await pool.query(
+    "DELETE FROM staff WHERE id = ?",
+    [sid]
+  );
 
-  // 6️⃣ DELETE linked user
-  await pool.query("DELETE FROM user WHERE id = ?", [userId]);
+  /* ----------------------------------------------------
+     6️⃣ DELETE USER ROW
+  ---------------------------------------------------- */
+  await pool.query(
+    "DELETE FROM user WHERE id = ?",
+    [userId]
+  );
 
-  return { message: "Staff deleted permanently" };
+  return {
+    message: "Staff & trainer deleted successfully",
+    staffId: sid,
+    userId,
+  };
 };
+
+
+
 
 export const getAdminStaffService = async (adminId) => {
   const sql = `
