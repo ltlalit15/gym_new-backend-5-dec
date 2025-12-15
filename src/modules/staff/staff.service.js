@@ -107,6 +107,36 @@ export const createStaffService = async (data) => {
 /**************************************
  * LIST STAFF
  **************************************/
+// export const listStaffService = async (adminId) => {
+//   const sql = `
+//     SELECT 
+//       s.id AS staffId,
+//       u.id AS userId,
+//       u.fullName,
+//       u.email,
+//       u.phone,
+//       u.roleId,
+//       u.branchId,
+//       s.adminId,
+//       s.gender,
+//       s.dateOfBirth,
+//       s.joinDate,
+//       s.exitDate,
+//       s.profilePhoto,
+//       u.status
+//     FROM staff s
+//     JOIN user u ON u.id = s.userId
+//     WHERE s.adminId = ?
+//       AND s.branchId = (
+//         SELECT branchId FROM user WHERE id = ?
+//       )
+//     ORDER BY s.id DESC
+//   `;
+
+//   const [rows] = await pool.query(sql, [adminId, adminId]);
+//   return rows;
+// };
+
 export const listStaffService = async (adminId) => {
   const sql = `
     SELECT 
@@ -127,17 +157,12 @@ export const listStaffService = async (adminId) => {
     FROM staff s
     JOIN user u ON u.id = s.userId
     WHERE s.adminId = ?
-      AND s.branchId = (
-        SELECT branchId FROM user WHERE id = ?
-      )
     ORDER BY s.id DESC
   `;
 
-  const [rows] = await pool.query(sql, [adminId, adminId]);
+  const [rows] = await pool.query(sql, [adminId]);
   return rows;
-};
-
-
+}
 
 /**************************************
  * STAFF DETAIL

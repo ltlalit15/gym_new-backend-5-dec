@@ -969,10 +969,10 @@ export const createUnifiedBooking = async (req, res) => {
     } = req.body;
 
     // BASIC VALIDATION
-    if (!memberId || !date || !startTime || !endTime || !branchId || !bookingType) {
+    if (!memberId || !date || !startTime || !endTime || !bookingType) {
       return res.status(400).json({
         success: false,
-        message: "memberId, date, startTime, endTime, bookingType, branchId are required"
+        message: "memberId, date, startTime, endTime, bookingType, are required"
       });
     }
 
