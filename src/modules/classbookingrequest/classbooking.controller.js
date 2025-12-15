@@ -48,30 +48,31 @@ export const createBookingRequest = async (req, res) => {
 /* --------------------------------------------------------
    GET ALL BOOKING REQUESTS (ADMIN)
 -------------------------------------------------------- */
-// export const getAllBookingRequests = async (req, res) => {
-//   try {
-//    const [rows] = await pool.query(`
-//   SELECT 
-//     br.*,
-//     m.fullName AS memberName,
-//     c.className,
-//     IFNULL(a.fullName, 'Pending') AS adminName
-//   FROM booking_requests br
-//   LEFT JOIN member m ON m.id = br.memberId
-//   LEFT JOIN classschedule c ON c.id = br.classId
-//   LEFT JOIN user a ON a.id = br.adminId
-//   LEFT JOIN branch b ON b.id = br.branchId
-//   ORDER BY br.createdAt DESC
-// `);
+export const getAllBookingRequests = async (req, res) => {
+  try {
+   const [rows] = await pool.query(`
+  SELECT 
+    br.*,
+    m.fullName AS memberName,
+    c.className,
+    IFNULL(a.fullName, 'Pending') AS adminName
+  FROM booking_requests br
+  LEFT JOIN member m ON m.id = br.memberId
+  LEFT JOIN classschedule c ON c.id = br.classId
+  LEFT JOIN user a ON a.id = br.adminId
+  LEFT JOIN branch b ON b.id = br.branchId
+  ORDER BY br.createdAt DESC
+`);
 
 
-//     res.json({ success: true, requests: rows });
+    res.json({ success: true, requests: rows });
 
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ success: false, message: err.message });
-//   }
-// };
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 
 // export const getAllBookingRequests = async (req, res, next) => {
 //   try {
@@ -88,15 +89,38 @@ export const createBookingRequest = async (req, res) => {
 //       `
 //       SELECT 
 //         br.*,
-//         m.fullName AS memberName,
+
+//         u.fullName AS memberName,        -- ✅ from user table
+//         u.email AS memberEmail,
+//         u.phone AS memberPhone,
+
 //         c.className,
+
 //         IFNULL(a.fullName, 'Pending') AS adminName,
 //         b.name AS branchName
+
 //       FROM booking_requests br
-//       LEFT JOIN member m ON m.id = br.memberId
-//       LEFT JOIN classschedule c ON c.id = br.classId
-//       LEFT JOIN user a ON a.id = br.adminId
-//       LEFT JOIN branch b ON b.id = br.branchId
+
+//       -- booking → member
+//       LEFT JOIN member m 
+//         ON m.id = br.memberId
+
+//       -- member → user (MAIN FIX)
+//       LEFT JOIN user u 
+//         ON u.id = m.userId
+
+//       -- class
+//       LEFT JOIN classschedule c 
+//         ON c.id = br.classId
+
+//       -- admin user
+//       LEFT JOIN user a 
+//         ON a.id = br.adminId
+
+//       -- branch
+//       LEFT JOIN branch b 
+//         ON b.id = br.branchId
+
 //       WHERE br.adminId = ?
 //       ORDER BY br.createdAt DESC
 //       `,
@@ -112,68 +136,6 @@ export const createBookingRequest = async (req, res) => {
 //     next(err);
 //   }
 // };
-export const getAllBookingRequests = async (req, res, next) => {
-  try {
-    const adminId = Number(req.query.adminId);
-
-    if (!adminId) {
-      return res.status(400).json({
-        success: false,
-        message: "adminId is required"
-      });
-    }
-
-    const [rows] = await pool.query(
-      `
-      SELECT 
-        br.*,
-
-        u.fullName AS memberName,        -- ✅ from user table
-        u.email AS memberEmail,
-        u.phone AS memberPhone,
-
-        c.className,
-
-        IFNULL(a.fullName, 'Pending') AS adminName,
-        b.name AS branchName
-
-      FROM booking_requests br
-
-      -- booking → member
-      LEFT JOIN member m 
-        ON m.id = br.memberId
-
-      -- member → user (MAIN FIX)
-      LEFT JOIN user u 
-        ON u.id = m.userId
-
-      -- class
-      LEFT JOIN classschedule c 
-        ON c.id = br.classId
-
-      -- admin user
-      LEFT JOIN user a 
-        ON a.id = br.adminId
-
-      -- branch
-      LEFT JOIN branch b 
-        ON b.id = br.branchId
-
-      WHERE br.adminId = ?
-      ORDER BY br.createdAt DESC
-      `,
-      [adminId]
-    );
-
-    res.json({
-      success: true,
-      data: rows
-    });
-
-  } catch (err) {
-    next(err);
-  }
-};
 
 // export const getAllBookingRequests = async (req, res) => {
 //   try {
