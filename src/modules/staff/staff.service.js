@@ -19,19 +19,39 @@ export const createStaffService = async (data) => {
     profilePhoto,
   } = data;
 
-  // check duplicate email
+  /* ----------------------------------------------------
+     1️⃣ CHECK DUPLICATE EMAIL
+  ---------------------------------------------------- */
   const [exists] = await pool.query(
     "SELECT id FROM user WHERE email = ?",
     [email]
   );
-  if (exists.length > 0)
-    throw { status: 400, message: "Email already exists" };
 
-  // insert user (staff)
+  if (exists.length > 0) {
+    throw { status: 400, message: "Email already exists" };
+  }
+
+  /* ----------------------------------------------------
+     2️⃣ GET ADMIN BRANCH ID
+  ---------------------------------------------------- */
+  const [adminRows] = await pool.query(
+    "SELECT branchId FROM user WHERE id = ?",
+    [adminId]
+  );
+
+  if (adminRows.length === 0) {
+    throw { status: 404, message: "Admin not found" };
+  }
+
+  const adminBranchId = adminRows[0].branchId || null;
+
+  /* ----------------------------------------------------
+     3️⃣ INSERT USER (STAFF USER)
+  ---------------------------------------------------- */
   const [result] = await pool.query(
     `INSERT INTO user 
-     (adminId, fullName, email, phone, password, roleId) 
-     VALUES (?, ?, ?, ?, ?, ?)`,
+     (adminId, fullName, email, phone, password, roleId, branchId)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [
       adminId,
       fullName,
@@ -39,19 +59,23 @@ export const createStaffService = async (data) => {
       phone || null,
       password,
       roleId,
+      adminBranchId, // 👈 staff user bhi same branch me
     ]
   );
 
   const userId = result.insertId;
 
-  // insert staff details
+  /* ----------------------------------------------------
+     4️⃣ INSERT STAFF DETAILS (WITH branchId)
+  ---------------------------------------------------- */
   await pool.query(
-    `INSERT INTO staff 
-     (userId, adminId, gender, dateOfBirth, joinDate, exitDate, profilePhoto) 
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO staff
+     (userId, adminId, branchId, gender, dateOfBirth, joinDate, exitDate, profilePhoto)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       userId,
       adminId,
+      adminBranchId, // 👈 MAIN REQUIREMENT
       gender || null,
       dateOfBirth ? new Date(dateOfBirth) : null,
       joinDate ? new Date(joinDate) : null,
@@ -60,20 +84,24 @@ export const createStaffService = async (data) => {
     ]
   );
 
+  /* ----------------------------------------------------
+     5️⃣ RETURN RESPONSE
+  ---------------------------------------------------- */
   return {
     id: userId,
     fullName,
     email,
     roleId,
     adminId,
+    branchId: adminBranchId,
     gender,
     dateOfBirth,
     joinDate,
     exitDate,
     profilePhoto,
-
   };
 };
+
 
 
 /**************************************
@@ -298,20 +326,15 @@ export const getTrainerByIdService = async (trainerId) => {
 // };
 export const deleteStaffService = async (staffId) => {
   const sid = Number(staffId);
-  if (!sid) {
-    throw { status: 400, message: "Invalid staff id" };
-  }
+  if (!sid) throw { status: 400, message: "Invalid staff id" };
 
   /* ----------------------------------------------------
-     1️⃣ FETCH STAFF ROW (DEBUG INCLUDED)
+     1️⃣ CHECK STAFF EXISTS
   ---------------------------------------------------- */
   const [staffRows] = await pool.query(
     "SELECT id, userId FROM staff WHERE id = ?",
     [sid]
   );
-
-  console.log("DELETE STAFF → staffId:", sid);
-  console.log("STAFF ROW FOUND:", staffRows);
 
   if (staffRows.length === 0) {
     throw { status: 404, message: "Staff not found" };
@@ -320,18 +343,23 @@ export const deleteStaffService = async (staffId) => {
   const userId = staffRows[0].userId;
 
   /* ----------------------------------------------------
-     2️⃣ DELETE CLASSES ASSIGNED TO THIS TRAINER
-     (trainerId → user.id, NOT NULL SAFE)
+     2️⃣ DELETE TRAINER DEPENDENT DATA (VERY IMPORTANT)
   ---------------------------------------------------- */
-  const [classResult] = await pool.query(
+
+  // 🔥 classes
+  await pool.query(
     "DELETE FROM classschedule WHERE trainerId = ?",
     [userId]
   );
 
-  console.log("CLASSES DELETED:", classResult.affectedRows);
+  // 🔥 sessions (NEW FIX)
+  await pool.query(
+    "DELETE FROM session WHERE trainerId = ?",
+    [userId]
+  );
 
   /* ----------------------------------------------------
-     3️⃣ DELETE STAFF RELATED DATA (FK TABLES)
+     3️⃣ DELETE STAFF RELATED DATA
   ---------------------------------------------------- */
   await pool.query("DELETE FROM salary WHERE staffId = ?", [sid]);
 
@@ -343,46 +371,36 @@ export const deleteStaffService = async (staffId) => {
   ];
 
   for (const table of relatedTables) {
-    await pool.query(
-      `DELETE FROM ${table} WHERE staffId = ?`,
-      [sid]
-    );
+    await pool.query(`DELETE FROM ${table} WHERE staffId = ?`, [sid]);
   }
 
   /* ----------------------------------------------------
-     4️⃣ CLEAN shifts.staffIds (CSV TEXT FIELD)
+     4️⃣ CLEAN shifts.staffIds (CSV FIELD)
   ---------------------------------------------------- */
   await pool.query(
     `UPDATE shifts
      SET staffIds = TRIM(BOTH ',' FROM
        REPLACE(CONCAT(',', staffIds, ','), CONCAT(',', ?, ','), ',')
      )
-     WHERE FIND_IN_SET(?, staffIds)`,
+     WHERE FIND_IN_SET(?, staffIds);`,
     [sid, sid]
   );
 
   /* ----------------------------------------------------
-     5️⃣ DELETE STAFF ROW
+     5️⃣ DELETE STAFF
   ---------------------------------------------------- */
-  await pool.query(
-    "DELETE FROM staff WHERE id = ?",
-    [sid]
-  );
+  await pool.query("DELETE FROM staff WHERE id = ?", [sid]);
 
   /* ----------------------------------------------------
-     6️⃣ DELETE USER ROW
+     6️⃣ DELETE USER (NOW SAFE)
   ---------------------------------------------------- */
-  await pool.query(
-    "DELETE FROM user WHERE id = ?",
-    [userId]
-  );
+  await pool.query("DELETE FROM user WHERE id = ?", [userId]);
 
   return {
-    message: "Staff & trainer deleted successfully",
-    staffId: sid,
-    userId,
+    message: "Staff, trainer, classes & sessions deleted successfully",
   };
 };
+
 
 
 
