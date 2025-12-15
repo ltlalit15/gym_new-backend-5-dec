@@ -158,7 +158,39 @@ export const loginUser = async ({ email, password }) => {
   );
 
   const staffId = staffRows.length ? staffRows[0].id : null;
-  // //
+  //Member status check
+
+  if (user.roleId === 4) { // assuming roleId 4 = MEMBER
+    const [memberRows] = await pool.query(
+      `SELECT id, status, membershipTo FROM member WHERE userId = ? LIMIT 1`,
+      [user.id]
+    );
+
+    if (memberRows.length) {
+      const member = memberRows[0];
+
+      // Real-time expiry check
+      if (member.membershipTo && new Date(member.membershipTo) < new Date()) {
+        // Auto mark inactive
+        await pool.query(
+          `UPDATE member SET status = 'INACTIVE' WHERE id = ?`,
+          [member.id]
+        );
+
+        throw {
+          status: 403,
+          message: "Membership expired. Please renew your plan.",
+        };
+      }
+
+      if (member.status !== "ACTIVE") {
+        throw {
+          status: 403,
+          message: "Membership expired. Please renew your plan.",
+        };
+      }
+    }
+  }
 
   const token = jwt.sign(
     {
