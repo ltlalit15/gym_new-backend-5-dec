@@ -46,28 +46,68 @@ export const getAllMemberPlans = async (adminId) => {
 /**************************************
  * GET ALL – detailed list by adminId (used in controller)
  **************************************/
+// export const getMemberPlansByAdminIdService = async (adminId) => {
+//   const [rows] = await pool.query(
+//     `SELECT 
+//         id,
+//         name,
+//         sessions,
+//         validityDays,
+//         price,
+//         type,
+//         adminId,
+//         branchId,
+//         createdAt,
+//         updatedAt
+//      FROM memberplan
+//      WHERE adminId = ?
+//      ORDER BY id DESC`,
+//     [Number(adminId)]
+//   );
+
+//   return rows;
+// };
+
 export const getMemberPlansByAdminIdService = async (adminId) => {
   const [rows] = await pool.query(
-    `SELECT 
-        id,
-        name,
-        sessions,
-        validityDays,
-        price,
-        type,
-        adminId,
-        branchId,
-        createdAt,
-        updatedAt
-     FROM memberplan
-     WHERE adminId = ?
-     ORDER BY id DESC`,
+    `
+    SELECT 
+      id,
+      name,
+      sessions,
+      validityDays,
+      price,
+      type,
+      adminId,
+      branchId,
+      createdAt,
+      updatedAt,
+
+      -- 🔥 days passed
+      DATEDIFF(CURRENT_DATE, DATE(createdAt)) AS daysUsed,
+
+      -- 🔥 days left
+      GREATEST(
+        validityDays - DATEDIFF(CURRENT_DATE, DATE(createdAt)),
+        0
+      ) AS daysLeft,
+
+      -- 🔥 status
+      CASE 
+        WHEN validityDays - DATEDIFF(CURRENT_DATE, DATE(createdAt)) <= 0
+        THEN 'INACTIVE'
+        ELSE 'ACTIVE'
+      END AS status
+
+    FROM memberplan
+    WHERE adminId = ?
+    ORDER BY id DESC
+    `,
     [Number(adminId)]
   );
 
   return rows;
 };
-
 /**************************************
  * GET BY ID
  **************************************/
