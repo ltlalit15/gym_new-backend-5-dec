@@ -260,7 +260,16 @@ export const removeUser = async (id) => {
 
   // ⭐ 2) Delete salary records where user is staff
   await pool.query("DELETE FROM salary WHERE staffId = ?", [userId]); // <-- added
-
+await pool.query(
+  `
+  DELETE b
+  FROM booking b
+  INNER JOIN classschedule cs
+    ON cs.id = b.scheduleId
+  WHERE cs.trainerId = ?
+  `,
+  [userId]
+);
   // ⭐ 3) Delete class schedules where user is trainer
   await pool.query("DELETE FROM classschedule WHERE trainerId = ?", [userId]); // <-- added
 
