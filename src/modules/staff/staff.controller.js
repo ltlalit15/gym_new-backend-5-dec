@@ -20,22 +20,21 @@ export const createStaff = async (req, res, next) => {
       phone,
       password,
       roleId,
-      branchId,
       gender,
       dateOfBirth,
       joinDate,
       exitDate,
       profilePhoto,
-      adminId: adminIdFromBody,   // 👈 body se adminId lo
+      adminId: adminIdFromBody, // optional fallback
     } = req.body;
 
-    // logged in admin ID (agar token se aa raha ho to use karo, warna body se)
+    // adminId priority: token → body
     const adminId = req.user?.id || adminIdFromBody;
 
     if (!adminId) {
       return res.status(400).json({
         success: false,
-        message: "adminId is required (token ya body se)",
+        message: "adminId is required",
       });
     }
 
@@ -44,7 +43,6 @@ export const createStaff = async (req, res, next) => {
       !email ||
       !password ||
       !roleId ||
-      !branchId ||
       !gender ||
       !dateOfBirth ||
       !joinDate
@@ -63,8 +61,7 @@ export const createStaff = async (req, res, next) => {
       phone,
       password: hashedPassword,
       roleId,
-      branchId,
-      adminId, // ✅ ab hamesha value hogi
+      adminId, // ✅ always saved
       gender,
       dateOfBirth,
       joinDate,
@@ -81,6 +78,7 @@ export const createStaff = async (req, res, next) => {
     next(err);
   }
 };
+
 
 export const getTrainerById = async (req, res, next) => {
   try {
@@ -99,8 +97,16 @@ export const getTrainerById = async (req, res, next) => {
 
 export const listStaff = async (req, res, next) => {
   try {
-    const branchId = parseInt(req.params.branchId);
-    const staff = await listStaffService(branchId);
+    const adminId = parseInt(req.params.adminId);
+
+    if (!adminId) {
+      return res.status(400).json({
+        success: false,
+        message: "adminId is required",
+      });
+    }
+
+    const staff = await listStaffService(adminId);
 
     res.json({
       success: true,
@@ -110,24 +116,17 @@ export const listStaff = async (req, res, next) => {
     next(err);
   }
 };
+
 
 
 export const staffDetail = async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id);
-    const staff = await staffDetailService(id);
+    const staffId = parseInt(req.params.id);
 
-    // 🛑 Branch access security (Only for Admin)
-    if (
-      req.checkBranch &&                      // route flag enabled
-      req.user.role === "Admin" &&            // logged user admin
-      staff.branchId !== req.user.branchId    // cross-branch access
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied! You are not allowed to view staff of another branch.",
-      });
-    }
+    const staff = await staffDetailService(staffId);
+
+    // ✅ AUTH NAHI HAI → koi admin check mat lagao
+    // req.user undefined ho sakta hai, isliye direct access avoid
 
     res.json({
       success: true,
@@ -139,21 +138,23 @@ export const staffDetail = async (req, res, next) => {
 };
 
 
+
+
 export const updateStaff = async (req, res, next) => {
   try {
-    const staffId = parseInt(req.params.id);   // Only ID needed from params
+    const staffId = parseInt(req.params.id);
     const data = req.body;
 
-    // Hash password if provided in body
+    // hash password if provided
     if (data.password) {
       data.password = await bcrypt.hash(data.password, 10);
     }
 
-    // Auto set adminId (safe)
+    // ✅ AUTH NAHI HAI → adminId force mat karo
+    // Sirf tab set karo jab req.user available ho
     if (req.user && req.user.id) {
-  data.adminId = req.user.id;
-}
-
+      data.adminId = req.user.id;
+    }
 
     const staff = await updateStaffService(staffId, data);
 
@@ -166,6 +167,8 @@ export const updateStaff = async (req, res, next) => {
     next(err);
   }
 };
+
+
 
 export const getAllStaff = async (req, res, next) => {
   try {
@@ -184,16 +187,25 @@ export const getAllStaff = async (req, res, next) => {
 export const deleteStaff = async (req, res, next) => {
   try {
     const id = parseInt(req.params.id);
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid staff id",
+      });
+    }
+
     await deleteStaffService(id);
 
     res.json({
       success: true,
-      message: "Staff Deleted successfully",
+      message: "Staff & trainer deleted successfully",
     });
   } catch (err) {
     next(err);
   }
 };
+
 
 export const getAdminStaff = async (req, res, next) => {
   try {

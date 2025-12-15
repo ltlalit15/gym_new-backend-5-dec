@@ -35,7 +35,7 @@ router.get(
 );
 
 router.get(
-  "/branch/:branchId",
+  "/admin/:adminId",
   // verifyToken(["Superadmin", "Admin"]),
 
   listStaff
