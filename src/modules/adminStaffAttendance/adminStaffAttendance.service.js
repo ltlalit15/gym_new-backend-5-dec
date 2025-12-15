@@ -205,86 +205,51 @@ export const createStaffAttendanceService = async (data) => {
     notes,
   } = data;
 
-  // if (!staffId || !branchId || !date) {
-  //   throw { status: 400, message: "staffId, branchId, and date are required" };
-  // }
-
-  // Parse date from "06-12-2025" format to "2025-06-12"
-  const dateParts = date.split("-");
-  const formattedDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
-
   // Parse check-in and check-out datetime
   let checkIn = null;
   let checkOut = null;
 
   if (checkInTime) {
-    checkIn = new Date(checkInTime);
+    checkIn = new Date(checkInTime);  // Custom check-in time
   } else {
-    // Default to current time if checkInTime is not provided
-    checkIn = new Date();
+    checkIn = new Date();  // Default to current time
   }
 
   if (checkOutTime) {
-    checkOut = new Date(checkOutTime);
+    checkOut = new Date(checkOutTime);  // Custom check-out time
   }
 
-  // If shiftId is provided, validate it exists
-  let shiftDetails = null;
-  if (shiftId) {
-    const [shiftRows] = await pool.query("SELECT * FROM shifts WHERE id = ?", [
-      shiftId,
-    ]);
-    if (!shiftRows.length) {
-      throw { status: 404, message: "Shift not found" };
-    }
-
-    shiftDetails = shiftRows[0];
-
-    // Verify the shift belongs to the same branch
-    // if (shiftDetails.branchId !== branchId) {
-    //   throw { status: 400, message: "Shift does not belong to this branch" };
-    // }
-
-    // Verify the staff is assigned to this shift
-    // const staffIds = shiftDetails.staffIds
-    //   .split(",")
-    //   .map((id) => parseInt(id.trim()));
-    // if (!staffIds.includes(staffId)) {
-    //   throw { status: 400, message: "Staff is not assigned to this shift" };
-    // }
-  }
-
-  // Create attendance record - FIXED: Added shiftId to INSERT statement
+  // Create attendance record
   const [result] = await pool.query(
     `INSERT INTO staffattendance 
       (staffId, branchId, shiftId, checkIn, checkOut, mode, status, notes)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      staffId,
+      staffId || null,  // Allow staffId to be null
       branchId,
-      shiftId || null, // FIXED: Added shiftId to the values array
+      shiftId || null,  // Add shiftId if provided
       checkIn,
       checkOut,
-      mode || "Manual",
-      status || "Present",
-      notes || null,
+      mode || "Manual",  // Default to "Manual" if not provided
+      status || "Present",  // Default to "Present" if not provided
+      notes || null,  // Optional notes
     ]
   );
 
   return {
     message: "Staff attendance created successfully",
     id: result.insertId,
-    staffId,
+    staffId: staffId || null,  // Return staffId as null if not provided
     branchId,
     date,
     checkIn,
     checkOut,
     mode: mode || "Manual",
     status: status || "Present",
-    shiftId: shiftId || null,
-    shiftDetails,
+    shiftId: shiftId || null,  // Include shiftId in response
   };
 };
+
 /**************************************
  * GET STAFF ATTENDANCE BY ID
  **************************************/
