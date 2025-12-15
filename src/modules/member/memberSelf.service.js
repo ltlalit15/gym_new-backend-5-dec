@@ -217,14 +217,14 @@ export const updateMemberPersonalService = async (userId, data) => {
   const {
     first_name,
     last_name,
-    
-    dateOfBirth,    // FIX: match payload
+    dateOfBirth, // FIX: match payload
     email,
     phone,
     address_street,
     address_city,
     address_state,
-    address_zip
+    address_zip,
+    gender // Add gender to the destructured data
   } = data;
 
   /**********************************************
@@ -252,14 +252,13 @@ export const updateMemberPersonalService = async (userId, data) => {
    **********************************************/
   const updatedEmail = email || userRow.email;
   const updatedPhone = phone || userRow.phone || "0000000000";
- 
 
   const updatedDob = dateOfBirth
     ? new Date(dateOfBirth)
     : userRow.dateOfBirth;
 
   /**********************************************
-   * 4) BUILD FULL ADDRESS
+   * 4) BUILD FULL ADDRESS (OPTIONAL: if you want to combine the address fields)
    **********************************************/
   const addressParts = [
     address_street || null,
@@ -292,18 +291,26 @@ export const updateMemberPersonalService = async (userId, data) => {
         fullName = ?,
         email = ?,
         phone = ?,
-       
         dateOfBirth = ?,
-        address = ?
+        address_street = ?,
+        address_city = ?,
+        address_state = ?,
+        address_zip = ?,
+        address = ?,
+        gender = ?  -- Add gender here
       WHERE id = ?
     `,
     [
       fullName,
       updatedEmail,
       updatedPhone,
-      
       updatedDob,
-      address,
+      address_street,
+      address_city,
+      address_state,
+      address_zip,
+      address,  // If you want to update the combined address field
+      gender,  // Gender field updated here
       userId
     ]
   );
@@ -318,6 +325,8 @@ export const updateMemberPersonalService = async (userId, data) => {
 
   return updatedUser;
 };
+;
+
 
 
 
