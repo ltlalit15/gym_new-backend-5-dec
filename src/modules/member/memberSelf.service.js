@@ -7,7 +7,6 @@ import bcrypt from "bcryptjs";
  * Step-by-step: user → member → plan
  *******************************************************/
 export const getMemberProfileService = async (userId) => {
-  // 1) DB se user + member + plan ka data ek sath fetch
   const [rows] = await pool.query(
     `
       SELECT
@@ -18,6 +17,7 @@ export const getMemberProfileService = async (userId) => {
         u.address,
         u.branchId,
         u.status AS userStatus,
+        u.dateOfBirth,  -- Correct column name here
 
         m.id AS memberId,
         m.gender,
@@ -28,12 +28,11 @@ export const getMemberProfileService = async (userId) => {
         m.paymentMode,
         m.interestedIn,
         m.amountPaid,
-        m.dateOfBirth,
         m.status AS memberStatus,
 
-        p.name AS membership_plan,
-        p.price AS membership_fee,
-        p.duration AS plan_duration
+        COALESCE(p.name, 'No Plan') AS membership_plan,
+        COALESCE(p.price, 0) AS membership_fee,
+        COALESCE(p.duration, 'N/A') AS plan_duration
 
       FROM user u
       LEFT JOIN member m ON m.userId = u.id
@@ -43,37 +42,56 @@ export const getMemberProfileService = async (userId) => {
     [userId]
   );
 
-  // 2) Agar user nahi mila to error
+  // Check if no rows are returned
   if (rows.length === 0) {
     throw { status: 404, message: "Member not found" };
   }
 
-  // 3) Ek row milti hai → usse readable object bana do
   const m = rows[0];
 
-  // 4) Name ko split karke first / last name banao
   const nameParts = (m.fullName || "").trim().split(" ");
   m.first_name = nameParts[0] || "";
   m.last_name = nameParts.slice(1).join(" ") || "";
 
-  // 5) Dates ko yyyy-mm-dd format me convert karo
-  m.plan_start_date = m.membershipFrom
-    ? m.membershipFrom.toISOString().split("T")[0]
-    : "";
+  // Formatting dates
+  m.plan_start_date = m.membershipFrom ? m.membershipFrom.toISOString().split("T")[0] : "";
+  m.plan_end_date = m.membershipTo ? m.membershipTo.toISOString().split("T")[0] : "";
+  m.date_of_birth = m.dateOfBirth ? m.dateOfBirth.toISOString().split("T")[0] : "";
 
-  m.plan_end_date = m.membershipTo
-    ? m.membershipTo.toISOString().split("T")[0]
-    : "";
-
-  // 6) Address ko street / city me tod do
   const addr = (m.address || "").split(",");
   m.address_street = addr[0]?.trim() || "";
   m.address_city = addr[1]?.trim() || "";
-  m.address_state = "";
-  m.address_zip = "";
+  m.address_state = addr[2]?.trim() || "";
+  m.address_zip = addr[3]?.trim() || "";
 
-  return m; // final formatted profile return
+  return {
+    userId: m.userId,
+    fullName: m.fullName,
+    first_name: m.first_name,
+    last_name: m.last_name,
+    email: m.email,
+    phone: m.phone,
+    address_street: m.address_street,
+    address_city: m.address_city,
+    address_state: m.address_state,
+    address_zip: m.address_zip,
+    gender: m.gender,
+    date_of_birth: m.date_of_birth,
+    plan_start_date: m.plan_start_date,
+    plan_end_date: m.plan_end_date,
+    membership_plan: m.membership_plan,
+    membership_fee: m.membership_fee,
+    plan_duration: m.plan_duration,
+    membership_status: m.memberStatus,
+    paymentMode: m.paymentMode,
+    interestedIn: m.interestedIn,
+    amountPaid: m.amountPaid
+  };
 };
+
+
+
+
 
 /*******************************************************
  * UPDATE PERSONAL INFO (using userId)
@@ -217,19 +235,16 @@ export const updateMemberPersonalService = async (userId, data) => {
   const {
     first_name,
     last_name,
-    
-    dateOfBirth,    // FIX: match payload
+    dateOfBirth, // Matching the column name in the payload
     email,
     phone,
     address_street,
     address_city,
     address_state,
-    address_zip
+    address_zip,
+    gender
   } = data;
 
-  /**********************************************
-   * 1) USER MUST EXIST
-   **********************************************/
   const [[userRow]] = await pool.query(
     `SELECT * FROM user WHERE id = ?`,
     [userId]
@@ -239,28 +254,13 @@ export const updateMemberPersonalService = async (userId, data) => {
     throw { status: 404, message: "User not found" };
   }
 
-  /**********************************************
-   * 2) FULL NAME FALLBACK
-   **********************************************/
-  const fullName =
-    first_name && last_name
-      ? `${first_name} ${last_name}`.trim()
-      : userRow.fullName;
+  const fullName = first_name && last_name ? `${first_name} ${last_name}`.trim() : userRow.fullName;
 
-  /**********************************************
-   * 3) SAFE FALLBACK VALUES
-   **********************************************/
   const updatedEmail = email || userRow.email;
   const updatedPhone = phone || userRow.phone || "0000000000";
- 
 
-  const updatedDob = dateOfBirth
-    ? new Date(dateOfBirth)
-    : userRow.dateOfBirth;
+  const updatedDob = dateOfBirth ? new Date(dateOfBirth) : userRow.dateOfBirth;
 
-  /**********************************************
-   * 4) BUILD FULL ADDRESS
-   **********************************************/
   const addressParts = [
     address_street || null,
     address_city || null,
@@ -268,12 +268,8 @@ export const updateMemberPersonalService = async (userId, data) => {
     address_zip || null
   ].filter(Boolean);
 
-  const address =
-    addressParts.length > 0 ? addressParts.join(", ") : userRow.address;
+  const address = addressParts.length > 0 ? addressParts.join(", ") : userRow.address;
 
-  /**********************************************
-   * 5) EMAIL UNIQUE CHECK
-   **********************************************/
   const [emailExists] = await pool.query(
     `SELECT id FROM user WHERE email = ? AND id != ?`,
     [updatedEmail, userId]
@@ -283,34 +279,36 @@ export const updateMemberPersonalService = async (userId, data) => {
     throw { status: 400, message: "Email already in use" };
   }
 
-  /**********************************************
-   * 6) UPDATE USER TABLE ONLY
-   **********************************************/
   await pool.query(
     `
       UPDATE user SET
         fullName = ?,
         email = ?,
         phone = ?,
-       
-        dateOfBirth = ?,
-        address = ?
+        dateOfBirth = ?,  -- Use the correct column name
+        address_street = ?,
+        address_city = ?,
+        address_state = ?,
+        address_zip = ?,
+        address = ?,
+        gender = ?  
       WHERE id = ?
     `,
     [
       fullName,
       updatedEmail,
       updatedPhone,
-      
       updatedDob,
-      address,
+      address_street,
+      address_city,
+      address_state,
+      address_zip,
+      address,  
+      gender,  
       userId
     ]
   );
 
-  /**********************************************
-   * 7) RETURN UPDATED USER PROFILE
-   **********************************************/
   const [[updatedUser]] = await pool.query(
     `SELECT * FROM user WHERE id = ?`,
     [userId]
@@ -318,6 +316,10 @@ export const updateMemberPersonalService = async (userId, data) => {
 
   return updatedUser;
 };
+
+
+
+
 
 
 
