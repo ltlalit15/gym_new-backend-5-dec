@@ -390,7 +390,26 @@ export const updateScheduleService = async (id, data) => {
 };
 
 // service: getPersonalAndGeneralTrainersService
-export const getPersonalAndGeneralTrainersService = async () => {
+// export const getPersonalAndGeneralTrainersService = async () => {
+//   const [rows] = await pool.query(
+//     `SELECT 
+//        u.id,
+//        u.fullName,
+//        u.email,
+//        u.phone,
+//        u.branchId,
+//        u.roleId
+//      FROM user u
+//      WHERE u.roleId IN (5, 6)
+//      ORDER BY u.id DESC`
+//   );
+
+//   return rows;
+// };
+export const getPersonalAndGeneralTrainersService = async (adminId) => {
+  const aid = Number(adminId);
+  if (!aid) throw { status: 400, message: "adminId is required" };
+
   const [rows] = await pool.query(
     `SELECT 
        u.id,
@@ -401,12 +420,13 @@ export const getPersonalAndGeneralTrainersService = async () => {
        u.roleId
      FROM user u
      WHERE u.roleId IN (5, 6)
-     ORDER BY u.id DESC`
+       AND u.adminId = ?
+     ORDER BY u.id DESC`,
+    [aid]
   );
 
   return rows;
 };
-
 
 
 export const deleteScheduleService = async (id) => {

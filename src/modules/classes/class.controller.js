@@ -251,7 +251,8 @@ export const updateSchedule = async (req, res) => {
 
 export const getPersonalAndGeneralTrainers = async (req, res, next) => {
   try {
-    const trainers = await getPersonalAndGeneralTrainersService();
+    const { adminId } = req.query;
+    const trainers = await getPersonalAndGeneralTrainersService(adminId);
     return res.status(200).json({
       success: true,
       trainers
