@@ -73,45 +73,7 @@ export const createBookingRequest = async (req, res) => {
 //   }
 // };
 
-// export const getAllBookingRequests = async (req, res, next) => {
-//   try {
-//     const adminId = Number(req.query.adminId);
 
-//     if (!adminId) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "adminId is required"
-//       });
-//     }
-
-//     const [rows] = await pool.query(
-//       `
-//       SELECT 
-//         br.*,
-//         m.fullName AS memberName,
-//         c.className,
-//         IFNULL(a.fullName, 'Pending') AS adminName,
-//         b.name AS branchName
-//       FROM booking_requests br
-//       LEFT JOIN member m ON m.id = br.memberId
-//       LEFT JOIN classschedule c ON c.id = br.classId
-//       LEFT JOIN user a ON a.id = br.adminId
-//       LEFT JOIN branch b ON b.id = br.branchId
-//       WHERE br.adminId = ?
-//       ORDER BY br.createdAt DESC
-//       `,
-//       [adminId]
-//     );
-
-//     res.json({
-//       success: true,
-//       data: rows
-//     });
-
-//   } catch (err) {
-//     next(err);
-//   }
-// };
 export const getAllBookingRequests = async (req, res, next) => {
   try {
     const adminId = Number(req.query.adminId);
