@@ -360,3 +360,59 @@ export const deleteAttendance = async (req, res, next) => {
     next(err);
   }
 };
+
+
+export const getAttendanceByAdminId = async (req, res, next) => {
+  try {
+    const adminId = req.query.adminId;
+
+    if (!adminId) {
+      return res.status(400).json({
+        success: false,
+        message: "adminId is required",
+      });
+    }
+
+    const { date, branchId, search } = req.query;
+
+    let sql = `
+      SELECT 
+        a.*,
+        m.fullName AS memberName
+      FROM memberattendance a
+      LEFT JOIN member m ON m.id = a.memberId
+      WHERE a.branchId IN (
+        SELECT id FROM branch WHERE adminId = ?
+      )
+    `;
+
+    const params = [adminId];
+
+    if (branchId) {
+      sql += ` AND a.branchId = ?`;
+      params.push(branchId);
+    }
+
+    if (date) {
+      sql += ` AND DATE(a.checkIn) = ?`;
+      params.push(date);
+    }
+
+    if (search) {
+      sql += ` AND m.fullName LIKE ?`;
+      params.push(`%${search}%`);
+    }
+
+    sql += ` ORDER BY a.checkIn DESC`;
+
+    const [rows] = await pool.query(sql, params);
+
+    res.json({
+      success: true,
+      attendance: rows,
+    });
+
+  } catch (err) {
+    next(err);
+  }
+};
