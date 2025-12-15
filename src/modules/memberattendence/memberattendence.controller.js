@@ -380,17 +380,33 @@ export const getAttendanceByAdminId = async (req, res, next) => {
         mr.name AS memberRole,
         su.fullName AS staffName,
         sr.name AS staffRole,
-        sh.shiftType
+        sh.shiftType,
+        
+        -- Staff attendance data
+        a.staffId,
+        a.branchId,
+        a.checkIn AS checkInTime,
+        a.checkOut AS checkOutTime,
+        a.status AS attendanceStatus,
+        a.notes AS attendanceNotes
+
       FROM memberattendance a
+
+      -- Member joins
       LEFT JOIN member m ON m.id = a.memberId
       LEFT JOIN user mu ON mu.id = m.userId
       LEFT JOIN role mr ON mr.id = mu.roleId
+
+      -- Staff joins
       LEFT JOIN staff s ON s.id = a.staffId
       LEFT JOIN user su ON su.id = s.userId
       LEFT JOIN role sr ON sr.id = su.roleId
+
+      -- Shift join for staff
       LEFT JOIN shifts sh 
         ON sh.staffIds = a.staffId
        AND DATE(sh.shiftDate) = DATE(a.checkIn)
+
       WHERE a.branchId IN (
         SELECT id FROM branch WHERE adminId = ?
       )
@@ -398,6 +414,7 @@ export const getAttendanceByAdminId = async (req, res, next) => {
 
     const params = [adminId];
 
+    // Adding filters for branchId, date, and search
     if (branchId) {
       sql += ` AND a.branchId = ?`;
       params.push(branchId);
@@ -415,6 +432,7 @@ export const getAttendanceByAdminId = async (req, res, next) => {
 
     sql += ` ORDER BY a.checkIn DESC`;
 
+    // Execute the query with the prepared parameters
     const [rows] = await pool.query(sql, params);
 
     res.json({
@@ -426,4 +444,5 @@ export const getAttendanceByAdminId = async (req, res, next) => {
     next(err);
   }
 };
+
 
