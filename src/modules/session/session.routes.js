@@ -18,11 +18,8 @@ router.post(
 );
 
 // ➤ List sessions (Superadmin + Admin + Staff)
-router.get(
-  "/:adminId",
-  // verifyToken(["Superadmin", "Admin", "Staff"]),
-  listSessions
-);
+router.get("/:adminId/:trainerId?", listSessions);
+
 
 // ➤ Edit full session (Only Superadmin + Admin)
 router.put(
