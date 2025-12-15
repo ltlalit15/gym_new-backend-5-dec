@@ -1,12 +1,3 @@
-// const express = require('express');
-// const router = express.Router();
-
-// router.get('/', (req, res) => {
-//   res.json({ status: 'ok', message: 'Gym backend running' });
-// });
-
-// module.exports = router;
-
 import { Router } from "express";
 import authRoutes from "../modules/auth/auth.routes.js";
 import branchRoutes from "../modules/branch/branch.routes.js";

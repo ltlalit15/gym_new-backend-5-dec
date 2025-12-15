@@ -56,30 +56,53 @@ export const createSessionService = async (data) => {
 
   return session[0];
 };
-// ➤ List Sessions (with search + upcoming first)
-export const listSessionsService = async (adminId, search) => {
-  if (!adminId) {
-    throw { status: 400, message: "adminId is required" };
+export const listSessionsService = async ({ adminId, trainerId, search }) => {
+  if (!adminId && !trainerId) {
+    throw {
+      status: 400,
+      message: "adminId or trainerId is required",
+    };
   }
 
+  let conditions = [];
+  let values = [];
+
+  if (adminId) {
+    conditions.push("s.adminId = ?");
+    values.push(adminId);
+  }
+
+  if (trainerId) {
+    conditions.push("s.trainerId = ?");
+    values.push(trainerId);
+  }
+
+  // 🔍 Search
+  conditions.push("s.sessionName LIKE ?");
+  values.push(`%${search || ""}%`);
+
+  const whereClause = conditions.join(" AND ");
+
   const [rows] = await pool.query(
-    `SELECT 
-        s.*,
-        t.id AS trainerId,
-        t.fullName AS trainerName
-     FROM session s
-     LEFT JOIN user t ON s.trainerId = t.id
-     WHERE s.adminId = ?
-       AND s.sessionName LIKE ?
-     ORDER BY 
-       FIELD(s.status, 'Upcoming', 'Ongoing', 'Completed') ASC,
-       s.date ASC,
-       s.time ASC`,
-    [adminId, `%${search || ""}%`]
+    `
+    SELECT 
+      s.*,
+      t.id AS trainerId,
+      t.fullName AS trainerName
+    FROM session s
+    LEFT JOIN user t ON s.trainerId = t.id
+    WHERE ${whereClause}
+    ORDER BY 
+      FIELD(s.status, 'Upcoming', 'Ongoing', 'Completed') ASC,
+      s.date ASC,
+      s.time ASC
+    `,
+    values
   );
 
   return rows;
 };
+
 
 // ➤ Update complete session
 export const updateSessionService = async (sessionId, data) => {

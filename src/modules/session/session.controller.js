@@ -22,21 +22,29 @@ export const createSession = async (req, res, next) => {
 
 
 // ➤ List (with search)
-export const listSessions = async (req, res, next) => {
+export const listSessions = async (req, res) => {
   try {
-    const adminId = Number(req.params.adminId);
-    const search = req.query.search || "";
+    const { adminId, trainerId } = req.params;
+    const { search } = req.query;
 
-    const r = await listSessionsService(adminId, search);
+    const data = await listSessionsService({
+      adminId,
+      trainerId,
+      search,
+    });
 
     res.json({
       success: true,
-      sessions: r
+      data,
     });
   } catch (err) {
-    next(err);
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.message || "Failed to fetch sessions",
+    });
   }
 };
+
 
 // ➤ Full Update (Edit Session)
 export const updateSession = async (req, res, next) => {

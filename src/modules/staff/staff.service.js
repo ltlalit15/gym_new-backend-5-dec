@@ -116,6 +116,7 @@ export const listStaffService = async (adminId) => {
       u.email,
       u.phone,
       u.roleId,
+      u.branchId,
       s.adminId,
       s.gender,
       s.dateOfBirth,
@@ -126,18 +127,22 @@ export const listStaffService = async (adminId) => {
     FROM staff s
     JOIN user u ON u.id = s.userId
     WHERE s.adminId = ?
+      AND s.branchId = (
+        SELECT branchId FROM user WHERE id = ?
+      )
     ORDER BY s.id DESC
   `;
 
-  const [rows] = await pool.query(sql, [adminId]);
+  const [rows] = await pool.query(sql, [adminId, adminId]);
   return rows;
 };
+
 
 
 /**************************************
  * STAFF DETAIL
  **************************************/
-export const staffDetailService = async (staffId) => {
+export const staffDetailService = async (staffId, adminId) => {
   const sql = `
     SELECT 
       s.id AS staffId,
@@ -146,6 +151,7 @@ export const staffDetailService = async (staffId) => {
       u.email,
       u.phone,
       u.roleId,
+      u.branchId,
       s.adminId,
       s.gender,
       s.dateOfBirth,
@@ -156,9 +162,13 @@ export const staffDetailService = async (staffId) => {
     FROM staff s
     JOIN user u ON u.id = s.userId
     WHERE s.id = ?
+      AND s.adminId = ?
+      AND s.branchId = (
+        SELECT branchId FROM user WHERE id = ?
+      )
   `;
 
-  const [rows] = await pool.query(sql, [staffId]);
+  const [rows] = await pool.query(sql, [staffId, adminId, adminId]);
 
   if (rows.length === 0) {
     throw { status: 404, message: "Staff not found" };
@@ -166,6 +176,7 @@ export const staffDetailService = async (staffId) => {
 
   return rows[0];
 };
+
 
 
 /**************************************
@@ -237,6 +248,7 @@ export const updateStaffService = async (staffId, data) => {
 };
 
 
+
 export const getAllStaffService = async () => {
   const sql = `
     SELECT 
@@ -246,6 +258,7 @@ export const getAllStaffService = async () => {
       u.email,
       u.phone,
       u.roleId,
+      u.branchId,
       s.adminId,
       s.gender,
       s.dateOfBirth,
@@ -261,6 +274,7 @@ export const getAllStaffService = async () => {
   const [rows] = await pool.query(sql);
   return rows;
 };
+
 
 
 export const getTrainerByIdService = async (trainerId) => {
@@ -420,13 +434,17 @@ export const getAdminStaffService = async (adminId) => {
       s.joinDate,
       s.exitDate,
       s.profilePhoto,
-      u.status AS userStatus   -- important!
+      u.status AS userStatus
     FROM staff s
     JOIN user u ON u.id = s.userId
     WHERE s.adminId = ?
+      AND s.branchId = (
+        SELECT branchId FROM user WHERE id = ?
+      )
     ORDER BY s.id DESC
   `;
 
-  const [rows] = await pool.query(sql, [adminId]);
+  const [rows] = await pool.query(sql, [adminId, adminId]);
   return rows;
 };
+
