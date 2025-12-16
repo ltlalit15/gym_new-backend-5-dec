@@ -4,14 +4,15 @@ import { pool } from "../../config/db.js";
    1️⃣  MEMBER CHECK-IN  (Manual + QR + Manual Times)
 ------------------------------------------------------ */
 export const memberCheckIn = async (req, res, next) => {
+  
   try {
     // ❌ checkOut hata diya body se
     const { memberId, branchId, mode, status, notes, checkIn } = req.body;
 
-    if (!memberId || !branchId) {
+    if (!memberId) {
       return res.status(400).json({
         success: false,
-        message: "memberId & branchId are required",
+        message: "memberId required",
       });
     }
 
@@ -373,6 +374,7 @@ export const getAttendanceByAdminId = async (req, res, next) => {
 
     let sql = `
       SELECT
+        a.id,
         DATE(a.checkIn) AS date,
 
         /* NAME */
@@ -401,7 +403,7 @@ export const getAttendanceByAdminId = async (req, res, next) => {
       LEFT JOIN role sr ON sr.id = su.roleId
 
       /* ===== MEMBER ===== */
-      LEFT JOIN member m ON m.id = a.memberId
+      LEFT JOIN member m ON m.userId= a.memberId
       LEFT JOIN user mu ON mu.id = m.userId
       LEFT JOIN role mr ON mr.id = mu.roleId
 
@@ -446,4 +448,11 @@ export const getAttendanceByAdminId = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+<<<<<<< HEAD
 };
+=======
+}
+
+
+
+>>>>>>> 78db98934342f3ba3d2e31c5a6c4fd9b4529e5e5

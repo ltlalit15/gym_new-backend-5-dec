@@ -32,11 +32,11 @@ export const getMemberProfileService = async (userId) => {
 
         COALESCE(p.name, 'No Plan') AS membership_plan,
         COALESCE(p.price, 0) AS membership_fee,
-        COALESCE(p.duration, 'N/A') AS plan_duration
+        COALESCE(p.validityDays, 'N/A') AS plan_duration
 
       FROM user u
       LEFT JOIN member m ON m.userId = u.id
-      LEFT JOIN plan p ON p.id = m.planId
+      LEFT JOIN memberplan p ON p.id = m.planId
       WHERE u.id = ?
     `,
     [userId]

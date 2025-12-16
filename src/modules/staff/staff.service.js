@@ -327,11 +327,10 @@ export const updateStaffService = async (id, data) => {
       staffValues
     );
   }
+const[rows]=await pool.query("SELECT * FROM staff WHERE id=?",[staffId]);
 
-  /* ----------------------------------------------------
-     6️⃣ RETURN UPDATED STAFF
-  ---------------------------------------------------- */
-  return staffDetailService(staffId);
+
+  return rows[0];
 };
 
 

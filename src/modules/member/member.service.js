@@ -558,6 +558,7 @@ export const deleteMemberService = async (id) => {
   }
 
   const userId = rows[0].userId;
+  await pool.query("DELETE FROM booking WHERE memberId = ?", [id]);
 
   // 1️⃣ Delete Attendance
   await pool.query("DELETE FROM memberattendance WHERE memberId = ?", [id]);
