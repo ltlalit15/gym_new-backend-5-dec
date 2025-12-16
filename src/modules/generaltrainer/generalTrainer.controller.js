@@ -176,10 +176,13 @@ export const deleteAttendanceRecord = async (req, res) => {
 
 export const getDashboardData = async (req, res) => {
   try {
-    const branchId = req.query.branchId || req.params.branchId;
+    const adminId = req.query.adminId || req.params.adminId;
 
-    // Get dashboard data
-    const dashboardData = await getDashboardDataService(branchId);
+    if (!adminId) {
+      return res.status(400).json({ message: "adminId is required" });
+    }
+
+    const dashboardData = await getDashboardDataService(adminId);
 
     res.status(200).json(dashboardData);
   } catch (error) {
@@ -189,6 +192,7 @@ export const getDashboardData = async (req, res) => {
     });
   }
 };
+
 
 export const getAllMembersByBranch = async (req, res) => {
   try {

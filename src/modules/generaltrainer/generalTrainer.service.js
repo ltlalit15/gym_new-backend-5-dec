@@ -895,60 +895,70 @@ export const deleteAttendanceRecordService = async (id) => {
 
 
 
-export const getDashboardDataService = async (branchId) => {
-  if (!branchId) throw { status: 400, message: "Branch ID is required" };
+export const getDashboardDataService = async (adminId) => {
+  if (!adminId) throw { status: 400, message: "adminId is required" };
 
   try {
-    // Get attendance data for the past 7 days
+    /* =========================
+       WEEKLY ATTENDANCE (7 DAYS)
+       memberattendance → user → adminId
+    ========================= */
     const [attendanceData] = await pool.query(
       `
       SELECT 
-        DATE(checkIn) as date,
-        COUNT(*) as count
-      FROM memberattendance
-      WHERE branchId = ? AND checkIn >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
-      GROUP BY DATE(checkIn)
+        DATE(ma.checkIn) AS date,
+        COUNT(*) AS count
+      FROM memberattendance ma
+      JOIN user u ON ma.memberId = u.id
+      WHERE u.adminId = ?
+        AND ma.checkIn >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
+      GROUP BY DATE(ma.checkIn)
       ORDER BY date ASC
-    `,
-      [branchId]
+      `,
+      [adminId]
     );
 
-    // Fill in missing days with 0 attendance
     const weeklyAttendanceTrend = [];
     const today = new Date();
 
     for (let i = 6; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split("T")[0];
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split("T")[0];
 
-      const dayData = attendanceData.find((d) => d.date === dateStr);
+      const dayData = attendanceData.find((x) => x.date === dateStr);
+
       weeklyAttendanceTrend.push({
-        day: date.toLocaleDateString("en-US", { weekday: "short" }),
+        day: d.toLocaleDateString("en-US", { weekday: "short" }),
         date: dateStr,
         count: dayData ? dayData.count : 0,
       });
     }
 
-    // Get class distribution by type - using className directly from classschedule
+    /* =========================
+       CLASS DISTRIBUTION (30 DAYS)
+       classschedule → trainer(user) → adminId
+    ========================= */
     const [classData] = await pool.query(
       `
-      SELECT 
-        cs.className,
-        COUNT(cs.id) as count
+      SELECT cs.className, COUNT(cs.id) AS count
       FROM classschedule cs
-      WHERE cs.branchId = ? AND cs.date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+      JOIN user u ON cs.trainerId = u.id
+      WHERE u.adminId = ?
+        AND cs.date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
       GROUP BY cs.className
-    `,
-      [branchId]
+      `,
+      [adminId]
     );
 
-    const classDistribution = classData.map((cls) => ({
-      name: cls.className,
-      value: cls.count,
+    const classDistribution = classData.map((c) => ({
+      name: c.className,
+      value: c.count,
     }));
 
-    // Get today's classes - using className directly from classschedule
+    /* =========================
+       TODAY CLASSES
+    ========================= */
     const [todayClasses] = await pool.query(
       `
       SELECT 
@@ -956,20 +966,20 @@ export const getDashboardDataService = async (branchId) => {
         cs.startTime,
         cs.endTime,
         cs.className,
-        u.fullName as trainerName,
+        u.fullName AS trainerName,
         cs.capacity,
-        COUNT(b.id) as bookedCount
+        COUNT(b.id) AS bookedCount
       FROM classschedule cs
       JOIN user u ON cs.trainerId = u.id
       LEFT JOIN booking b ON cs.id = b.scheduleId
-      WHERE cs.branchId = ? AND DATE(cs.date) = CURRENT_DATE
+      WHERE u.adminId = ?
+        AND DATE(cs.date) = CURRENT_DATE
       GROUP BY cs.id
       ORDER BY cs.startTime
-    `,
-      [branchId]
+      `,
+      [adminId]
     );
 
-    // Find the next class
     const now = new Date();
     const currentTime = `${now.getHours().toString().padStart(2, "0")}:${now
       .getMinutes()
@@ -979,10 +989,7 @@ export const getDashboardDataService = async (branchId) => {
     let nextClass = null;
     for (const cls of todayClasses) {
       if (cls.startTime > currentTime) {
-        nextClass = {
-          name: cls.className,
-          time: cls.startTime,
-        };
+        nextClass = { name: cls.className, time: cls.startTime };
         break;
       }
     }
@@ -994,46 +1001,65 @@ export const getDashboardDataService = async (branchId) => {
         : "No more classes today",
     };
 
-    // Get active members count
-    const [activeMembers] = await pool.query(
+    /* =========================
+       ACTIVE MEMBERS
+       member → user → adminId
+    ========================= */
+    const [[activeMembers]] = await pool.query(
       `
-      SELECT COUNT(*) as count
-      FROM member
-      WHERE branchId = ? AND status = 'ACTIVE'
-    `,
-      [branchId]
+      SELECT COUNT(*) AS count
+      FROM member m
+      JOIN user u ON m.userId = u.id
+      WHERE u.adminId = ?
+        AND m.status = 'ACTIVE'
+      `,
+      [adminId]
     );
 
-    // Get pending feedback count (alerts requiring attention)
-    const [pendingFeedback] = await pool.query(
+    /* =========================
+       PENDING FEEDBACK (FIXED ✅)
+       alert → member → user → adminId
+    ========================= */
+    const [[pendingFeedback]] = await pool.query(
       `
-      SELECT COUNT(*) as count
-      FROM alert
-      WHERE branchId = ? AND type = 'FEEDBACK_REQUIRED'
-    `,
-      [branchId]
+      SELECT COUNT(*) AS count
+      FROM alert a
+      JOIN member m ON a.memberId = m.id
+      JOIN user u ON m.userId = u.id
+      WHERE u.adminId = ?
+        AND a.type = 'FEEDBACK_REQUIRED'
+      `,
+      [adminId]
     );
 
-    // Get classes for this week
-    const [weekClasses] = await pool.query(
+    /* =========================
+       CLASSES THIS WEEK
+    ========================= */
+    const [[weekClasses]] = await pool.query(
       `
       SELECT 
-        COUNT(*) as total,
-        SUM(CASE WHEN DATE(cs.date) < CURRENT_DATE THEN 1 ELSE 0 END) as completed
+        COUNT(*) AS total,
+        SUM(
+          CASE 
+            WHEN DATE(cs.date) < CURRENT_DATE THEN 1 
+            ELSE 0 
+          END
+        ) AS completed
       FROM classschedule cs
-      WHERE cs.branchId = ? 
+      JOIN user u ON cs.trainerId = u.id
+      WHERE u.adminId = ?
         AND cs.date >= DATE_SUB(CURRENT_DATE(), INTERVAL WEEKDAY(CURRENT_DATE()) DAY)
-        AND cs.date < DATE_ADD(DATE_SUB(CURRENT_DATE(), INTERVAL WEEKDAY(CURRENT_DATE()) DAY), INTERVAL 7 DAY)
-    `,
-      [branchId]
+        AND cs.date < DATE_ADD(
+              DATE_SUB(CURRENT_DATE(), INTERVAL WEEKDAY(CURRENT_DATE()) DAY),
+              INTERVAL 7 DAY
+            )
+      `,
+      [adminId]
     );
 
-    const classesThisWeek = {
-      total: weekClasses[0].total || 0,
-      completed: weekClasses[0].completed || 0,
-    };
-
-    // Get detailed daily class schedule for today - using className directly from classschedule
+    /* =========================
+       TODAY DAILY SCHEDULE
+    ========================= */
     const [dailySchedule] = await pool.query(
       `
       SELECT 
@@ -1041,25 +1067,26 @@ export const getDashboardDataService = async (branchId) => {
         cs.startTime,
         cs.endTime,
         cs.className,
-        u.fullName as trainerName,
+        u.fullName AS trainerName,
         cs.capacity,
-        COUNT(b.id) as bookedCount,
+        COUNT(b.id) AS bookedCount,
         CASE 
           WHEN cs.endTime < TIME(NOW()) THEN 'Completed'
-          WHEN cs.startTime <= TIME(NOW()) AND cs.endTime >= TIME(NOW()) THEN 'In Progress'
+          WHEN cs.startTime <= TIME(NOW()) 
+           AND cs.endTime >= TIME(NOW()) THEN 'In Progress'
           ELSE 'Scheduled'
-        END as status
+        END AS status
       FROM classschedule cs
       JOIN user u ON cs.trainerId = u.id
       LEFT JOIN booking b ON cs.id = b.scheduleId
-      WHERE cs.branchId = ? AND DATE(cs.date) = CURRENT_DATE
+      WHERE u.adminId = ?
+        AND DATE(cs.date) = CURRENT_DATE
       GROUP BY cs.id
       ORDER BY cs.startTime
-    `,
-      [branchId]
+      `,
+      [adminId]
     );
 
-    // Format the daily schedule
     const dailyClassSchedule = dailySchedule.map((cls) => ({
       id: cls.id,
       time: `${cls.startTime} - ${cls.endTime}`,
@@ -1070,27 +1097,37 @@ export const getDashboardDataService = async (branchId) => {
       status: cls.status,
     }));
 
-    // Return a single object with all dashboard data
+    /* =========================
+       FINAL RESPONSE
+    ========================= */
     return {
       weeklyAttendanceTrend,
       classDistribution,
       classesToday,
       membersToTrain: {
-        count: activeMembers[0].count,
+        count: activeMembers.count,
         label: "Active members",
       },
       pendingFeedback: {
-        count: pendingFeedback[0].count,
+        count: pendingFeedback.count,
         label: "Requires attention",
       },
-      classesThisWeek,
-      dailyClassSchedule, // Added daily class schedule for today only
+      classesThisWeek: {
+        total: weekClasses.total || 0,
+        completed: weekClasses.completed || 0,
+      },
+      dailyClassSchedule,
     };
   } catch (error) {
-    console.error("Error fetching dashboard data:", error);
-    throw { status: 500, message: "Failed to fetch dashboard data" };
+    console.error("Dashboard error:", error);
+    throw {
+      status: 500,
+      message: error.sqlMessage || error.message || "Dashboard error",
+    };
   }
 };
+
+
 
 export const getAllMembersByBranchService = async (branchId) => {
   if (!branchId) throw { status: 400, message: "Branch ID is required" };
