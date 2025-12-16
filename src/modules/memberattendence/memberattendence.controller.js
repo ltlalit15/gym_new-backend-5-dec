@@ -448,11 +448,4 @@ export const getAttendanceByAdminId = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
-<<<<<<< HEAD
 };
-=======
-}
-
-
-
->>>>>>> 78db98934342f3ba3d2e31c5a6c4fd9b4529e5e5
