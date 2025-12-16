@@ -706,3 +706,30 @@ export const listPTBookingsService = async (branchId) => {
     time: `${x.startTime} - ${x.endTime}`,
   }));
 };
+
+
+
+export const getMembersByAdminAndPlan = async (adminId) => {
+  try {
+    // Fetch members with the given adminId, plan type 'MEMBER' or 'GROUP'
+    const query = `
+      SELECT m.id, m.fullName, m.email, m.phone, m.planId, m.membershipFrom, m.membershipTo, mp.type, mp.trainerType
+      FROM member m
+      JOIN memberplan mp ON m.planId = mp.id
+      WHERE m.adminId = ? AND (mp.type = 'MEMBER' OR mp.type = 'GROUP')`;
+
+    const [members] = await pool.query(query, [adminId]);
+
+    // Filter out members whose trainerType is not 'general' if the type is 'MEMBER'
+    const filteredMembers = members.filter((member) => {
+      if (member.type === 'MEMBER' && member.trainerType !== 'general') {
+        return false;
+      }
+      return true;
+    });
+
+    return filteredMembers;
+  } catch (error) {
+    throw { status: 500, message: "Error fetching members", error };
+  }
+};
