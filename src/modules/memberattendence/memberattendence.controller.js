@@ -361,10 +361,9 @@ export const deleteAttendance = async (req, res, next) => {
     next(err);
   }
 };
-
 export const getAttendanceByAdminId = async (req, res, next) => {
   try {
-    const { adminId, date, branchId, search } = req.query;
+    const { adminId, date, search } = req.query;
 
     if (!adminId) {
       return res.status(400).json({
@@ -412,17 +411,15 @@ export const getAttendanceByAdminId = async (req, res, next) => {
         ON sh.staffIds = a.staffId
        AND DATE(sh.shiftDate) = DATE(a.checkIn)
 
-      WHERE a.branchId IN (
-        SELECT id FROM branch WHERE adminId = ?
+      /* ===== ADMIN FILTER (CORE LOGIC) ===== */
+      WHERE (
+        (a.staffId IS NOT NULL AND s.adminId = ?)
+        OR
+        (a.memberId IS NOT NULL AND m.adminId = ?)
       )
     `;
 
-    const params = [adminId];
-
-    if (branchId) {
-      sql += ` AND a.branchId = ?`;
-      params.push(branchId);
-    }
+    const params = [adminId, adminId];
 
     if (date) {
       sql += ` AND DATE(a.checkIn) = ?`;
@@ -451,5 +448,6 @@ export const getAttendanceByAdminId = async (req, res, next) => {
     next(err);
   }
 }
+
 
 
