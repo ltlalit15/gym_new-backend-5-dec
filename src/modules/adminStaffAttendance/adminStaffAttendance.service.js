@@ -221,6 +221,7 @@ export const createStaffAttendanceService = async (data) => {
     `
     SELECT 
       s.id,
+      
       s.userId,
       u.fullName
     FROM staff s
@@ -234,9 +235,6 @@ export const createStaffAttendanceService = async (data) => {
     throw { status: 404, message: "Staff not found" };
   }
 
-  // if (!staff.branchId) {
-  //   throw { status: 400, message: "Branch not assigned to staff" };
-  // }
 
   /* ---------------- DATE & TIME HANDLING ---------------- */
 
@@ -257,12 +255,13 @@ export const createStaffAttendanceService = async (data) => {
 
   const [result] = await pool.query(
     `
-    INSERT INTO staffattendance
+    INSERT INTO memberattendance
       (staffId, shiftId, checkIn, checkOut, mode, status, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    VALUES ( ?, ?, ?, ?, ?, ?, ?)
     `,
     [
       staffId,
+   
       shiftId || null,
       checkIn,
       checkOut,
@@ -280,6 +279,7 @@ export const createStaffAttendanceService = async (data) => {
       sa.id,
       sa.staffId,
       u.fullName AS staffName,
+   
       sa.shiftId,
       sa.checkIn,
       sa.checkOut,
@@ -287,7 +287,7 @@ export const createStaffAttendanceService = async (data) => {
       sa.status,
       sa.notes,
       sa.createdAt
-    FROM staffattendance sa
+    FROM memberattendance sa
     LEFT JOIN staff s ON sa.staffId = s.id
     LEFT JOIN user u ON s.userId = u.id
     WHERE sa.id = ?
