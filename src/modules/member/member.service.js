@@ -220,7 +220,7 @@ export const renewMembershipService = async (memberId, body) => {
         paymentMode = ?, 
         amountPaid = ?, 
         adminId = ?, 
-        status = 'ACTIVE'  -- Set status to ACTIVE upon renewal
+        status = 'Active'  
      WHERE id = ?`,
     [
       planId,
@@ -233,14 +233,20 @@ export const renewMembershipService = async (memberId, body) => {
     ]
   );
 
+   const [[updatedMember]] = await pool.query(
+    `SELECT id, status, membershipFrom, membershipTo, planId, paymentMode, amountPaid, adminId, branchId 
+     FROM member WHERE id = ?`,
+    [memberId]
+  );
+
   return {
-    memberId,
-    planId,
-    membershipFrom: startDate,
-    membershipTo: endDate,
-    paymentMode,
-    amountPaid,
-    status: 'ACTIVE',  // Return ACTIVE status in the response
+    memberId: updatedMember.id,
+    planId: updatedMember.planId,
+    membershipFrom: updatedMember.membershipFrom,
+    membershipTo: updatedMember.membershipTo,
+    paymentMode: updatedMember.paymentMode,
+    amountPaid: updatedMember.amountPaid,
+    status: updatedMember.status,  // Return ACTIVE status in the response
   };
 };
 /**************************************

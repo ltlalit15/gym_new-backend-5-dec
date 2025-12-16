@@ -179,6 +179,43 @@ export const loginUser = async ({ email, password }) => {
 //   }
 // }
 
+
+if (user.roleId === 4) { // assuming roleId 4 = MEMBER
+    const [memberRows] = await pool.query(
+      `SELECT id, status, membershipTo FROM member WHERE userId = ? LIMIT 1`,
+      [user.id]
+    );
+
+    if (memberRows.length) {
+      const member = memberRows[0];
+
+      // Check if the membership has expired
+      const currentDate = new Date();
+      const membershipToDate = new Date(member.membershipTo);
+
+      if (membershipToDate < currentDate) {
+        // Mark the member as INACTIVE if their membership has expired
+        await pool.query(
+          `UPDATE member SET status = 'Inactive' WHERE id = ?`,
+          [member.id]
+        );
+
+        throw {
+          status: 403,
+          message: "Membership expired. Please renew your plan.",
+        };
+      }
+
+      // If the member's status is not "ACTIVE", block login
+      if (member.status !== "Active") {
+        throw {
+          status: 403,
+          message: "Membership expired or inactive. Please renew your plan.",
+        };
+      }
+    }
+  }
+
   const token = jwt.sign(
     {
       id: user.id,
