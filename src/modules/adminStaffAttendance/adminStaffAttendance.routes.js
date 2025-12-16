@@ -8,7 +8,7 @@ import {
   updateStaffAttendance,
 } from "./adminStaffAttendance.controller.js";
 
-const router = express.Router();
+const   router = express.Router();
 
 // Create a new staff attendance record
 router.post("/", createStaffAttendance);

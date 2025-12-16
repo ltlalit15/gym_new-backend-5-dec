@@ -194,61 +194,95 @@ import { pool } from "../../config/db.js";
 
 export const createStaffAttendanceService = async (data) => {
   const {
+    adminId,
     staffId,
-    branchId,
-    date,
     shiftId,
-    mode,
+    date,
     checkInTime,
     checkOutTime,
+    mode,
     status,
     notes,
   } = data;
 
-  // Parse check-in and check-out datetime
-  let checkIn = null;
-  let checkOut = null;
-
-  if (checkInTime) {
-    checkIn = new Date(checkInTime);  // Custom check-in time
-  } else {
-    checkIn = new Date();  // Default to current time
+  if (!staffId) {
+    throw { status: 400, message: "staffId is required" };
   }
 
-  if (checkOutTime) {
-    checkOut = new Date(checkOutTime);  // Custom check-out time
+  if (!date) {
+    throw { status: 400, message: "date is required" };
   }
 
-  // Create attendance record
+  // 🔹 Fetch staff + branch
+  const [[staff]] = await pool.query(
+    `SELECT s.branchId, u.fullName
+     FROM staff s
+     LEFT JOIN user u ON s.userId = u.id
+     WHERE s.id = ?`,
+    [staffId]
+  );
+
+  if (!staff || !staff.branchId) {
+    throw { status: 400, message: "Branch not assigned to staff" };
+  }
+
+  const checkIn = checkInTime ? new Date(checkInTime) : new Date(`${date}T09:00`);
+  const checkOut = checkOutTime ? new Date(checkOutTime) : null;
+
+  if (checkOut && checkOut < checkIn) {
+    throw {
+      status: 400,
+      message: "checkOutTime cannot be earlier than checkInTime",
+    };
+  }
+
+  // 🔹 INSERT
   const [result] = await pool.query(
     `INSERT INTO staffattendance 
       (staffId, branchId, shiftId, checkIn, checkOut, mode, status, notes)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      staffId || null,  // Allow staffId to be null
-      branchId,
-      shiftId || null,  // Add shiftId if provided
+      staffId,
+      staff.branchId,
+      shiftId || null,
       checkIn,
       checkOut,
-      mode || "Manual",  // Default to "Manual" if not provided
-      status || "Present",  // Default to "Present" if not provided
-      notes || null,  // Optional notes
+      mode || "Manual",
+      status || "Present",
+      notes || null,
     ]
   );
 
+  // 🔹 FETCH FULL DATA
+  const [[attendance]] = await pool.query(
+    `
+    SELECT 
+      sa.id,
+      sa.staffId,
+      u.fullName AS staffName,
+      sa.branchId,
+      sa.shiftId,
+      sa.checkIn,
+      sa.checkOut,
+      sa.mode,
+      sa.status,
+      sa.notes,
+      sa.createdAt
+    FROM staffattendance sa
+    LEFT JOIN staff s ON sa.staffId = s.id
+    LEFT JOIN user u ON s.userId = u.id
+    WHERE sa.id = ?
+    `,
+    [result.insertId]
+  );
+
   return {
+    success: true,
     message: "Staff attendance created successfully",
-    id: result.insertId,
-    staffId: staffId || null,  // Return staffId as null if not provided
-    branchId,
-    date,
-    checkIn,
-    checkOut,
-    mode: mode || "Manual",
-    status: status || "Present",
-    shiftId: shiftId || null,  // Include shiftId in response
+    data: attendance,   // ✅ FULL DATA
   };
 };
+
 
 /**************************************
  * GET STAFF ATTENDANCE BY ID
