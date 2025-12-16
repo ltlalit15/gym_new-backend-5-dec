@@ -194,16 +194,18 @@ import { pool } from "../../config/db.js";
 
 export const createStaffAttendanceService = async (data) => {
   const {
-    adminId,
+    adminId,        // frontend se aa raha (future use / audit)
     staffId,
     shiftId,
-    date,
-    checkInTime,
-    checkOutTime,
+    date,           // YYYY-MM-DD
+    checkInTime,    // YYYY-MM-DDTHH:mm
+    checkOutTime,   // YYYY-MM-DDTHH:mm
     mode,
     status,
     notes,
   } = data;
+
+  /* ---------------- VALIDATIONS ---------------- */
 
   if (!staffId) {
     throw { status: 400, message: "staffId is required" };
@@ -213,34 +215,53 @@ export const createStaffAttendanceService = async (data) => {
     throw { status: 400, message: "date is required" };
   }
 
-  // 🔹 Fetch staff + branch
+  /* ---------------- FETCH STAFF + BRANCH ---------------- */
+
   const [[staff]] = await pool.query(
-    `SELECT s.branchId, u.fullName
-     FROM staff s
-     LEFT JOIN user u ON s.userId = u.id
-     WHERE s.id = ?`,
+    `
+    SELECT 
+      s.id,
+      s.branchId,
+      s.userId,
+      u.fullName
+    FROM staff s
+    LEFT JOIN user u ON s.userId = u.id
+    WHERE s.id = ?
+    `,
     [staffId]
   );
 
-  if (!staff || !staff.branchId) {
+  if (!staff) {
+    throw { status: 404, message: "Staff not found" };
+  }
+
+  if (!staff.branchId) {
     throw { status: 400, message: "Branch not assigned to staff" };
   }
 
-  const checkIn = checkInTime ? new Date(checkInTime) : new Date(`${date}T09:00`);
-  const checkOut = checkOutTime ? new Date(checkOutTime) : null;
+  /* ---------------- DATE & TIME HANDLING ---------------- */
 
+  // check-in
+  let checkIn = checkInTime
+    ? new Date(checkInTime)
+    : new Date(`${date}T09:00`);
+
+  // check-out
+  let checkOut = checkOutTime ? new Date(checkOutTime) : null;
+
+  // 🌙 Night shift auto-fix (checkout next day)
   if (checkOut && checkOut < checkIn) {
-    throw {
-      status: 400,
-      message: "checkOutTime cannot be earlier than checkInTime",
-    };
+    checkOut.setDate(checkOut.getDate() + 1);
   }
 
-  // 🔹 INSERT
+  /* ---------------- INSERT ATTENDANCE ---------------- */
+
   const [result] = await pool.query(
-    `INSERT INTO staffattendance 
+    `
+    INSERT INTO staffattendance
       (staffId, branchId, shiftId, checkIn, checkOut, mode, status, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `,
     [
       staffId,
       staff.branchId,
@@ -253,7 +274,8 @@ export const createStaffAttendanceService = async (data) => {
     ]
   );
 
-  // 🔹 FETCH FULL DATA
+  /* ---------------- FETCH FULL RECORD ---------------- */
+
   const [[attendance]] = await pool.query(
     `
     SELECT 
@@ -276,12 +298,15 @@ export const createStaffAttendanceService = async (data) => {
     [result.insertId]
   );
 
+  /* ---------------- FINAL RESPONSE ---------------- */
+
   return {
     success: true,
     message: "Staff attendance created successfully",
-    data: attendance,   // ✅ FULL DATA
+    data: attendance,
   };
 };
+
 
 
 /**************************************
