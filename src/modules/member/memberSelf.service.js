@@ -235,7 +235,7 @@ export const updateMemberPersonalService = async (userId, data) => {
   const {
     first_name,
     last_name,
-    dateOfBirth, // Matching the column name in the payload
+    dateOfBirth, 
     email,
     phone,
     address_street,
@@ -259,7 +259,8 @@ export const updateMemberPersonalService = async (userId, data) => {
   const updatedEmail = email || userRow.email;
   const updatedPhone = phone || userRow.phone || "0000000000";
 
-  const updatedDob = dateOfBirth ? new Date(dateOfBirth) : userRow.dateOfBirth;
+  // Directly using the date string, no timezone conversion
+  const updatedDob = dateOfBirth ? dateOfBirth : userRow.dateOfBirth;
 
   const addressParts = [
     address_street || null,
@@ -279,13 +280,16 @@ export const updateMemberPersonalService = async (userId, data) => {
     throw { status: 400, message: "Email already in use" };
   }
 
+  // Log the updated date to check
+  console.log('Updated Date of Birth:', updatedDob);
+
   await pool.query(
     `
       UPDATE user SET
         fullName = ?,
         email = ?,
         phone = ?,
-        dateOfBirth = ?,  -- Use the correct column name
+        dateOfBirth = ?,  
         address_street = ?,
         address_city = ?,
         address_state = ?,
@@ -316,6 +320,8 @@ export const updateMemberPersonalService = async (userId, data) => {
 
   return updatedUser;
 };
+
+
 
 
 
