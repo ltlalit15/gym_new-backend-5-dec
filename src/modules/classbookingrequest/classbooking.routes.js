@@ -95,7 +95,7 @@ router.post("/unified/create", createUnifiedBooking);
 /* -----------------------------------------------------
     ⭐ GET BOOKINGS BY BRANCH (PT + GROUP)
 ----------------------------------------------------- */
-router.get("/unifiedbybranch/:branchId", getUnifiedBookingsByBranch);
+router.get("/unifiedbybranch/:adminId", getUnifiedBookingsByBranch);
 
 /* -----------------------------------------------------
     ⭐ GET BOOKINGS BY MEMBER (PT + GROUP)
