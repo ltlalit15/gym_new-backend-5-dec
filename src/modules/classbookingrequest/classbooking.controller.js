@@ -965,7 +965,7 @@ export const createUnifiedBooking = async (req, res) => {
       endTime,
       bookingType,
       notes,
-      branchId
+      branchId= null
     } = req.body;
 
     // BASIC VALIDATION
@@ -977,7 +977,7 @@ export const createUnifiedBooking = async (req, res) => {
     }
 
     // PT Booking Validation
-    if (bookingType === "PT" && (!trainerId || !sessionId)) {
+    if (bookingType === "PT" && !trainerId) {
       return res.status(400).json({
         success: false,
         message: "PT booking requires trainerId and sessionId"
@@ -1059,9 +1059,55 @@ export const createUnifiedBooking = async (req, res) => {
 //   }
 // };
 
+// export const getUnifiedBookingsByBranch = async (req, res) => {
+//   try {
+//     const { adminId } = req.params;
+
+//     const [rows] = await pool.query(
+//       `
+//       SELECT 
+//         b.*,
+//         um.fullName AS memberName,
+//         ut.fullName AS trainerName,
+//         s.sessionName,
+//         c.className
+//       FROM unified_bookings b
+      
+//       -- Member Details Join
+//       LEFT JOIN member m ON m.id = b.memberId
+//       LEFT JOIN user um ON um.id = m.userId
+      
+//       /******************************************************
+//        * TRAINER JOIN UPDATED  
+//        * Pehle hum staff table join kar rahe the:
+//        *   LEFT JOIN staff t ON t.id = b.trainerId
+//        *   LEFT JOIN user ut ON ut.id = t.userId
+//        *
+//        * Lekin ab trainerId = user table ki ID hai,
+//        * isliye direct user table se join kiya hai.
+//        ******************************************************/
+//       LEFT JOIN user ut ON ut.id = b.trainerId
+
+//       -- Session & Class Join
+//       LEFT JOIN session s ON s.id = b.sessionId
+//       LEFT JOIN classschedule c ON c.id = b.classId
+
+//       WHERE b.branchId = ?
+//       ORDER BY b.date DESC, b.startTime DESC
+//       `,
+//       [branchId]
+//     );
+
+//     res.json({ success: true, bookings: rows });
+
+//   } catch (err) {
+//     console.error("getUnifiedBookingsByBranch ERROR →", err);
+//     res.status(500).json({ success: false, message: err.message });
+//   }
+// };
 export const getUnifiedBookingsByBranch = async (req, res) => {
   try {
-    const { branchId } = req.params;
+    const { adminId } = req.params;
 
     const [rows] = await pool.query(
       `
@@ -1072,30 +1118,23 @@ export const getUnifiedBookingsByBranch = async (req, res) => {
         s.sessionName,
         c.className
       FROM unified_bookings b
-      
-      -- Member Details Join
+       
+      -- Join to get member details
       LEFT JOIN member m ON m.id = b.memberId
       LEFT JOIN user um ON um.id = m.userId
-      
-      /******************************************************
-       * TRAINER JOIN UPDATED  
-       * Pehle hum staff table join kar rahe the:
-       *   LEFT JOIN staff t ON t.id = b.trainerId
-       *   LEFT JOIN user ut ON ut.id = t.userId
-       *
-       * Lekin ab trainerId = user table ki ID hai,
-       * isliye direct user table se join kiya hai.
-       ******************************************************/
+
+      -- Join to get trainer details
       LEFT JOIN user ut ON ut.id = b.trainerId
 
-      -- Session & Class Join
+      -- Join to get session and class details
       LEFT JOIN session s ON s.id = b.sessionId
       LEFT JOIN classschedule c ON c.id = b.classId
 
-      WHERE b.branchId = ?
+      -- Filter by adminId from member table (adminId is now coming from member table)
+      WHERE m.adminId = ?
       ORDER BY b.date DESC, b.startTime DESC
       `,
-      [branchId]
+      [adminId]  // Using adminId from the URL parameter
     );
 
     res.json({ success: true, bookings: rows });
