@@ -194,61 +194,120 @@ import { pool } from "../../config/db.js";
 
 export const createStaffAttendanceService = async (data) => {
   const {
+    adminId,        // frontend se aa raha (future use / audit)
     staffId,
-    branchId,
-    date,
     shiftId,
+    date,           // YYYY-MM-DD
+    checkInTime,    // YYYY-MM-DDTHH:mm
+    checkOutTime,   // YYYY-MM-DDTHH:mm
     mode,
-    checkInTime,
-    checkOutTime,
     status,
     notes,
   } = data;
 
-  // Parse check-in and check-out datetime
-  let checkIn = null;
-  let checkOut = null;
+  /* ---------------- VALIDATIONS ---------------- */
 
-  if (checkInTime) {
-    checkIn = new Date(checkInTime);  // Custom check-in time
-  } else {
-    checkIn = new Date();  // Default to current time
+  if (!staffId) {
+    throw { status: 400, message: "staffId is required" };
   }
 
-  if (checkOutTime) {
-    checkOut = new Date(checkOutTime);  // Custom check-out time
+  if (!date) {
+    throw { status: 400, message: "date is required" };
   }
 
-  // Create attendance record
+  /* ---------------- FETCH STAFF + BRANCH ---------------- */
+
+  const [[staff]] = await pool.query(
+    `
+    SELECT 
+      s.id,
+      s.branchId,
+      s.userId,
+      u.fullName
+    FROM staff s
+    LEFT JOIN user u ON s.userId = u.id
+    WHERE s.id = ?
+    `,
+    [staffId]
+  );
+
+  if (!staff) {
+    throw { status: 404, message: "Staff not found" };
+  }
+
+  if (!staff.branchId) {
+    throw { status: 400, message: "Branch not assigned to staff" };
+  }
+
+  /* ---------------- DATE & TIME HANDLING ---------------- */
+
+  // check-in
+  let checkIn = checkInTime
+    ? new Date(checkInTime)
+    : new Date(`${date}T09:00`);
+
+  // check-out
+  let checkOut = checkOutTime ? new Date(checkOutTime) : null;
+
+  // 🌙 Night shift auto-fix (checkout next day)
+  if (checkOut && checkOut < checkIn) {
+    checkOut.setDate(checkOut.getDate() + 1);
+  }
+
+  /* ---------------- INSERT ATTENDANCE ---------------- */
+
   const [result] = await pool.query(
-    `INSERT INTO staffattendance 
+    `
+    INSERT INTO staffattendance
       (staffId, branchId, shiftId, checkIn, checkOut, mode, status, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `,
     [
-      staffId || null,  // Allow staffId to be null
-      branchId,
-      shiftId || null,  // Add shiftId if provided
+      staffId,
+      staff.branchId,
+      shiftId || null,
       checkIn,
       checkOut,
-      mode || "Manual",  // Default to "Manual" if not provided
-      status || "Present",  // Default to "Present" if not provided
-      notes || null,  // Optional notes
+      mode || "Manual",
+      status || "Present",
+      notes || null,
     ]
   );
 
+  /* ---------------- FETCH FULL RECORD ---------------- */
+
+  const [[attendance]] = await pool.query(
+    `
+    SELECT 
+      sa.id,
+      sa.staffId,
+      u.fullName AS staffName,
+      sa.branchId,
+      sa.shiftId,
+      sa.checkIn,
+      sa.checkOut,
+      sa.mode,
+      sa.status,
+      sa.notes,
+      sa.createdAt
+    FROM staffattendance sa
+    LEFT JOIN staff s ON sa.staffId = s.id
+    LEFT JOIN user u ON s.userId = u.id
+    WHERE sa.id = ?
+    `,
+    [result.insertId]
+  );
+
+  /* ---------------- FINAL RESPONSE ---------------- */
+
   return {
+    success: true,
     message: "Staff attendance created successfully",
-    id: result.insertId,
-    staffId: staffId || null,  // Return staffId as null if not provided
-    branchId,
-    date,
-    checkIn,
-    checkOut,
-    mode: mode || "Manual",
-    status: status || "Present",
-    shiftId: shiftId || null,  // Include shiftId in response
+    data: attendance,
   };
 };
+
+
 
 /**************************************
  * GET STAFF ATTENDANCE BY ID
