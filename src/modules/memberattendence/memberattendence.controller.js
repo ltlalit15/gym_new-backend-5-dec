@@ -447,6 +447,3 @@ export const getAttendanceByAdminId = async (req, res, next) => {
     next(err);
   }
 };
-
-
-
