@@ -57,7 +57,8 @@ export const createMemberService = async (data) => {
     const plan = planRows[0];
 
     endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + Number(plan.duration || 0));
+   const days = Number(plan.validityDays ?? plan.duration ?? 0);
+    endDate.setDate(endDate.getDate() + days);
   }
 
   // ---------------------------------------------------
@@ -123,6 +124,63 @@ export const createMemberService = async (data) => {
   };
 };
 
+// export const renewMembershipService = async (memberId, body) => {
+//   const { planId, paymentMode, amountPaid, adminId } = body;
+
+//   // 1️⃣ Member check
+//   const [[member]] = await pool.query("SELECT * FROM member WHERE id = ?", [
+//     memberId,
+//   ]);
+
+//   if (!member) throw { status: 404, message: "Member not found" };
+
+//   // 2️⃣ Fetch plan
+//   const [[plan]] = await pool.query("SELECT * FROM memberplan WHERE id = ?", [
+//     planId,
+//   ]);
+
+//   if (!plan) throw { status: 404, message: "Invalid Plan" };
+
+//   // 3️⃣ Calculate new membership dates
+//   let startDate = member.membershipTo
+//     ? new Date(member.membershipTo)
+//     : new Date();
+
+//   startDate.setDate(startDate.getDate() + 1); // next day after previous expiry
+
+//   let endDate = new Date(startDate);
+//   endDate.setDate(endDate.getDate() + Number(plan.duration));
+
+//   // 4️⃣ Update member table
+//   await pool.query(
+//     `UPDATE member SET 
+//         planId = ?, 
+//         membershipFrom = ?, 
+//         membershipTo = ?, 
+//         paymentMode = ?, 
+//         amountPaid = ?, 
+//         adminId = ? 
+//      WHERE id = ?`,
+//     [
+//       planId,
+//       startDate,
+//       endDate,
+//       paymentMode,
+//       amountPaid,
+//       adminId || member.adminId,
+//       memberId,
+//     ]
+//   );
+
+//   return {
+//     memberId,
+//     planId,
+//     membershipFrom: startDate,
+//     membershipTo: endDate,
+//     paymentMode,
+//     amountPaid,
+//   };
+// };
 export const renewMembershipService = async (memberId, body) => {
   const { planId, paymentMode, amountPaid, adminId } = body;
 
@@ -148,9 +206,12 @@ export const renewMembershipService = async (memberId, body) => {
   startDate.setDate(startDate.getDate() + 1); // next day after previous expiry
 
   let endDate = new Date(startDate);
-  endDate.setDate(endDate.getDate() + Number(plan.duration));
 
-  // 4️⃣ Update member table
+  // 4️⃣ Use validityDays from plan to calculate end date
+  const validityDays = plan.validityDays ?? 30; // default to 30 if not defined
+  endDate.setDate(endDate.getDate() + validityDays);
+
+  // 5️⃣ Update member table and set status to ACTIVE
   await pool.query(
     `UPDATE member SET 
         planId = ?, 
@@ -158,7 +219,8 @@ export const renewMembershipService = async (memberId, body) => {
         membershipTo = ?, 
         paymentMode = ?, 
         amountPaid = ?, 
-        adminId = ? 
+        adminId = ?, 
+        status = 'ACTIVE'  -- Set status to ACTIVE upon renewal
      WHERE id = ?`,
     [
       planId,
@@ -178,9 +240,9 @@ export const renewMembershipService = async (memberId, body) => {
     membershipTo: endDate,
     paymentMode,
     amountPaid,
+    status: 'ACTIVE',  // Return ACTIVE status in the response
   };
 };
-
 /**************************************
  * LIST MEMBERS
  **************************************/

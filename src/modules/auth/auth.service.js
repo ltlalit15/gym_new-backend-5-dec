@@ -158,7 +158,26 @@ export const loginUser = async ({ email, password }) => {
   );
 
   const staffId = staffRows.length ? staffRows[0].id : null;
-  // //
+  //Member status check
+
+//  if (user.roleId === 4) { // assuming roleId 4 = MEMBER
+//   const [memberRows] = await pool.query(
+//     `SELECT id, status FROM member WHERE userId = ? LIMIT 1`,
+//     [user.id]
+//   );
+
+//   if (memberRows.length) {
+//     const member = memberRows[0];
+
+//     // Check if the member's status is not "ACTIVE"
+//     if (member.status !== "ACTIVE") {
+//       throw {
+//         status: 403,
+//         message: "Membership expired or inactive. Please renew your plan.",
+//       };
+//     }
+//   }
+// }
 
   const token = jwt.sign(
     {

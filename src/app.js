@@ -21,6 +21,7 @@ import { ENV } from "./config/env.js";
 import router from "./routes/index.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import fileUpload from "express-fileupload";
+import { startMemberExpiryCron } from "./config/startMemberExpiry.js";
 
 
 const app = express();
@@ -63,5 +64,6 @@ app.get("/", (req, res) => {
 
 // error handler (last)
 app.use(errorHandler);
+startMemberExpiryCron()
 
 export default app;
