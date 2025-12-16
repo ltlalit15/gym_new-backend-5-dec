@@ -4,14 +4,15 @@ import { pool } from "../../config/db.js";
    1️⃣  MEMBER CHECK-IN  (Manual + QR + Manual Times)
 ------------------------------------------------------ */
 export const memberCheckIn = async (req, res, next) => {
+  
   try {
     // ❌ checkOut hata diya body se
     const { memberId, branchId, mode, status, notes, checkIn } = req.body;
 
-    if (!memberId || !branchId) {
+    if (!memberId) {
       return res.status(400).json({
         success: false,
-        message: "memberId & branchId are required",
+        message: "memberId required",
       });
     }
 
@@ -363,7 +364,8 @@ export const deleteAttendance = async (req, res, next) => {
 
 export const getAttendanceByAdminId = async (req, res, next) => {
   try {
-    const adminId = req.query.adminId;
+    const { adminId, date, branchId, search } = req.query;
+
     if (!adminId) {
       return res.status(400).json({
         success: false,
@@ -371,39 +373,42 @@ export const getAttendanceByAdminId = async (req, res, next) => {
       });
     }
 
-    const { date, branchId, search } = req.query;
-
     let sql = `
-      SELECT 
-        a.*,
-        m.fullName AS memberName,
-        mr.name AS memberRole,
-        su.fullName AS staffName,
-        sr.name AS staffRole,
-        sh.shiftType,
-        
-        -- Staff attendance data
-        a.staffId,
-        a.branchId,
-        a.checkIn AS checkInTime,
-        a.checkOut AS checkOutTime,
-        a.status AS attendanceStatus,
-        a.notes AS attendanceNotes
+      SELECT
+        DATE(a.checkIn) AS date,
+
+        /* NAME */
+        CASE
+          WHEN a.staffId IS NOT NULL THEN su.fullName
+          ELSE mu.fullName
+        END AS name,
+
+        /* ROLE */
+        CASE
+          WHEN a.staffId IS NOT NULL THEN sr.name
+          ELSE mr.name
+        END AS role,
+
+        a.checkIn,
+        a.checkOut,
+        a.mode,
+        sh.shiftType AS shift,
+        a.status
 
       FROM memberattendance a
 
-      -- Member joins
-      LEFT JOIN member m ON m.id = a.memberId
-      LEFT JOIN user mu ON mu.id = m.userId
-      LEFT JOIN role mr ON mr.id = mu.roleId
-
-      -- Staff joins
+      /* ===== STAFF ===== */
       LEFT JOIN staff s ON s.id = a.staffId
       LEFT JOIN user su ON su.id = s.userId
       LEFT JOIN role sr ON sr.id = su.roleId
 
-      -- Shift join for staff
-      LEFT JOIN shifts sh 
+      /* ===== MEMBER ===== */
+      LEFT JOIN member m ON m.id = a.memberId
+      LEFT JOIN user mu ON mu.id = m.userId
+      LEFT JOIN role mr ON mr.id = mu.roleId
+
+      /* ===== SHIFT (STAFF ONLY) ===== */
+      LEFT JOIN shifts sh
         ON sh.staffIds = a.staffId
        AND DATE(sh.shiftDate) = DATE(a.checkIn)
 
@@ -414,7 +419,6 @@ export const getAttendanceByAdminId = async (req, res, next) => {
 
     const params = [adminId];
 
-    // Adding filters for branchId, date, and search
     if (branchId) {
       sql += ` AND a.branchId = ?`;
       params.push(branchId);
@@ -426,23 +430,26 @@ export const getAttendanceByAdminId = async (req, res, next) => {
     }
 
     if (search) {
-      sql += ` AND (m.fullName LIKE ? OR su.fullName LIKE ?)`;
+      sql += `
+        AND (
+          su.fullName LIKE ?
+          OR mu.fullName LIKE ?
+        )
+      `;
       params.push(`%${search}%`, `%${search}%`);
     }
 
     sql += ` ORDER BY a.checkIn DESC`;
 
-    // Execute the query with the prepared parameters
     const [rows] = await pool.query(sql, params);
 
     res.json({
       success: true,
       attendance: rows,
     });
-
   } catch (err) {
     next(err);
   }
-};
+}
 
 
