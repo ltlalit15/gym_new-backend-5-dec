@@ -13,8 +13,8 @@ export const startMemberExpiryCron = () => {
 
       await pool.query(`
         UPDATE member
-        SET status = 'INACTIVE'
-        WHERE status = 'ACTIVE'
+        SET status = 'Inactive'
+        WHERE status = 'Active'
           AND membershipTo IS NOT NULL
           AND membershipTo < NOW()
       `);
