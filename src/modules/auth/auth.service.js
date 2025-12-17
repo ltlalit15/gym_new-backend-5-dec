@@ -283,144 +283,144 @@ export const fetchUserById = async (id) => {
 /**************************************
  * UPDATE USER
  **************************************/
-export const modifyUser = async (id, data,files) => {
-    const [rows] = await pool.query("SELECT * FROM user WHERE id = ?", [id]); // <-- added
-  const existingUser = rows[0]; // <-- added
-  if (data.password) {
-    data.password = await bcrypt.hash(data.password, 10);
-  }
-let profileImageUrl = existingUser.profileImage; // Default to existing profile image
+// export const modifyUser = async (id, data,files) => {
+//     const [rows] = await pool.query("SELECT * FROM user WHERE id = ?", [id]); // <-- added
+//   const existingUser = rows[0]; // <-- added
+//   if (data.password) {
+//     data.password = await bcrypt.hash(data.password, 10);
+//   }
+// let profileImageUrl = existingUser.profileImage; // Default to existing profile image
 
-  if (files?.profileImage) {
-    // If a new image is provided in the request files, upload it to Cloudinary
-    profileImageUrl = await uploadToCloudinary(files.profileImage, "users/profile");
-  }
-  const sql = `
-    UPDATE user SET 
-      fullName=?, email=?, phone=?, roleId=?, branchId=?, 
-      gymName=?, address=?, planName=?, price=?, duration=?, 
-      description=?, status=?, password=IFNULL(?, password), profileImage=?
-    WHERE id=?
-  `;
-
-  await pool.query(sql, [
-    data.fullName,
-    data.email,
-    data.phone,
-    existingUser.roleId,
-    data.branchId,
-    data.gymName,
-    data.address,
-    data.planName,
-    data.price,
-    data.duration,
-    data.description,
-    data.status,
-    data.password || null,
-    profileImageUrl,
-    id
-  ]);
-
-  return fetchUserById(id);
-};
-// export const modifyUser = async (id, data = {}, files) => { // Default to empty object if data is undefined
-//   const [rows] = await pool.query("SELECT * FROM user WHERE id = ?", [id]); // Get existing user
-//   const existingUser = rows[0]; // Store the existing user
-
-//   // Prepare the fields to be updated
-//   const updatedFields = [];
-  
-//   // Initialize the updated data with existing data (so fields not passed remain unchanged)
-//   const updatedData = {
-//     fullName: existingUser.fullName,
-//     email: existingUser.email,
-//     phone: existingUser.phone,
-//     branchId: existingUser.branchId,
-//     gymName: existingUser.gymName,
-//     address: existingUser.address,
-//     planName: existingUser.planName,
-//     price: existingUser.price,
-//     duration: existingUser.duration,
-//     description: existingUser.description,
-//     status: existingUser.status,
-//     password: existingUser.password, // Retain current password if not provided
-//     profileImage: existingUser.profileImage // Retain current profile image if not provided
-//   };
-
-//   // Update fields if provided in the data or files (check if data exists before updating)
-//   if (data?.fullName) {
-//     updatedData.fullName = data.fullName;
-//     updatedFields.push('fullName');
-//   }
-//   if (data?.email) {
-//     updatedData.email = data.email;
-//     updatedFields.push('email');
-//   }
-//   if (data?.phone) {
-//     updatedData.phone = data.phone;
-//     updatedFields.push('phone');
-//   }
-//   if (data?.branchId) {
-//     updatedData.branchId = data.branchId;
-//     updatedFields.push('branchId');
-//   }
-//   if (data?.gymName) {
-//     updatedData.gymName = data.gymName;
-//     updatedFields.push('gymName');
-//   }
-//   if (data?.address) {
-//     updatedData.address = data.address;
-//     updatedFields.push('address');
-//   }
-//   if (data?.planName) {
-//     updatedData.planName = data.planName;
-//     updatedFields.push('planName');
-//   }
-//   if (data?.price) {
-//     updatedData.price = data.price;
-//     updatedFields.push('price');
-//   }
-//   if (data?.duration) {
-//     updatedData.duration = data.duration;
-//     updatedFields.push('duration');
-//   }
-//   if (data?.description) {
-//     updatedData.description = data.description;
-//     updatedFields.push('description');
-//   }
-//   if (data?.status) {
-//     updatedData.status = data.status;
-//     updatedFields.push('status');
-//   }
-
-//   // Only hash password if it's provided
-//   if (data?.password) {
-//     updatedData.password = await bcrypt.hash(data.password, 10);
-//     updatedFields.push('password');
-//   }
-
-//   // Handle profile image update if a new image is provided
 //   if (files?.profileImage) {
-//     updatedData.profileImage = await uploadToCloudinary(files.profileImage, "users/profile");
-//     updatedFields.push('profileImage');
+//     // If a new image is provided in the request files, upload it to Cloudinary
+//     profileImageUrl = await uploadToCloudinary(files.profileImage, "users/profile");
 //   }
+//   const sql = `
+//     UPDATE user SET 
+//       fullName=?, email=?, phone=?, roleId=?, branchId=?, 
+//       gymName=?, address=?, planName=?, price=?, duration=?, 
+//       description=?, status=?, password=IFNULL(?, password), profileImage=?
+//     WHERE id=?
+//   `;
 
-//   // Dynamically create the SQL query based on updated fields
-//   const setClause = updatedFields.map(field => `${field} = ?`).join(", ");
+//   await pool.query(sql, [
+//     data.fullName,
+//     data.email,
+//     data.phone,
+//     existingUser.roleId,
+//     data.branchId,
+//     data.gymName,
+//     data.address,
+//     data.planName,
+//     data.price,
+//     data.duration,
+//     data.description,
+//     data.status,
+//     data.password || null,
+//     profileImageUrl,
+//     id
+//   ]);
 
-//   // SQL query to update the user record with only the updated fields
-//   const sql = `UPDATE user SET ${setClause} WHERE id = ?`;
-
-//   // Collect the values for the query in the same order as the updated fields
-//   const queryValues = updatedFields.map(field => updatedData[field]);
-//   queryValues.push(id); // Add the user ID to the end of the query
-
-//   // Update the user record in the database
-//   await pool.query(sql, queryValues);
-
-//   // Fetch the updated user details and return
 //   return fetchUserById(id);
 // };
+export const modifyUser = async (id, data = {}, files) => { // Default to empty object if data is undefined
+  const [rows] = await pool.query("SELECT * FROM user WHERE id = ?", [id]); // Get existing user
+  const existingUser = rows[0]; // Store the existing user
+
+  // Prepare the fields to be updated
+  const updatedFields = [];
+  
+  // Initialize the updated data with existing data (so fields not passed remain unchanged)
+  const updatedData = {
+    fullName: existingUser.fullName,
+    email: existingUser.email,
+    phone: existingUser.phone,
+    branchId: existingUser.branchId,
+    gymName: existingUser.gymName,
+    address: existingUser.address,
+    planName: existingUser.planName,
+    price: existingUser.price,
+    duration: existingUser.duration,
+    description: existingUser.description,
+    status: existingUser.status,
+    password: existingUser.password, // Retain current password if not provided
+    profileImage: existingUser.profileImage // Retain current profile image if not provided
+  };
+
+  // Update fields if provided in the data or files (check if data exists before updating)
+  if (data?.fullName) {
+    updatedData.fullName = data.fullName;
+    updatedFields.push('fullName');
+  }
+  if (data?.email) {
+    updatedData.email = data.email;
+    updatedFields.push('email');
+  }
+  if (data?.phone) {
+    updatedData.phone = data.phone;
+    updatedFields.push('phone');
+  }
+  if (data?.branchId) {
+    updatedData.branchId = data.branchId;
+    updatedFields.push('branchId');
+  }
+  if (data?.gymName) {
+    updatedData.gymName = data.gymName;
+    updatedFields.push('gymName');
+  }
+  if (data?.address) {
+    updatedData.address = data.address;
+    updatedFields.push('address');
+  }
+  if (data?.planName) {
+    updatedData.planName = data.planName;
+    updatedFields.push('planName');
+  }
+  if (data?.price) {
+    updatedData.price = data.price;
+    updatedFields.push('price');
+  }
+  if (data?.duration) {
+    updatedData.duration = data.duration;
+    updatedFields.push('duration');
+  }
+  if (data?.description) {
+    updatedData.description = data.description;
+    updatedFields.push('description');
+  }
+  if (data?.status) {
+    updatedData.status = data.status;
+    updatedFields.push('status');
+  }
+
+  // Only hash password if it's provided
+  if (data?.password) {
+    updatedData.password = await bcrypt.hash(data.password, 10);
+    updatedFields.push('password');
+  }
+
+  // Handle profile image update if a new image is provided
+  if (files?.profileImage) {
+    updatedData.profileImage = await uploadToCloudinary(files.profileImage, "users/profile");
+    updatedFields.push('profileImage');
+  }
+
+  // Dynamically create the SQL query based on updated fields
+  const setClause = updatedFields.map(field => `${field} = ?`).join(", ");
+
+  // SQL query to update the user record with only the updated fields
+  const sql = `UPDATE user SET ${setClause} WHERE id = ?`;
+
+  // Collect the values for the query in the same order as the updated fields
+  const queryValues = updatedFields.map(field => updatedData[field]);
+  queryValues.push(id); // Add the user ID to the end of the query
+
+  // Update the user record in the database
+  await pool.query(sql, queryValues);
+
+  // Fetch the updated user details and return
+  return fetchUserById(id);
+};
 
 /**************************************
  * DELETE USER
