@@ -631,34 +631,41 @@ export const deleteMemberService = async (id) => {
 
 // member.service.js
 
-// ===== GET MEMBERS BY ADMIN ID =====
 export const getMembersByAdminIdService = async (adminId) => {
   const [rows] = await pool.query(
-    `SELECT 
-        id,
-        adminId,
-        fullName,
-        email,
-        phone,
-        gender,
-        address,
-        joinDate,
-        branchId,
-        planId,
-        membershipFrom,
-        membershipTo,
-        paymentMode,
-        interestedIn,
-        amountPaid,
-        dateOfBirth,
-        status
-     FROM member
-     WHERE adminId = ?`,
+    `
+    SELECT 
+      m.id,
+      m.adminId,
+      m.fullName,
+      m.email,
+      m.phone,
+      m.gender,
+      m.address,
+      m.joinDate,
+      m.branchId,
+      m.planId,
+      m.membershipFrom,
+      m.membershipTo,
+      m.paymentMode,
+      m.interestedIn,
+      m.amountPaid,
+      m.dateOfBirth,
+      m.status,
+
+      u.profileImage      -- ✅ FROM USER TABLE
+
+    FROM member m
+    JOIN user u ON u.id = m.userId
+    WHERE m.adminId = ?
+    ORDER BY m.id DESC
+    `,
     [adminId]
   );
 
   return rows;
 };
+
 
 export const getRenewalPreviewService = async (memberId) => {
   // 1) Fetch member with required fields
