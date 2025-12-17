@@ -69,9 +69,8 @@ export const createMemberService = async (data) => {
     `INSERT INTO user 
       (adminId,fullName, email, password, phone, roleId, branchId, address, 
        description, duration, gymName, planName, price, profileImage,status)
-     VALUES (?,?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, ?,'Active')`,
-    [
-      adminId,
+     VALUES (?,?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL,? ,'Active')`,
+    [adminId,
       fullName,
       email,
       hashedPassword,
@@ -124,6 +123,7 @@ export const createMemberService = async (data) => {
     membershipFrom: startDate,
     membershipTo: endDate,
     status: "Active",
+    profileImage
   };
 };
 
