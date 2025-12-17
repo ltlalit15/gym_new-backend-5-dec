@@ -301,15 +301,30 @@ export const listMembersService = async (
  * MEMBER DETAIL
  **************************************/
 export const memberDetailService = async (id) => {
-  const [rows] = await pool.query("SELECT * FROM member WHERE id = ?", [id]);
+  const [rows] = await pool.query(
+    `
+    SELECT
+      m.*,
+      u.profileImage
+    FROM member m
+    JOIN user u ON u.id = m.userId
+    WHERE m.id = ?
+    `,
+    [id]
+  );
 
-  if (rows.length === 0) throw { status: 404, message: "Member not found" };
+  if (rows.length === 0) {
+    throw { status: 404, message: "Member not found" };
+  }
 
   const member = rows[0];
-  delete member.password; // 👈 Remove password from response
+
+  // 🔒 Remove sensitive fields
+  delete member.password;
 
   return member;
 };
+
 
 /**************************************
  * UPDATE MEMBER
