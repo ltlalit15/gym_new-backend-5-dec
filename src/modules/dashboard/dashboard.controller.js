@@ -194,58 +194,99 @@ export const getSuperAdminDashboard = async (req, res, next) => {
 
 export const getReceptionistDashboard = async (req, res, next) => {
   try {
-    const branchId = Number(req.query.branchId) || 1;
+    const adminId = Number(req.query.adminId);
 
-    /* WEEKLY ATTENDANCE */
+    if (!adminId) {
+      return res.status(400).json({
+        success: false,
+        message: "adminId is required",
+      });
+    }
+
+    /* =========================
+       WEEKLY ATTENDANCE
+    ========================= */
     const [weekly] = await pool.query(
       `
       SELECT 
-          DAYNAME(checkIn) AS day,
+          DAYNAME(ma.checkIn) AS day,
           COUNT(*) AS count,
-          DAYOFWEEK(checkIn) AS sortOrder
-      FROM memberattendance
-      WHERE DATE(checkIn) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-        AND branchId = ?
+          DAYOFWEEK(ma.checkIn) AS sortOrder
+      FROM memberattendance ma
+      JOIN user u ON ma.memberId = u.id
+      WHERE DATE(ma.checkIn) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        AND u.adminId = ?
       GROUP BY day, sortOrder
       ORDER BY sortOrder
       `,
-      [branchId]
+      [adminId]
     );
 
-    /* TODAY SUMMARY */
+    /* =========================
+       TODAY SUMMARY
+    ========================= */
     const [[present]] = await pool.query(
-      `SELECT COUNT(*) AS count FROM memberattendance 
-       WHERE DATE(checkIn)=CURDATE() AND branchId=?`,
-      [branchId]
+      `
+      SELECT COUNT(*) AS count
+      FROM memberattendance ma
+      JOIN user u ON ma.memberId = u.id
+      WHERE DATE(ma.checkIn) = CURDATE()
+        AND u.adminId = ?
+      `,
+      [adminId]
     );
 
     const [[active]] = await pool.query(
-      `SELECT COUNT(*) AS count FROM memberattendance 
-       WHERE DATE(checkIn)=CURDATE() AND checkOut IS NULL AND branchId=?`,
-      [branchId]
+      `
+      SELECT COUNT(*) AS count
+      FROM memberattendance ma
+      JOIN user u ON ma.memberId = u.id
+      WHERE DATE(ma.checkIn) = CURDATE()
+        AND ma.checkOut IS NULL
+        AND u.adminId = ?
+      `,
+      [adminId]
     );
 
     const [[completed]] = await pool.query(
-      `SELECT COUNT(*) AS count FROM memberattendance 
-       WHERE DATE(checkIn)=CURDATE() AND checkOut IS NOT NULL AND branchId=?`,
-      [branchId]
+      `
+      SELECT COUNT(*) AS count
+      FROM memberattendance ma
+      JOIN user u ON ma.memberId = u.id
+      WHERE DATE(ma.checkIn) = CURDATE()
+        AND ma.checkOut IS NOT NULL
+        AND u.adminId = ?
+      `,
+      [adminId]
     );
 
-    /* TODAY CHECK-INS COUNT */
+    /* =========================
+       TODAY CHECK-INS COUNT
+    ========================= */
     const [[todayCheckinsCount]] = await pool.query(
       `
       SELECT COUNT(*) AS count
-      FROM memberattendance
-      WHERE DATE(checkIn) = CURDATE()
-        AND branchId = ?
+      FROM memberattendance ma
+      JOIN user u ON ma.memberId = u.id
+      WHERE DATE(ma.checkIn) = CURDATE()
+        AND u.adminId = ?
       `,
-      [branchId]
+      [adminId]
     );
 
-    /* REVENUE (simple) */
-    const [[revenue]] = await pool.query(
-      `SELECT SUM(amount) AS total FROM payment`
-    );
+    /* =========================
+       REVENUE (Admin wise)
+    ========================= */
+  const [[revenue]] = await pool.query(
+  `
+  SELECT SUM(p.amount) AS total
+  FROM payment p
+  JOIN user u ON p.memberId = u.id
+  WHERE u.adminId = ?
+  `,
+  [adminId]
+);
+
 
     res.json({
       success: true,

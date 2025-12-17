@@ -22,10 +22,9 @@ export const createStaffService = async (data) => {
   /* ----------------------------------------------------
      1️⃣ CHECK DUPLICATE EMAIL
   ---------------------------------------------------- */
-  const [exists] = await pool.query(
-    "SELECT id FROM user WHERE email = ?",
-    [email]
-  );
+  const [exists] = await pool.query("SELECT id FROM user WHERE email = ?", [
+    email,
+  ]);
 
   if (exists.length > 0) {
     throw { status: 400, message: "Email already exists" };
@@ -102,14 +101,12 @@ export const createStaffService = async (data) => {
   };
 };
 
-
-
 /**************************************
  * LIST STAFF
  **************************************/
 // export const listStaffService = async (adminId) => {
 //   const sql = `
-//     SELECT 
+//     SELECT
 //       s.id AS staffId,
 //       u.id AS userId,
 //       u.fullName,
@@ -162,7 +159,7 @@ export const listStaffService = async (adminId) => {
 
   const [rows] = await pool.query(sql, [adminId]);
   return rows;
-}
+};
 
 /**************************************
  * STAFF DETAIL
@@ -202,25 +199,68 @@ export const staffDetailService = async (staffId, adminId) => {
   return rows[0];
 };
 
-
-
 /**************************************
  * UPDATE STAFF
  **************************************/
-export const updateStaffService = async (staffId, data) => {
-  // get userId
-  const [staffRows] = await pool.query(
-    "SELECT userId FROM staff WHERE id = ?",
-    [staffId]
+export const updateStaffService = async (id, data) => {
+  /* ----------------------------------------------------
+     1️⃣ FIND STAFF (staff.id OR userId)
+  ---------------------------------------------------- */
+  const [[staff]] = await pool.query(
+    `
+    SELECT 
+      s.id AS staffId,
+      s.userId,
+      s.branchId
+    FROM staff s
+    WHERE s.id = ? OR s.userId = ?
+    LIMIT 1
+    `,
+    [id, id]
   );
 
-  if (staffRows.length === 0) {
+  if (!staff) {
     throw { status: 404, message: "Staff not found" };
   }
 
-  const userId = staffRows[0].userId;
+  const staffId = staff.staffId;
+  const userId = staff.userId;
 
-  // update USER
+  /* ----------------------------------------------------
+     2️⃣ EMAIL DUPLICATE CHECK (IF EMAIL UPDATED)
+  ---------------------------------------------------- */
+  if (data.email) {
+    const [[emailExists]] = await pool.query(
+      `SELECT id FROM user WHERE email = ? AND id != ?`,
+      [data.email, userId]
+    );
+
+    if (emailExists) {
+      throw { status: 400, message: "Email already exists" };
+    }
+  }
+
+  /* ----------------------------------------------------
+     3️⃣ GET ADMIN BRANCH (IF adminId CHANGES)
+  ---------------------------------------------------- */
+  let branchId = staff.branchId;
+
+  if (data.adminId) {
+    const [[admin]] = await pool.query(
+      `SELECT branchId FROM user WHERE id = ?`,
+      [data.adminId]
+    );
+
+    if (!admin) {
+      throw { status: 404, message: "Admin not found" };
+    }
+
+    branchId = admin.branchId || null;
+  }
+
+  /* ----------------------------------------------------
+     4️⃣ UPDATE USER (ONLY SENT FIELDS)
+  ---------------------------------------------------- */
   const userFields = [];
   const userValues = [];
 
@@ -233,6 +273,12 @@ export const updateStaffService = async (staffId, data) => {
     }
   }
 
+  // update branchId only if adminId changed
+  if (data.adminId !== undefined) {
+    userFields.push("branchId = ?");
+    userValues.push(branchId);
+  }
+
   if (userFields.length > 0) {
     userValues.push(userId);
     await pool.query(
@@ -241,7 +287,9 @@ export const updateStaffService = async (staffId, data) => {
     );
   }
 
-  // update STAFF
+  /* ----------------------------------------------------
+     5️⃣ UPDATE STAFF (ONLY SENT FIELDS)
+  ---------------------------------------------------- */
   const staffFields = [];
   const staffValues = [];
 
@@ -257,8 +305,19 @@ export const updateStaffService = async (staffId, data) => {
   for (const col of staffColumns) {
     if (data[col] !== undefined) {
       staffFields.push(`${col} = ?`);
-      staffValues.push(data[col]);
+
+      if (["dateOfBirth", "joinDate", "exitDate"].includes(col)) {
+        staffValues.push(data[col] ? new Date(data[col]) : null);
+      } else {
+        staffValues.push(data[col]);
+      }
     }
+  }
+
+  // keep branch synced with admin
+  if (data.adminId !== undefined) {
+    staffFields.push("branchId = ?");
+    staffValues.push(branchId);
   }
 
   if (staffFields.length > 0) {
@@ -301,8 +360,6 @@ export const getAllStaffService = async () => {
   const [rows] = await pool.query(sql);
   return rows;
 };
-
-
 
 export const getTrainerByIdService = async (trainerId) => {
   const sql = `
@@ -388,16 +445,10 @@ export const deleteStaffService = async (staffId) => {
   ---------------------------------------------------- */
 
   // 🔥 classes
-  await pool.query(
-    "DELETE FROM classschedule WHERE trainerId = ?",
-    [userId]
-  );
+  await pool.query("DELETE FROM classschedule WHERE trainerId = ?", [userId]);
 
   // 🔥 sessions (NEW FIX)
-  await pool.query(
-    "DELETE FROM session WHERE trainerId = ?",
-    [userId]
-  );
+  await pool.query("DELETE FROM session WHERE trainerId = ?", [userId]);
 
   /* ----------------------------------------------------
      3️⃣ DELETE STAFF RELATED DATA
@@ -442,10 +493,6 @@ export const deleteStaffService = async (staffId) => {
   };
 };
 
-
-
-
-
 export const getAdminStaffService = async (adminId) => {
   const sql = `
     SELECT 
@@ -474,4 +521,3 @@ export const getAdminStaffService = async (adminId) => {
   const [rows] = await pool.query(sql, [adminId, adminId]);
   return rows;
 };
-
