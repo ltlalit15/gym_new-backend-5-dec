@@ -14,11 +14,28 @@ import {
   getMembersByAdminAndPlan
   
 } from "./member.service.js";
+import { uploadToCloudinary } from "../../config/cloudinary.js";
 
 export const createMember = async (req, res, next) => {
   try {
-    const m = await createMemberService(req.body);
-    res.json({ success: true, message: "Member created successfully", member: m });
+    let payload = { ...req.body };
+
+    // ✅ profile image upload (optional)
+    if (req.files?.profileImage) {
+      const imageUrl = await uploadToCloudinary(
+        req.files.profileImage,
+        "users/profile"
+      );
+      payload.profileImage = imageUrl;
+    }
+
+    const m = await createMemberService(payload);
+
+    res.json({
+      success: true,
+      message: "Member created successfully",
+      member: m,
+    });
   } catch (err) {
     next(err);
   }

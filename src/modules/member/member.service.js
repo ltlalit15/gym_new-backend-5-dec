@@ -21,6 +21,7 @@ export const createMemberService = async (data) => {
     interestedIn,
     address,
     adminId,
+    profileImage,
   } = data;
 
   if (!fullName || !email || !password) {
@@ -67,8 +68,8 @@ export const createMemberService = async (data) => {
   const [userResult] = await pool.query(
     `INSERT INTO user 
       (adminId,fullName, email, password, phone, roleId, branchId, address, 
-       description, duration, gymName, planName, price, status)
-     VALUES (?,?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, 'Active')`,
+       description, duration, gymName, planName, price, profileImage,status)
+     VALUES (?,?,?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, 'Active')`,
     [adminId,
       fullName,
       email,
@@ -77,6 +78,7 @@ export const createMemberService = async (data) => {
       4, // roleId = 3 = MEMBER
       branchId || null,
       address || null,
+       profileImage || null, 
     ]
   );
 

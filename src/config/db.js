@@ -55,7 +55,7 @@
 //   })
 //   .catch((err) => {
 //     console.error("❌ MySQL connection failed:", err.message);
-//   });
+  // });
 
 // live database
 import mysql from "mysql2";
