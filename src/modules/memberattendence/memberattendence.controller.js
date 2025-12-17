@@ -361,9 +361,148 @@ export const deleteAttendance = async (req, res, next) => {
     next(err);
   }
 };
+// export const getAttendanceByAdminId = async (req, res, next) => {
+//   try {
+//     const { adminId, date, search } = req.query;
+
+//     if (!adminId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "adminId is required",
+//       });
+//     }
+
+//     let sql = `
+//       SELECT
+//         a.id,
+//         DATE(a.checkIn) AS date,
+
+//         /* NAME */
+//         CASE
+//           WHEN a.staffId IS NOT NULL THEN su.fullName
+//           ELSE mu.fullName
+//         END AS name,
+
+//         /* ROLE */
+//         CASE
+//           WHEN a.staffId IS NOT NULL THEN sr.name
+//           ELSE mr.name
+//         END AS role,
+
+//         a.checkIn,
+//         a.checkOut,
+//         a.mode,
+//         sh.shiftType AS shift,
+//         a.status
+
+//       FROM memberattendance a
+
+//       /* ===== STAFF ===== */
+//       LEFT JOIN staff s ON s.id = a.staffId
+//       LEFT JOIN user su ON su.id = s.userId
+//       LEFT JOIN role sr ON sr.id = su.roleId
+
+//       /* ===== MEMBER ===== */
+//       LEFT JOIN member m ON m.userId= a.memberId
+//       LEFT JOIN user mu ON mu.id = m.userId
+//       LEFT JOIN role mr ON mr.id = mu.roleId
+
+//       /* ===== SHIFT (STAFF ONLY) ===== */
+//       LEFT JOIN shifts sh
+//         ON sh.staffIds = a.staffId
+//        AND DATE(sh.shiftDate) = DATE(a.checkIn)
+
+//       /* ===== ADMIN FILTER (CORE LOGIC) ===== */
+//       WHERE (
+//         (a.staffId IS NOT NULL AND s.adminId = ?)
+//         OR
+//         (a.memberId IS NOT NULL AND m.adminId = ?)
+//       )
+//     `;
+
+//     const params = [adminId, adminId];
+
+//     if (date) {
+//       sql += ` AND DATE(a.checkIn) = ?`;
+//       params.push(date);
+//     }
+
+//     if (search) {
+//       sql += `
+//         AND (
+//           su.fullName LIKE ?
+//           OR mu.fullName LIKE ?
+//         )
+//       `;
+//       params.push(`%${search}%`, `%${search}%`);
+//     }
+
+//     sql += ` ORDER BY a.checkIn DESC`;
+
+//     const [rows] = await pool.query(sql, params);
+
+//     res.json({
+//       success: true,
+//       attendance: rows,
+//     });
+//   } catch (err) {
+//     next(err);
+//   }
+// }
+
+// export const getAttendanceByAdminId = async (req, res, next) => {
+//   try {
+//     const { adminId } = req.query; // Only adminId is coming from the request
+
+//     if (!adminId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "adminId is required",
+//       });
+//     }
+
+//     // SQL query to get attendance records based on adminId
+//     let sql = `
+//       SELECT
+//         a.id,
+//         DATE(a.checkIn) AS date,
+//         mu.fullName AS name,  -- Member's full name
+//         mr.name AS role,      -- Member's role from the role table
+//         a.checkIn,
+//         a.checkOut,
+//         a.mode,
+//         NULL AS shift,        -- No shift in this case, so null
+//         a.status
+
+//       FROM memberattendance a
+
+//       /* ===== MEMBER JOIN ===== */
+//       LEFT JOIN member m ON m.userId = a.memberId
+//       LEFT JOIN user mu ON mu.id = m.userId
+//       LEFT JOIN role mr ON mr.id = mu.roleId  -- Getting role name
+
+//       /* ===== FILTER BASED ON adminId IN MEMBER TABLE ===== */
+//       WHERE m.adminId = ?  -- Ensuring that the adminId in the member table matches
+//     `;
+
+//     const params = [adminId];  // Only passing adminId as a parameter
+
+//     // Execute the query with parameters
+//     const [rows] = await pool.query(sql, params);
+
+//     res.json({
+//       success: true,
+//       attendance: rows, // Returning the attendance data
+//     });
+//   } catch (err) {
+//     next(err);  // Handling errors
+//   }
+// };
+
+
 export const getAttendanceByAdminId = async (req, res, next) => {
   try {
-    const { adminId, date, search } = req.query;
+    const { adminId } = req.query; // Only adminId is coming from the request
 
     if (!adminId) {
       return res.status(400).json({
@@ -372,83 +511,39 @@ export const getAttendanceByAdminId = async (req, res, next) => {
       });
     }
 
+    // SQL query to get attendance records based on adminId and memberId
     let sql = `
       SELECT
         a.id,
         DATE(a.checkIn) AS date,
-
-        /* NAME */
-        CASE
-          WHEN a.staffId IS NOT NULL THEN su.fullName
-          ELSE mu.fullName
-        END AS name,
-
-        /* ROLE */
-        CASE
-          WHEN a.staffId IS NOT NULL THEN sr.name
-          ELSE mr.name
-        END AS role,
-
+        mu.fullName AS name,  -- Member's full name
+        mr.name AS role,      -- Role name from the role table
         a.checkIn,
         a.checkOut,
         a.mode,
-        sh.shiftType AS shift,
+        NULL AS shift,        -- No shift in this case, so null
         a.status
 
       FROM memberattendance a
 
-      /* ===== STAFF ===== */
-      LEFT JOIN staff s ON s.id = a.staffId
-      LEFT JOIN user su ON su.id = s.userId
-      LEFT JOIN role sr ON sr.id = su.roleId
+      /* ===== MEMBER ATTENDANCE TO USER JOIN ===== */
+      LEFT JOIN user mu ON mu.id = a.memberId  -- Member's user details
+      LEFT JOIN role mr ON mr.id = mu.roleId   -- Getting role name from the role table
 
-      /* ===== MEMBER ===== */
-      LEFT JOIN member m ON m.userId= a.memberId
-      LEFT JOIN user mu ON mu.id = m.userId
-      LEFT JOIN role mr ON mr.id = mu.roleId
-
-      /* ===== SHIFT (STAFF ONLY) ===== */
-      LEFT JOIN shifts sh
-        ON sh.staffIds = a.staffId
-       AND DATE(sh.shiftDate) = DATE(a.checkIn)
-
-      /* ===== ADMIN FILTER (CORE LOGIC) ===== */
-      WHERE (
-        (a.staffId IS NOT NULL AND s.adminId = ?)
-        OR
-        (a.memberId IS NOT NULL AND m.adminId = ?)
-      )
+      /* ===== FILTER BASED ON adminId IN USER TABLE ===== */
+      WHERE mu.adminId = ?  -- Ensure that the adminId in the user table matches
     `;
 
-    const params = [adminId, adminId];
+    const params = [adminId];  // Only passing adminId as a parameter
 
-    if (date) {
-      sql += ` AND DATE(a.checkIn) = ?`;
-      params.push(date);
-    }
-
-    if (search) {
-      sql += `
-        AND (
-          su.fullName LIKE ?
-          OR mu.fullName LIKE ?
-        )
-      `;
-      params.push(`%${search}%`, `%${search}%`);
-    }
-
-    sql += ` ORDER BY a.checkIn DESC`;
-
+    // Execute the query with parameters
     const [rows] = await pool.query(sql, params);
 
     res.json({
       success: true,
-      attendance: rows,
+      attendance: rows, // Returning the attendance data
     });
   } catch (err) {
-    next(err);
+    next(err);  // Handling errors
   }
-}
-
-
-
+};
