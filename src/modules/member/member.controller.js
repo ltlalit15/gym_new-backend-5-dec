@@ -10,7 +10,8 @@ import {
   getMembersByAdminIdService,
   renewMembershipService,
   getRenewalPreviewService,
-  listPTBookingsService
+  listPTBookingsService,
+  getMembersByAdminAndPlan
   
 } from "./member.service.js";
 
@@ -145,6 +146,23 @@ export const listPTBookings = async (req, res, next) => {
       total: data.length,
       items: data
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+export const getMembersByAdminAndPlanController = async (req, res, next) => {
+  try {
+    const { adminId } = req.params;
+
+    if (!adminId) {
+      return res.status(400).json({ success: false, message: "adminId is required" });
+    }
+
+    const members = await getMembersByAdminAndPlan(adminId);
+
+    return res.json({ success: true, members });
   } catch (err) {
     next(err);
   }
