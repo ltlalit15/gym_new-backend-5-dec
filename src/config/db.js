@@ -71,7 +71,7 @@ export const pool = mysql
     database: "railway",
     port: 35602,
     waitForConnections: true,
-    connectionLimit: 10,
+    connectionLimit: 10, 
     queueLimit: 0,
   })
   .promise(); // 🔥 THIS MAKES pool.query() RETURN A PROMISE

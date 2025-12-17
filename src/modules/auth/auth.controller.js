@@ -25,7 +25,7 @@ export const register = async (req, res, next) => {
     }
 
     const payload = { profileImage: imageUrl };
-    
+    console.log(payload)
 
     const user = await registerUser(req.body,payload)
     res.json({ success: true, user });

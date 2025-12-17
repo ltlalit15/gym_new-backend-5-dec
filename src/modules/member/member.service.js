@@ -13,7 +13,7 @@ export const createMemberService = async (data) => {
     phone,
     planId,
     membershipFrom,
-    dob,
+    dateOfBirth,
     paymentMode,
     amountPaid,
     branchId,
@@ -68,8 +68,8 @@ export const createMemberService = async (data) => {
   const [userResult] = await pool.query(
     `INSERT INTO user 
       (adminId,fullName, email, password, phone, roleId, branchId, address, 
-       description, duration, gymName, planName, price, profileImage,status)
-     VALUES (?,?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL,? ,'Active')`,
+       description, duration, gymName, planName, price,dateOfBirth ,profileImage,status)
+     VALUES (?,?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL,? ,?,'Active')`,
     [adminId,
       fullName,
       email,
@@ -78,6 +78,7 @@ export const createMemberService = async (data) => {
       4, // roleId = 3 = MEMBER
       branchId || null,
       address || null,
+      dateOfBirth ? new Date(dateOfBirth) : null,
       profileImage || null,
     ]
   );
@@ -102,7 +103,7 @@ export const createMemberService = async (data) => {
       planId || null,
       startDate,
       endDate,
-      dob ? new Date(dob) : null,
+      dateOfBirth ? new Date(dateOfBirth) : null,
       paymentMode || null,
       amountPaid ? Number(amountPaid) : 0,
       branchId || null,
@@ -123,6 +124,7 @@ export const createMemberService = async (data) => {
     membershipFrom: startDate,
     membershipTo: endDate,
     status: "Active",
+    dateOfBirth,
     profileImage
   };
 };
