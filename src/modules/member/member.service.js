@@ -58,8 +58,8 @@ export const createMemberService = async (data) => {
     const plan = planRows[0];
 
     endDate = new Date(startDate);
-   const days = Number(plan.validityDays ?? plan.duration ?? 0);
-    endDate.setDate(endDate.getDate() + days);
+    const days = Number(plan.validityDays ?? plan.duration ?? 0);
+    endDate.setDate(endDate.getDate() + days);  
   }
 
   // ---------------------------------------------------
@@ -69,8 +69,9 @@ export const createMemberService = async (data) => {
     `INSERT INTO user 
       (adminId,fullName, email, password, phone, roleId, branchId, address, 
        description, duration, gymName, planName, price, profileImage,status)
-     VALUES (?,?,?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, 'Active')`,
-    [adminId,
+     VALUES (?,?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, ?,'Active')`,
+    [
+      adminId,
       fullName,
       email,
       hashedPassword,
@@ -78,7 +79,7 @@ export const createMemberService = async (data) => {
       4, // roleId = 3 = MEMBER
       branchId || null,
       address || null,
-       profileImage || null, 
+      profileImage || null,
     ]
   );
 
@@ -155,13 +156,13 @@ export const createMemberService = async (data) => {
 
 //   // 4️⃣ Update member table
 //   await pool.query(
-//     `UPDATE member SET 
-//         planId = ?, 
-//         membershipFrom = ?, 
-//         membershipTo = ?, 
-//         paymentMode = ?, 
-//         amountPaid = ?, 
-//         adminId = ? 
+//     `UPDATE member SET
+//         planId = ?,
+//         membershipFrom = ?,
+//         membershipTo = ?,
+//         paymentMode = ?,
+//         amountPaid = ?,
+//         adminId = ?
 //      WHERE id = ?`,
 //     [
 //       planId,
@@ -235,7 +236,7 @@ export const renewMembershipService = async (memberId, body) => {
     ]
   );
 
-   const [[updatedMember]] = await pool.query(
+  const [[updatedMember]] = await pool.query(
     `SELECT id, status, membershipFrom, membershipTo, planId, paymentMode, amountPaid, adminId, branchId 
      FROM member WHERE id = ?`,
     [memberId]
@@ -248,7 +249,7 @@ export const renewMembershipService = async (memberId, body) => {
     membershipTo: updatedMember.membershipTo,
     paymentMode: updatedMember.paymentMode,
     amountPaid: updatedMember.amountPaid,
-    status: updatedMember.status,  // Return ACTIVE status in the response
+    status: updatedMember.status, // Return ACTIVE status in the response
   };
 };
 /**************************************
@@ -430,14 +431,21 @@ export const memberDetailService = async (id) => {
 // };
 
 export const updateMemberService = async (id, data) => {
-  // 1️⃣ Fetch existing member
-  const [[existing]] = await pool.query("SELECT * FROM member WHERE id = ?", [
-    id,
-  ]);
+  /* --------------------------------
+     1️⃣ FETCH EXISTING MEMBER
+  -------------------------------- */
+  const [[existing]] = await pool.query(
+    "SELECT * FROM member WHERE id = ?",
+    [id]
+  );
 
-  if (!existing) throw { status: 404, message: "Member not found" };
+  if (!existing) {
+    throw { status: 404, message: "Member not found" };
+  }
 
-  // 2️⃣ Extract fields WITH fallbacks
+  /* --------------------------------
+     2️⃣ EXTRACT FIELDS (WITH FALLBACKS)
+  -------------------------------- */
   const {
     fullName = existing.fullName,
     email = existing.email,
@@ -453,34 +461,51 @@ export const updateMemberService = async (id, data) => {
     interestedIn = existing.interestedIn,
     address = existing.address,
     adminId = existing.adminId,
-    status = existing.status, // ⭐ FIXED: fallback added
+    status = existing.status,
+    profileImage, // ✅ ONLY FOR USER TABLE
   } = data;
 
-  // 3️⃣ Hash password only if updating
+  /* --------------------------------
+     3️⃣ PASSWORD HASH (IF PROVIDED)
+  -------------------------------- */
   let hashedPassword = existing.password;
   if (password) {
     hashedPassword = await bcrypt.hash(password, 10);
   }
 
-  // 4️⃣ Prepare membership dates
-  const startDate = membershipFrom ? new Date(membershipFrom) : null;
+  /* --------------------------------
+     4️⃣ MEMBERSHIP DATES
+  -------------------------------- */
+  const startDate = membershipFrom
+    ? new Date(membershipFrom)
+    : existing.membershipFrom;
+
   let endDate = existing.membershipTo;
 
-  // 5️⃣ Recalculate membershipTo if plan is changed
+  /* --------------------------------
+     5️⃣ RECALCULATE membershipTo (PLAN BASED)
+     ❗ memberplan → ONLY validityDays
+  -------------------------------- */
   if (planId && membershipFrom) {
     const [planRows] = await pool.query(
-      "SELECT * FROM memberplan WHERE id = ?",
+      "SELECT validityDays FROM memberplan WHERE id = ?",
       [planId]
     );
-    if (!planRows.length)
-      throw { status: 404, message: "Invalid plan selected" };
 
-    const plan = planRows[0];
+    if (!planRows.length) {
+      throw { status: 404, message: "Invalid plan selected" };
+    }
+
+    const days = Number(planRows[0].validityDays || 0);
+
     endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + Number(plan.duration || 0));
+    endDate.setDate(endDate.getDate() + days);
   }
 
-  // 6️⃣ Update member table
+  /* --------------------------------
+     6️⃣ UPDATE MEMBER TABLE
+     ❌ NO profileImage HERE
+  -------------------------------- */
   await pool.query(
     `UPDATE member SET
       fullName = ?,
@@ -521,16 +546,20 @@ export const updateMemberService = async (id, data) => {
     ]
   );
 
-  // 7️⃣ Update user table also
+  /* --------------------------------
+     7️⃣ UPDATE USER TABLE
+     ✅ profileImage ONLY HERE
+  -------------------------------- */
   await pool.query(
-    `UPDATE user SET 
-      fullName = ?, 
-      email = ?, 
-      phone = ?, 
-      password = ?, 
-      branchId = ?, 
+    `UPDATE user SET
+      fullName = ?,
+      email = ?,
+      phone = ?,
+      password = ?,
+      branchId = ?,
       address = ?,
-      status = ?        -- ⭐ Added to sync user & member status
+      status = ?,
+      profileImage = ?
      WHERE id = ?`,
     [
       fullName,
@@ -539,13 +568,18 @@ export const updateMemberService = async (id, data) => {
       hashedPassword,
       branchId,
       address,
-      status, // ⭐ syncing status
+      status,
+      profileImage ?? null,
       existing.userId,
     ]
   );
 
+  /* --------------------------------
+     8️⃣ RETURN UPDATED MEMBER DETAIL
+  -------------------------------- */
   return memberDetailService(id);
 };
+
 
 /**************************************
  * DELETE (SOFT DELETE)
@@ -709,8 +743,6 @@ export const listPTBookingsService = async (branchId) => {
   }));
 };
 
-
-
 export const getMembersByAdminAndPlan = async (adminId) => {
   try {
     // Fetch members with the given adminId, plan type 'MEMBER' or 'GROUP'
@@ -724,7 +756,7 @@ export const getMembersByAdminAndPlan = async (adminId) => {
 
     // Filter out members whose trainerType is not 'general' if the type is 'MEMBER'
     const filteredMembers = members.filter((member) => {
-      if (member.type === 'MEMBER' && member.trainerType !== 'general') {
+      if (member.type === "MEMBER" && member.trainerType !== "general") {
         return false;
       }
       return true;

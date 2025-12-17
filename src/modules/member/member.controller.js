@@ -93,9 +93,19 @@ export const memberDetail = async (req, res, next) => {
 export const updateMember = async (req, res, next) => {
   try {
     const id = parseInt(req.params.id);
-    const data = req.body;
+    let data = { ...req.body };
+
+    // ✅ profile image upload (optional)
+    if (req.files?.profileImage) {
+      const imageUrl = await uploadToCloudinary(
+        req.files.profileImage,
+        "users/profile"
+      );
+      data.profileImage = imageUrl;
+    }
 
     const updated = await updateMemberService(id, data);
+
     res.json({
       success: true,
       message: "Member updated successfully",
