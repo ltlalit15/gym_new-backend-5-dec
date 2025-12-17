@@ -374,6 +374,7 @@ export const getAttendanceByAdminId = async (req, res, next) => {
 
     let sql = `
       SELECT
+        a.id,
         DATE(a.checkIn) AS date,
 
         /* NAME */
@@ -402,7 +403,7 @@ export const getAttendanceByAdminId = async (req, res, next) => {
       LEFT JOIN role sr ON sr.id = su.roleId
 
       /* ===== MEMBER ===== */
-      LEFT JOIN member m ON m.id = a.memberId
+      LEFT JOIN member m ON m.userId= a.memberId
       LEFT JOIN user mu ON mu.id = m.userId
       LEFT JOIN role mr ON mr.id = mu.roleId
 

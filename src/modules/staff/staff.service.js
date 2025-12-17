@@ -268,8 +268,10 @@ export const updateStaffService = async (staffId, data) => {
       staffValues
     );
   }
+const[rows]=await pool.query("SELECT * FROM staff WHERE id=?",[staffId]);
 
-  return staffDetailService(staffId);
+
+  return rows[0];
 };
 
 
