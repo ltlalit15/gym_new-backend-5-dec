@@ -1,3 +1,4 @@
+import { uploadToCloudinary } from "../../config/cloudinary.js";
 import { registerUser, loginUser , fetchUserById,
   modifyUser,
   removeUser, fetchAdmins, fetchDashboardStats, loginMemberService,changeUserPassword, getAdminDashboardData} from "./auth.service.js";
@@ -14,8 +15,19 @@ export const register = async (req, res, next) => {
     // if (req.user) {
     //   req.body.adminId = req.user.id;   // jis admin ne create kiya
     // }
+    
+    let imageUrl = null;
+    if (req.files?.profileImage) {
+      imageUrl = await uploadToCloudinary(
+        req.files.profileImage,
+        "users/profile"
+      );
+    }
 
-    const user = await registerUser(req.body);
+    const payload = { profileImage: imageUrl };
+    console.log(payload)
+
+    const user = await registerUser(req.body,payload)
     res.json({ success: true, user });
   } catch (err) {
     next(err);
@@ -51,7 +63,7 @@ export const getAdmins = async (req, res, next) => {
 
 export const updateUser = async (req, res, next) => {
   try {
-    const data = await modifyUser(Number(req.params.id), req.body);
+    const data = await modifyUser(Number(req.params.id), req.body,req.files);
     res.json({ success: true, user: data });
   } catch (err) {
     next(err);
