@@ -154,6 +154,10 @@ export const updateStaff = async (req, res, next) => {
     if (data.password) {
       data.password = await bcrypt.hash(data.password, 10);
     }
+    if (req.files?.profilePhoto) {
+      const imageUrl = await uploadToCloudinary(req.files.profilePhoto, 'staff/profile');
+      data.profilePhoto = imageUrl;  // Assign the new image URL
+    }
 
     // ✅ AUTH NAHI HAI → adminId force mat karo
     // Sirf tab set karo jab req.user available ho

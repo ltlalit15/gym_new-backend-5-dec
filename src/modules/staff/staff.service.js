@@ -225,6 +225,7 @@ export const updateStaffService = async (id, data) => {
 
   const staffId = staff.staffId;
   const userId = staff.userId;
+  const existingProfilePhoto = staff.profilePhoto;
 
   /* ----------------------------------------------------
      2️⃣ EMAIL DUPLICATE CHECK (IF EMAIL UPDATED)
@@ -312,6 +313,10 @@ export const updateStaffService = async (id, data) => {
         staffValues.push(data[col]);
       }
     }
+  }
+  if (!data.profilePhoto) {
+    staffFields.push("profilePhoto = ?");
+    staffValues.push(existingProfilePhoto);  // Use existing photo URL
   }
 
   // keep branch synced with admin
