@@ -1,6 +1,7 @@
 
 
 
+import { uploadToCloudinary } from "../../config/cloudinary.js";
 import {
   createStaffService,
   listStaffService,
@@ -53,6 +54,10 @@ export const createStaff = async (req, res, next) => {
       });
     }
 
+    let imageUrl = null;
+    if (req.files?.profilePhoto) {
+      imageUrl = await uploadToCloudinary(req.files.profilePhoto, 'staff/profile');
+    }
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const staff = await createStaffService({
@@ -66,7 +71,7 @@ export const createStaff = async (req, res, next) => {
       dateOfBirth,
       joinDate,
       exitDate: exitDate || null,
-      profilePhoto: profilePhoto || null,
+      profilePhoto: imageUrl || null,
     });
 
     res.json({

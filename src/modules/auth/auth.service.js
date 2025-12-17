@@ -254,6 +254,7 @@ if (user.roleId === 4) { // assuming roleId 4 = MEMBER
       branchId: user.branchId,
       branchName: user.branchName,
       adminId: user.adminId,
+      profileImage:user.profileImage,
        staffId: staffId    // ✅ yaha se controller ko milega
     }
   };
