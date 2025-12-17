@@ -14,7 +14,7 @@ export const housekeepingDashboardService = async (adminId) => {
   const conn = pool;
 
   /* =====================================================
-     1️⃣ TODAY SHIFTS
+     1️⃣ TODAY SHIFTS (ADMIN + ROLE = 8)
   ===================================================== */
   const [[todayShiftsRow]] = await conn.query(
     `
@@ -23,6 +23,7 @@ export const housekeepingDashboardService = async (adminId) => {
     JOIN staff s ON FIND_IN_SET(s.id, sh.staffIds)
     JOIN user u ON s.userId = u.id
     WHERE u.adminId = ?
+      AND u.roleId = 8
       AND DATE(sh.shiftDate) = ?
     `,
     [adminId, todayStr]
@@ -31,8 +32,7 @@ export const housekeepingDashboardService = async (adminId) => {
   const todayShifts = Number(todayShiftsRow?.shifts || 0);
 
   /* =====================================================
-     2️⃣ TASKS THIS WEEK
-     tasks.assignedTo = staff.id
+     2️⃣ TASKS THIS WEEK (Housekeeper only)
   ===================================================== */
   const [[taskCountRow]] = await conn.query(
     `
@@ -43,6 +43,7 @@ export const housekeepingDashboardService = async (adminId) => {
     JOIN staff s ON t.assignedTo = s.id
     JOIN user u ON s.userId = u.id
     WHERE u.adminId = ?
+      AND u.roleId = 8
       AND t.dueDate BETWEEN ? AND ?
     `,
     [adminId, weekStartStr, todayStr]
@@ -61,6 +62,7 @@ export const housekeepingDashboardService = async (adminId) => {
     JOIN staff s ON t.assignedTo = s.id
     JOIN user u ON s.userId = u.id
     WHERE u.adminId = ?
+      AND u.roleId = 8
       AND t.status = 'Pending'
     `,
     [adminId]
@@ -69,7 +71,7 @@ export const housekeepingDashboardService = async (adminId) => {
   const pendingMaintenance = Number(pendingMaintenanceRow?.pending || 0);
 
   /* =====================================================
-     4️⃣ ATTENDANCE (memberattendance)
+     4️⃣ ATTENDANCE (Housekeeper only)
   ===================================================== */
   const [[attendanceRow]] = await conn.query(
     `
@@ -80,8 +82,8 @@ export const housekeepingDashboardService = async (adminId) => {
     JOIN staff s ON ma.staffId = s.id
     JOIN user u ON s.userId = u.id
     WHERE u.adminId = ?
-      AND ma.checkIn >= CONCAT(?, ' 00:00:00')
-      AND ma.checkIn <= CONCAT(?, ' 23:59:59')
+      AND u.roleId = 8
+      AND DATE(ma.checkIn) BETWEEN ? AND ?
     `,
     [adminId, weekStartStr, todayStr]
   );
@@ -90,7 +92,7 @@ export const housekeepingDashboardService = async (adminId) => {
   const attendanceTotal = Number(attendanceRow?.total || 0);
 
   /* =====================================================
-     5️⃣ WEEKLY ROSTER
+     5️⃣ WEEKLY ROSTER (Housekeeper only)
   ===================================================== */
   const [weeklyRosterRows] = await conn.query(
     `
@@ -104,6 +106,7 @@ export const housekeepingDashboardService = async (adminId) => {
     JOIN staff s ON FIND_IN_SET(s.id, sh.staffIds)
     JOIN user u ON s.userId = u.id
     WHERE u.adminId = ?
+      AND u.roleId = 8
       AND sh.shiftDate >= ?
     ORDER BY sh.shiftDate ASC
     `,
@@ -128,6 +131,7 @@ export const housekeepingDashboardService = async (adminId) => {
     JOIN staff s ON t.assignedTo = s.id
     JOIN user u ON s.userId = u.id
     WHERE u.adminId = ?
+      AND u.roleId = 8
       AND t.status = 'Completed'
       AND t.dueDate >= DATE_SUB(?, INTERVAL 7 DAY)
     GROUP BY DATE(t.dueDate)
@@ -153,6 +157,7 @@ export const housekeepingDashboardService = async (adminId) => {
     JOIN staff s ON t.assignedTo = s.id
     JOIN user u ON s.userId = u.id
     WHERE u.adminId = ?
+      AND u.roleId = 8
     `,
     [adminId]
   );
