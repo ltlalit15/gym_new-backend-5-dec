@@ -4,6 +4,7 @@ import {
   updateMemberPersonalService,
   changeMemberPasswordService
 } from "./memberSelf.service.js";
+import { uploadToCloudinary } from "../../config/cloudinary.js";
 
 /****************************************************
  * GET MEMBER PROFILE (using userId)
@@ -30,21 +31,28 @@ export const getMemberProfile = async (req, res, next) => {
 /****************************************************
  * UPDATE PERSONAL DETAILS (using userId)
  ****************************************************/
+
 export const updateMemberPersonal = async (req, res, next) => {
   try {
-    // URL params me userId
     const userId = req.params.userId;
+    let payload = { ...req.body };
 
-    // Body se user ke updated personal details aayenge
-    const updatedProfile = await updateMemberPersonalService(
-      userId,
-      req.body // pura payload service me bhej diya
-    );
+    // ✅ profile image upload
+    if (req.files?.profileImage) {
+      const imageUrl = await uploadToCloudinary(
+        req.files.profileImage,
+        "users/profile"
+      );
+
+      payload.profileImage = imageUrl;
+    }
+
+    const updatedUser = await updateMemberPersonalService(userId, payload);
 
     res.json({
       success: true,
-      message: "Personal information updated successfully",
-      profile: updatedProfile
+      message: "Profile updated successfully",
+      user: updatedUser,
     });
   } catch (err) {
     next(err);

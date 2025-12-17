@@ -18,6 +18,7 @@ export const getMemberProfileService = async (userId) => {
         u.branchId,
         u.status AS userStatus,
         u.dateOfBirth,  -- Correct column name here
+        u.profileImage,
 
         m.id AS memberId,
         m.gender,
@@ -76,6 +77,7 @@ export const getMemberProfileService = async (userId) => {
     address_state: m.address_state,
     address_zip: m.address_zip,
     gender: m.gender,
+    profileImage: m.profileImage || null, 
     date_of_birth: m.date_of_birth,
     plan_start_date: m.plan_start_date,
     plan_end_date: m.plan_end_date,
@@ -235,14 +237,15 @@ export const updateMemberPersonalService = async (userId, data) => {
   const {
     first_name,
     last_name,
-    dateOfBirth, 
+    dateOfBirth,
     email,
     phone,
     address_street,
     address_city,
     address_state,
     address_zip,
-    gender
+    gender,
+    profileImage // ✅ NEW
   } = data;
 
   const [[userRow]] = await pool.query(
@@ -254,23 +257,26 @@ export const updateMemberPersonalService = async (userId, data) => {
     throw { status: 404, message: "User not found" };
   }
 
-  const fullName = first_name && last_name ? `${first_name} ${last_name}`.trim() : userRow.fullName;
+  const fullName =
+    first_name && last_name
+      ? `${first_name} ${last_name}`.trim()
+      : userRow.fullName;
 
   const updatedEmail = email || userRow.email;
   const updatedPhone = phone || userRow.phone || "0000000000";
-
-  // Directly using the date string, no timezone conversion
   const updatedDob = dateOfBirth ? dateOfBirth : userRow.dateOfBirth;
 
   const addressParts = [
     address_street || null,
     address_city || null,
     address_state || null,
-    address_zip || null
+    address_zip || null,
   ].filter(Boolean);
 
-  const address = addressParts.length > 0 ? addressParts.join(", ") : userRow.address;
+  const address =
+    addressParts.length > 0 ? addressParts.join(", ") : userRow.address;
 
+  // email duplicate check
   const [emailExists] = await pool.query(
     `SELECT id FROM user WHERE email = ? AND id != ?`,
     [updatedEmail, userId]
@@ -280,23 +286,24 @@ export const updateMemberPersonalService = async (userId, data) => {
     throw { status: 400, message: "Email already in use" };
   }
 
-  // Log the updated date to check
-  console.log('Updated Date of Birth:', updatedDob);
+  // ✅ profileImage fallback
+  const updatedProfileImage = profileImage || userRow.profileImage;
 
   await pool.query(
     `
-      UPDATE user SET
-        fullName = ?,
-        email = ?,
-        phone = ?,
-        dateOfBirth = ?,  
-        address_street = ?,
-        address_city = ?,
-        address_state = ?,
-        address_zip = ?,
-        address = ?,
-        gender = ?  
-      WHERE id = ?
+    UPDATE user SET
+      fullName = ?,
+      email = ?,
+      phone = ?,
+      dateOfBirth = ?,
+      address_street = ?,
+      address_city = ?,
+      address_state = ?,
+      address_zip = ?,
+      address = ?,
+      gender = ?,
+      profileImage = ?   -- ✅ NEW
+    WHERE id = ?
     `,
     [
       fullName,
@@ -307,9 +314,10 @@ export const updateMemberPersonalService = async (userId, data) => {
       address_city,
       address_state,
       address_zip,
-      address,  
-      gender,  
-      userId
+      address,
+      gender,
+      updatedProfileImage, // ✅
+      userId,
     ]
   );
 
@@ -320,6 +328,7 @@ export const updateMemberPersonalService = async (userId, data) => {
 
   return updatedUser;
 };
+
 
 
 
