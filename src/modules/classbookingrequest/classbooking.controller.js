@@ -961,11 +961,15 @@ export const createUnifiedBooking = async (req, res) => {
       sessionId,
       classId,
       date,
+      endDate,
       startTime,
       endTime,
       bookingType,
       notes,
-      branchId= null
+      branchId= null,
+      bookingStatus,
+      paymentStatus,
+      price
     } = req.body;
 
     // BASIC VALIDATION
@@ -977,11 +981,25 @@ export const createUnifiedBooking = async (req, res) => {
     }
 
     // PT Booking Validation
-    if (bookingType === "PT" && !trainerId) {
-      return res.status(400).json({
-        success: false,
-        message: "PT booking requires trainerId and sessionId"
-      });
+    // if (bookingType === "PT" && !trainerId) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "PT booking requires trainerId and sessionId"
+    //   });
+    // }
+    if (bookingType === "PT") {
+      if (!trainerId) {
+        return res.status(400).json({
+          success: false,
+          message: "PT booking requires trainerId"
+        });
+      }
+      if (!endDate) {
+        return res.status(400).json({
+          success: false,
+          message: "PT booking requires endDate"
+        });
+      }
     }
 
     // Group Booking Validation
@@ -995,8 +1013,8 @@ export const createUnifiedBooking = async (req, res) => {
     await pool.query(
       `
       INSERT INTO unified_bookings 
-      (memberId, trainerId, sessionId, classId, date, startTime, endTime, bookingType, bookingStatus, paymentStatus, notes, branchId)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Booked', 'Pending', ?, ?)
+      (memberId, trainerId, sessionId, classId, date,endDate ,startTime, endTime, bookingType, bookingStatus, paymentStatus,price ,notes, branchId)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         memberId,
@@ -1004,9 +1022,13 @@ export const createUnifiedBooking = async (req, res) => {
         sessionId || null,
         classId || null,
         date,
+        bookingType === "PT" ? endDate : null,
         startTime,
         endTime,
         bookingType,
+        bookingStatus,
+        paymentStatus,
+        price,
         notes || "",
         branchId
       ]
@@ -1174,6 +1196,77 @@ export const getUnifiedBookingsByTrainer = async (req, res) => {
   }
 };
 
+// export const getUnifiedPersonalAndGeneralTrainersService = async (req,res) => {
+//   const aid = Number(adminId);
+//   if (!aid) throw { status: 400, message: "adminId is required" };
+
+//   const [rows] = await pool.query(
+//     `SELECT 
+//        u.id,
+//        u.fullName,
+//        u.email,
+//        u.phone,
+//        u.branchId,
+//        u.roleId
+//      FROM user u
+//      WHERE u.roleId IN (5, 6)
+//        AND u.adminId = ?
+//      ORDER BY u.id DESC`,
+//     [aid]
+//   );
+
+//   return rows;
+// };
+export const getUnifiedPersonalAndGeneralTrainersService = async (req, res) => {
+  try {
+    // adminId should come from auth middleware or params/query
+    const adminId = Number(req.user?.adminId || req.params.adminId);
+
+    if (!adminId) {
+      return res.status(400).json({
+        success: false,
+        message: "adminId is required"
+      });
+    }
+
+    const [rows] = await pool.query(
+  `
+  SELECT 
+    u.id,
+    u.fullName,
+    u.email,
+    u.phone,
+    u.branchId,
+    u.roleId
+  FROM user u
+  WHERE u.roleId IN (5, 6)
+    AND u.adminId = ?
+    AND NOT EXISTS (
+      SELECT 1
+      FROM unified_bookings b
+      WHERE b.trainerId = u.id
+        AND b.bookingType = 'PT'
+        AND b.bookingStatus = 'Booked'
+    )
+  ORDER BY u.id DESC
+  `,
+  [adminId]
+);
+
+    return res.status(200).json({
+      success: true,
+      trainers: rows
+    });
+
+  } catch (error) {
+    console.error("getUnifiedPersonalAndGeneralTrainersService ERROR →", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
 export const getUnifiedBookingById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -1247,6 +1340,110 @@ export const getUnifiedBookingById = async (req, res) => {
 // };
 
 
+// export const updateUnifiedBooking = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+
+//     if (!id) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Booking ID is required",
+//       });
+//     }
+
+//     const {
+//       trainerId,
+//       sessionId,
+//       classId,
+//       date,
+//       startTime,
+//       endTime,
+//       bookingType,
+//       bookingStatus,
+//       paymentStatus,
+//       notes,
+//     } = req.body;
+
+//     // Build dynamic SET query
+//     let fields = [];
+//     let params = [];
+
+//     if (trainerId !== undefined) {
+//       fields.push("trainerId = ?");
+//       params.push(trainerId);
+//     }
+//     if (sessionId !== undefined) {
+//       fields.push("sessionId = ?");
+//       params.push(sessionId);
+//     }
+//     if (classId !== undefined) {
+//       fields.push("classId = ?");
+//       params.push(classId);
+//     }
+//     if (date !== undefined) {
+//       fields.push("date = ?");
+//       params.push(date);
+//     }
+//     if (startTime !== undefined) {
+//       fields.push("startTime = ?");
+//       params.push(startTime);
+//     }
+//     if (endTime !== undefined) {
+//       fields.push("endTime = ?");
+//       params.push(endTime);
+//     }
+//     if (bookingType !== undefined) {
+//       fields.push("bookingType = ?");
+//       params.push(bookingType);
+//     }
+//     if (bookingStatus !== undefined) {
+//       fields.push("bookingStatus = ?");
+//       params.push(bookingStatus);
+//     }
+//     if (paymentStatus !== undefined) {
+//       fields.push("paymentStatus = ?");
+//       params.push(paymentStatus);
+//     }
+//     if (notes !== undefined) {
+//       fields.push("notes = ?");
+//       params.push(notes);
+//     }
+
+//     if (fields.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "At least one field is required to update",
+//       });
+//     }
+
+//     params.push(id);
+
+//     const updateQuery = `
+//       UPDATE unified_bookings
+//       SET ${fields.join(", ")}
+//       WHERE id = ?
+//     `;
+
+//     const [result] = await pool.query(updateQuery, params);
+
+//     if (result.affectedRows === 0) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Booking not found",
+//       });
+//     }
+
+//     res.json({
+//       success: true,
+//       message: "Booking updated successfully",
+//     });
+
+//   } catch (err) {
+//     console.error("updateUnifiedBooking ERROR →", err);
+//     res.status(500).json({ success: false, message: err.message });
+//   }
+// };
+
 export const updateUnifiedBooking = async (req, res) => {
   try {
     const { id } = req.params;
@@ -1263,15 +1460,45 @@ export const updateUnifiedBooking = async (req, res) => {
       sessionId,
       classId,
       date,
+      endDate,
       startTime,
       endTime,
       bookingType,
       bookingStatus,
       paymentStatus,
+      price,
       notes,
+      branchId
     } = req.body;
 
-    // Build dynamic SET query
+    // -------------------------
+    // BUSINESS VALIDATION
+    // -------------------------
+    // if (bookingType === "PT") {
+    //   if (trainerId === null) {
+    //     return res.status(400).json({
+    //       success: false,
+    //       message: "PT booking requires trainerId",
+    //     });
+    //   }
+    //   if (endDate === null) {
+    //     return res.status(400).json({
+    //       success: false,
+    //       message: "PT booking requires endDate",
+    //     });
+    //   }
+    // }
+
+    // if (bookingType === "GROUP" && classId === null) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Group booking requires classId",
+    //   });
+    // }
+
+    // -------------------------
+    // DYNAMIC UPDATE
+    // -------------------------
     let fields = [];
     let params = [];
 
@@ -1290,6 +1517,10 @@ export const updateUnifiedBooking = async (req, res) => {
     if (date !== undefined) {
       fields.push("date = ?");
       params.push(date);
+    }
+    if (endDate !== undefined) {
+      fields.push("endDate = ?");
+      params.push(endDate);
     }
     if (startTime !== undefined) {
       fields.push("startTime = ?");
@@ -1311,9 +1542,17 @@ export const updateUnifiedBooking = async (req, res) => {
       fields.push("paymentStatus = ?");
       params.push(paymentStatus);
     }
+    if (price !== undefined) {
+      fields.push("price = ?");
+      params.push(price);
+    }
     if (notes !== undefined) {
       fields.push("notes = ?");
       params.push(notes);
+    }
+    if (branchId !== undefined) {
+      fields.push("branchId = ?");
+      params.push(branchId);
     }
 
     if (fields.length === 0) {
@@ -1340,17 +1579,19 @@ export const updateUnifiedBooking = async (req, res) => {
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
       message: "Booking updated successfully",
     });
 
   } catch (err) {
     console.error("updateUnifiedBooking ERROR →", err);
-    res.status(500).json({ success: false, message: err.message });
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 };
-
 
 export const deleteUnifiedBooking = async (req, res) => {
   try {
