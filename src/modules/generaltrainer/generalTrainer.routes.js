@@ -27,7 +27,7 @@ router.get("/:branchId/group-plans/:planId/members", getPlanMembers);
 // Route: GET /api/branch/:branchId/members/:memberId/bookings
 router.get("/:branchId/members/:memberId/bookings", getMemberBookings);
 
-router.get("/:branchId/class-performance", getClassPerformanceReport);
+router.get("/:adminId/class-performance", getClassPerformanceReport);
 
 router.get("/:id", getAttendanceById);
 router.get("/branch/:branchId/members", getAllMembersByBranch);

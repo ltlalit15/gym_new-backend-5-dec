@@ -392,67 +392,79 @@ export const getMemberBookingDetailsService = async (branchId, memberId) => {
 
 
 
-export const getClassPerformanceReportService = async (branchId) => {
-  if (!branchId) {
-    throw { status: 400, message: "Branch ID is required" };
+export const getClassPerformanceReportService = async (adminId) => {
+  if (!adminId) {
+    throw { status: 400, message: "Admin ID is required" };
   }
 
   try {
-    // 1. Fetch Total Students
+    /* ------------------------------------------------
+       1️⃣ TOTAL ACTIVE STUDENTS (ADMIN-WISE)
+    ------------------------------------------------ */
     const [totalStudentsResult] = await pool.query(
-      "SELECT COUNT(*) as count FROM member WHERE branchId = ? AND status = 'ACTIVE'",
-      [branchId]
+      `
+      SELECT COUNT(*) as count
+      FROM member
+      WHERE adminId = ?
+        AND status = 'ACTIVE'
+      `,
+      [adminId]
     );
+
     const totalStudents = totalStudentsResult[0].count;
 
-    // 2. Fetch Present Students for Today
-    // const [presentStudentsResult] = await pool.query(
-    //   "SELECT COUNT(DISTINCT memberId) as count FROM memberattendance WHERE branchId = ? AND DATE(checkIn) = CURDATE()",
-    //   [branchId]
-    // );
+    /* ------------------------------------------------
+       2️⃣ PRESENT STUDENTS TODAY (ADMIN-WISE)
+    ------------------------------------------------ */
     const [presentStudentsResult] = await pool.query(
       `
       SELECT COUNT(DISTINCT ma.memberId) AS count
       FROM memberattendance ma
       JOIN member m ON ma.memberId = m.id
       WHERE 
-        ma.branchId = ?
-        AND m.branchId = ?
+        m.adminId = ?
         AND DATE(ma.checkIn) = CURDATE()
         AND m.status = 'ACTIVE'
       `,
-      [branchId, branchId]
+      [adminId]
     );
+
     const presentStudents = presentStudentsResult[0].count;
 
-    // 3. Calculate Average Attendance
+    /* ------------------------------------------------
+       3️⃣ AVERAGE ATTENDANCE %
+    ------------------------------------------------ */
     const avgAttendancePercentage =
       totalStudents > 0
         ? Math.round((presentStudents / totalStudents) * 100 * 10) / 10
         : 0;
 
-    // 4. Fetch all scheduled classes and their attendance (more robust query)
+    /* ------------------------------------------------
+       4️⃣ CLASS PERFORMANCE (ADMIN → BRANCH → CLASS)
+    ------------------------------------------------ */
     const [studentAttendanceByClass] = await pool.query(
       `
       SELECT
         cs.className,
         cs.date,
         cs.capacity,
-        COUNT(DISTINCT b.memberId) as bookedCount
+        COUNT(DISTINCT b.memberId) AS bookedCount
       FROM classschedule cs
+      JOIN branch br ON cs.branchId = br.id
       LEFT JOIN booking b ON cs.id = b.scheduleId
-      WHERE 
-        cs.branchId = ?
-        AND cs.date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-        AND cs.date <= CURDATE()
+      WHERE
+        br.adminId = ?
+        AND cs.date BETWEEN DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND CURDATE()
       GROUP BY cs.id, cs.className, cs.date, cs.capacity
       ORDER BY cs.date DESC
       LIMIT 10
       `,
-      [branchId]
+      [adminId]
     );
 
-    // 5. Format the class attendance data
+    /* ------------------------------------------------
+       5️⃣ FORMAT RESPONSE
+    ------------------------------------------------ */
     const formattedAttendanceData = studentAttendanceByClass.map((item) => {
       const attendancePercentage =
         item.capacity > 0
@@ -462,12 +474,14 @@ export const getClassPerformanceReportService = async (branchId) => {
       return {
         className: item.className,
         date: item.date.toISOString().split("T")[0],
-        attendance: `${item.bookedCount}/${item.capacity}`, // This now shows Booked/Total Capacity
-        attendancePercentage: attendancePercentage,
+        attendance: `${item.bookedCount}/${item.capacity}`,
+        attendancePercentage,
       };
     });
 
-    // 6. Return the final object
+    /* ------------------------------------------------
+       6️⃣ FINAL RESPONSE
+    ------------------------------------------------ */
     return {
       summary: {
         totalStudents,
@@ -481,6 +495,7 @@ export const getClassPerformanceReportService = async (branchId) => {
     throw { status: 500, message: "Failed to fetch class performance report" };
   }
 };
+
 
 
 const processAttendanceRecord = (record) => {

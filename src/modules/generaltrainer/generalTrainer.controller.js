@@ -97,17 +97,18 @@ export const getMemberBookings = async (req, res) => {
 
 export const getClassPerformanceReport = async (req, res) => {
   try {
-    // Get branchId from request parameters
-    const branchId = parseInt(req.params.branchId || req.query.branchId);
+    // ✅ adminId params ya query se lo
+    const adminId = parseInt(req.params.adminId || req.query.adminId);
 
-    if (!branchId || isNaN(branchId)) {
+    if (!adminId || isNaN(adminId)) {
       return res.status(400).json({
         success: false,
-        message: "Valid branch ID is required",
+        message: "Valid admin ID is required",
       });
     }
 
-    const result = await getClassPerformanceReportService(branchId);
+    // ✅ adminId service ko pass karo
+    const result = await getClassPerformanceReportService(adminId);
 
     res.status(200).json({
       success: true,
@@ -121,6 +122,7 @@ export const getClassPerformanceReport = async (req, res) => {
     });
   }
 };
+
 
 export const getAttendanceById = async (req, res) => {
   try {
