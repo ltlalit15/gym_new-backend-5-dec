@@ -102,6 +102,50 @@ export const getAllMemberPlans = async (adminId) => {
 //   return rows;
 // };
 
+// export const getMemberPlansByAdminIdService = async (adminId) => {
+//   const [rows] = await pool.query(
+//     `
+//     SELECT 
+//       id,
+//       name,
+//       sessions,
+//       validityDays,
+//       price,
+//       type,
+//       trainerId,
+//       trainerType,
+//       adminId,
+//       branchId,
+//       createdAt,
+//       updatedAt,
+
+//       -- 🔥 days passed
+//       DATEDIFF(CURRENT_DATE, DATE(createdAt)) AS daysUsed,
+
+//       -- 🔥 days left
+//       GREATEST(
+//         validityDays - DATEDIFF(CURRENT_DATE, DATE(createdAt)),
+//         0
+//       ) AS daysLeft,
+
+//       -- 🔥 status
+//       CASE 
+//         WHEN validityDays - DATEDIFF(CURRENT_DATE, DATE(createdAt)) <= 0
+//         THEN 'INACTIVE'
+//         ELSE 'ACTIVE'
+//       END AS status
+
+//     FROM memberplan
+//     WHERE adminId = ?
+//     ORDER BY id DESC
+//     `,
+//     [Number(adminId)]
+//   );
+
+//   return rows;
+// };
+
+
 export const getMemberPlansByAdminIdService = async (adminId) => {
   const [rows] = await pool.query(
     `
@@ -114,26 +158,11 @@ export const getMemberPlansByAdminIdService = async (adminId) => {
       type,
       trainerId,
       trainerType,
+      status,
       adminId,
       branchId,
       createdAt,
-      updatedAt,
-
-      -- 🔥 days passed
-      DATEDIFF(CURRENT_DATE, DATE(createdAt)) AS daysUsed,
-
-      -- 🔥 days left
-      GREATEST(
-        validityDays - DATEDIFF(CURRENT_DATE, DATE(createdAt)),
-        0
-      ) AS daysLeft,
-
-      -- 🔥 status
-      CASE 
-        WHEN validityDays - DATEDIFF(CURRENT_DATE, DATE(createdAt)) <= 0
-        THEN 'INACTIVE'
-        ELSE 'ACTIVE'
-      END AS status
+      updatedAt
 
     FROM memberplan
     WHERE adminId = ?

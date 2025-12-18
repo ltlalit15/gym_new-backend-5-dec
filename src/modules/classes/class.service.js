@@ -406,28 +406,62 @@ export const updateScheduleService = async (id, data) => {
 
 //   return rows;
 // };
+// export const getPersonalAndGeneralTrainersService = async (adminId) => {
+//   const aid = Number(adminId);
+//   if (!aid) throw { status: 400, message: "adminId is required" };
+
+//   const [rows] = await pool.query(
+//     `SELECT 
+//        u.id,
+//        u.fullName,
+//        u.email,
+//        u.phone,
+//        u.branchId,
+//        u.roleId
+//      FROM user u
+//      WHERE u.roleId IN (5, 6)
+//        AND u.adminId = ?
+//      ORDER BY u.id DESC`,
+//     [aid]
+//   );
+
+//   return rows;
+// };
 export const getPersonalAndGeneralTrainersService = async (adminId) => {
   const aid = Number(adminId);
   if (!aid) throw { status: 400, message: "adminId is required" };
 
   const [rows] = await pool.query(
-    `SELECT 
-       u.id,
-       u.fullName,
-       u.email,
-       u.phone,
-       u.branchId,
-       u.roleId
-     FROM user u
-     WHERE u.roleId IN (5, 6)
-       AND u.adminId = ?
-     ORDER BY u.id DESC`,
+    `
+    SELECT 
+      u.id,
+      u.fullName,
+      u.email,
+      u.phone,
+      u.branchId,
+      u.roleId
+    FROM user u
+    WHERE 
+      u.roleId IN (5, 6)
+      AND u.adminId = ?
+
+      -- ❌ hide personal trainers already assigned to ACTIVE memberplan
+      AND NOT EXISTS (
+        SELECT 1
+        FROM memberplan mp
+        WHERE 
+          mp.trainerId = u.id
+          AND mp.trainerType = 'personal'
+          AND mp.status = 'ACTIVE'
+      )
+
+    ORDER BY u.id DESC
+    `,
     [aid]
   );
 
   return rows;
 };
-
 
 export const deleteScheduleService = async (id) => {
   const [existingRows] = await pool.query(
