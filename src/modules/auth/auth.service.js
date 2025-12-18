@@ -148,17 +148,27 @@ export const loginUser = async ({ email, password }) => {
 
   const sql = `
     SELECT 
-      u.*,
+      u.id,
+      u.fullName,
+      u.email,
+      u.phone,
+      u.password,
+      u.roleId,
+      u.branchId,
+      u.adminId,
+      u.profileImage,        -- ✅ IMPORTANT
       r.name AS roleName,
       b.name AS branchName
     FROM user u
     LEFT JOIN role r ON r.id = u.roleId
     LEFT JOIN branch b ON b.id = u.branchId
     WHERE u.email = ?
-  `;
+    LIMIT 1
+  `; 
 
   const [rows] = await pool.query(sql, [email]);
   const user = rows[0];
+  
 
   if (!user) throw { status: 400, message: "User not found" };
 
@@ -245,17 +255,21 @@ if (user.roleId === 4) { // assuming roleId 4 = MEMBER
   return {
     token,
     user: {
-      id: user.id,
+        id: user.id,
       fullName: user.fullName,
       email: user.email,
       phone: user.phone,
+
       roleId: user.roleId,
       roleName: user.roleName,
+
       branchId: user.branchId,
       branchName: user.branchName,
+
       adminId: user.adminId,
-      profileImage:user.profileImage,
-       staffId: staffId    // ✅ yaha se controller ko milega
+      staffId: staffId,
+
+      profileImage: user.profileImage || null, // ✅ HERE
     }
   };
 };

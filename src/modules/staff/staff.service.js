@@ -49,8 +49,8 @@ export const createStaffService = async (data) => {
   ---------------------------------------------------- */
   const [result] = await pool.query(
     `INSERT INTO user 
-     (adminId, fullName, email, phone, password, roleId, branchId)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+     (adminId, fullName, email, phone, password, roleId, branchId, profileImage)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       adminId,
       fullName,
@@ -59,6 +59,7 @@ export const createStaffService = async (data) => {
       password,
       roleId,
       adminBranchId, // 👈 staff user bhi same branch me
+      profilePhoto || null,
     ]
   );
 
@@ -211,7 +212,8 @@ export const updateStaffService = async (id, data) => {
     SELECT 
       s.id AS staffId,
       s.userId,
-      s.branchId
+      s.branchId,
+      s.profilePhoto
     FROM staff s
     WHERE s.id = ? OR s.userId = ?
     LIMIT 1
@@ -265,7 +267,7 @@ export const updateStaffService = async (id, data) => {
   const userFields = [];
   const userValues = [];
 
-  const userColumns = ["fullName", "email", "phone", "password", "roleId"];
+  const userColumns = ["fullName", "email", "phone", "password", "roleId","profileImage"];
 
   for (const col of userColumns) {
     if (data[col] !== undefined) {
@@ -278,6 +280,15 @@ export const updateStaffService = async (id, data) => {
   if (data.adminId !== undefined) {
     userFields.push("branchId = ?");
     userValues.push(branchId);
+  }
+
+   if (data.profilePhoto) {
+    // Update profileImage in user if profilePhoto is provided
+    userFields.push("profileImage = ?");
+    userValues.push(data.profilePhoto);  // Set new profile image
+  } else if (!data.profilePhoto && existingProfilePhoto) {
+    userFields.push("profileImage = ?");
+    userValues.push(existingProfilePhoto); // Use the existing profile image if no new image
   }
 
   if (userFields.length > 0) {

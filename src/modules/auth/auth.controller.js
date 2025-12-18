@@ -106,21 +106,21 @@ export const login = async (req, res, next) => {
       success: true,
       token,
       user: {
-        id: user.id,
+         id: user.id,
         fullName: user.fullName,
         email: user.email,
         phone: user.phone,
 
-        // ROLE FIELDS
         roleId: user.roleId,
         roleName: user.roleName,
 
         branchId: user.branchId,
         branchName: user.branchName,
 
-        // ✅ ADMIN ID BHI BEJ RAHE HAI
         adminId: user.adminId,
-        staffId:user.staffId
+        staffId: user.staffId,
+
+        profileImage: user.profileImage
       }
     });
 
