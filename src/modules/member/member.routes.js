@@ -25,7 +25,7 @@ router.post(
   createMember
 );
 
-router.put("/renew/:memberId", renewMembershipPlan);
+router.put("/renew/:memberId", renewMembershipPlan);  
 
 
 /** List Members by Branch */

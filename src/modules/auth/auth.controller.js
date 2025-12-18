@@ -106,7 +106,7 @@ export const login = async (req, res, next) => {
       success: true,
       token,
       user: {
-         id: user.id,
+        id: user.id,
         fullName: user.fullName,
         email: user.email,
         phone: user.phone,
@@ -119,15 +119,16 @@ export const login = async (req, res, next) => {
 
         adminId: user.adminId,
         staffId: user.staffId,
+        memberId: user.memberId,   // ✅ ADD THIS LINE
 
         profileImage: user.profileImage
       }
     });
-
   } catch (err) {
     next(err);
   }
 };
+
 
 
 

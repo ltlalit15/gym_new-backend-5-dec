@@ -145,7 +145,9 @@ export const registerUser = async (data,payload) => {
 
 // ✅ service
 export const loginUser = async ({ email, password }) => {
-
+  /* ===============================
+     1️⃣ GET USER + ROLE + BRANCH
+  =============================== */
   const sql = `
     SELECT 
       u.id,
@@ -156,7 +158,7 @@ export const loginUser = async ({ email, password }) => {
       u.roleId,
       u.branchId,
       u.adminId,
-      u.profileImage,        -- ✅ IMPORTANT
+      u.profileImage,
       r.name AS roleName,
       b.name AS branchName
     FROM user u
@@ -164,98 +166,102 @@ export const loginUser = async ({ email, password }) => {
     LEFT JOIN branch b ON b.id = u.branchId
     WHERE u.email = ?
     LIMIT 1
-  `; 
+  `;
 
   const [rows] = await pool.query(sql, [email]);
   const user = rows[0];
-  
 
-  if (!user) throw { status: 400, message: "User not found" };
+  if (!user) {
+    throw { status: 400, message: "User not found" };
+  }
 
+  /* ===============================
+     2️⃣ PASSWORD CHECK
+  =============================== */
   const match = await bcrypt.compare(password, user.password);
-  if (!match) throw { status: 401, message: "Invalid password" };
+  if (!match) {
+    throw { status: 401, message: "Invalid password" };
+  }
 
-    // ✅ Staff table check
+  /* ===============================
+     3️⃣ STAFF CHECK (OPTIONAL)
+  =============================== */
   const [staffRows] = await pool.query(
-    `SELECT id FROM staff WHERE userId = ?`,
+    `SELECT id FROM staff WHERE userId = ? LIMIT 1`,
     [user.id]
   );
 
   const staffId = staffRows.length ? staffRows[0].id : null;
-  //Member status check
 
-//  if (user.roleId === 4) { // assuming roleId 4 = MEMBER
-//   const [memberRows] = await pool.query(
-//     `SELECT id, status FROM member WHERE userId = ? LIMIT 1`,
-//     [user.id]
-//   );
+  /* ===============================
+     4️⃣ MEMBER CHECK (ONLY FOR ROLE = MEMBER)
+  =============================== */
+  let memberId = null;
 
-//   if (memberRows.length) {
-//     const member = memberRows[0];
-
-//     // Check if the member's status is not "ACTIVE"
-//     if (member.status !== "ACTIVE") {
-//       throw {
-//         status: 403,
-//         message: "Membership expired or inactive. Please renew your plan.",
-//       };
-//     }
-//   }
-// }
-
-
-if (user.roleId === 4) { // assuming roleId 4 = MEMBER
+  if (user.roleId === 4) { // MEMBER
     const [memberRows] = await pool.query(
       `SELECT id, status, membershipTo FROM member WHERE userId = ? LIMIT 1`,
       [user.id]
     );
 
-    if (memberRows.length) {
-      const member = memberRows[0];
+    if (!memberRows.length) {
+      throw {
+        status: 403,
+        message: "Member record not found",
+      };
+    }
 
-      // Check if the membership has expired
-      const currentDate = new Date();
-      const membershipToDate = new Date(member.membershipTo);
+    const member = memberRows[0];
+    memberId = member.id;
 
-      if (membershipToDate < currentDate) {
-        // Mark the member as INACTIVE if their membership has expired
-        await pool.query(
-          `UPDATE member SET status = 'Inactive' WHERE id = ?`,
-          [member.id]
-        );
+    const currentDate = new Date();
+    const membershipToDate = new Date(member.membershipTo);
 
-        throw {
-          status: 403,
-          message: "Membership expired. Please renew your plan.",
-        };
-      }
+    // ❌ Membership expired
+    if (membershipToDate < currentDate) {
+      await pool.query(
+        `UPDATE member SET status = 'Inactive' WHERE id = ?`,
+        [member.id]
+      );
 
-      // If the member's status is not "ACTIVE", block login
-      if (member.status !== "Active") {
-        throw {
-          status: 403,
-          message: "Membership expired or inactive. Please renew your plan.",
-        };
-      }
+      throw {
+        status: 403,
+        message: "Membership expired. Please renew your plan.",
+      };
+    }
+
+    // ❌ Membership inactive
+    if (member.status !== "Active") {
+      throw {
+        status: 403,
+        message: "Membership expired or inactive. Please renew your plan.",
+      };
     }
   }
 
+  /* ===============================
+     5️⃣ JWT TOKEN
+  =============================== */
   const token = jwt.sign(
     {
-      id: user.id,
+      id: user.id,          // userId (auth)
       roleId: user.roleId,
       branchId: user.branchId,
       adminId: user.adminId,
-            staffId: staffId,               // ✅ token me bhi adminId
+      staffId: staffId,
+      memberId: memberId,   // ✅ DOMAIN ID
     },
     ENV.jwtSecret,
     { expiresIn: "7d" }
   );
 
+  /* ===============================
+     6️⃣ FINAL RESPONSE
+  =============================== */
   return {
     token,
     user: {
-        id: user.id,
+      id: user.id,
       fullName: user.fullName,
       email: user.email,
       phone: user.phone,
@@ -268,9 +274,10 @@ if (user.roleId === 4) { // assuming roleId 4 = MEMBER
 
       adminId: user.adminId,
       staffId: staffId,
+      memberId: memberId,   // ✅ NOW GUARANTEED
 
-      profileImage: user.profileImage || null, // ✅ HERE
-    }
+      profileImage: user.profileImage || null,
+    },
   };
 };
 
