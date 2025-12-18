@@ -45,7 +45,7 @@ export const saveMemberPlan = async (payload) => {
   // Check if 'MEMBER' type requires trainer fields
   const trainerId = type === "MEMBER" ? payload.trainerId ?? null : null;
   const trainerType = type === "MEMBER" ? payload.trainerType ?? null : null;
-
+  const status = "Active";
   // Validation
   if (!adminId) throw { status: 400, message: "adminId is required" };
   if (!name) throw { status: 400, message: "Plan name is required" };
@@ -53,9 +53,9 @@ export const saveMemberPlan = async (payload) => {
   // Insert into the memberplan table with optional trainerId and trainerType
   const [result] = await pool.query(
     `INSERT INTO memberplan 
-      (name, sessions, validityDays, price, type, adminId, branchId, trainerId, trainerType)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [name, sessions, validityDays, price, type, adminId, branchId, trainerId, trainerType]
+      (name, sessions, validityDays, price, type, adminId, branchId, trainerId, trainerType, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [name, sessions, validityDays, price, type, adminId, branchId, trainerId, trainerType, status]
   );
 
   // Fetch the newly inserted record
@@ -225,54 +225,77 @@ export const deleteMemberPlan = async (id) => {
 //   return rows[0];
 // };
 export const updateMemberPlan = async (planId, payload, adminId) => {
-  const { planName, sessions, validity, price, branchId, trainerId, trainerType } = payload;
-
-  // 1️⃣ Fetch the current plan data to retain the existing trainerId and trainerType if not provided
-  const [currentPlanRows] = await pool.query(
-    `SELECT trainerId, trainerType FROM memberplan WHERE id = ? AND adminId = ?`,
+  /* ------------------------------------
+     1️⃣ Check plan exists & permission
+  ------------------------------------ */
+  const [existingRows] = await pool.query(
+    `SELECT * FROM memberplan WHERE id = ? AND adminId = ?`,
     [planId, adminId]
   );
 
-  if (!currentPlanRows.length) {
-    throw { status: 404, message: "Plan not found or you do not have permission to update it" };
+  if (!existingRows.length) {
+    throw { status: 404, message: "Plan not found or permission denied" };
   }
 
-  const currentPlan = currentPlanRows[0];
+  /* ------------------------------------
+     2️⃣ Field mapping (payload → DB)
+  ------------------------------------ */
+  const fieldMap = {
+    planName: "name",
+    sessions: "sessions",
+    validity: "validityDays",
+    price: "price",
+    branchId: "branchId",
+    trainerId: "trainerId",
+    trainerType: "trainerType",
+    status: "status"
+  };
 
-  // 2️⃣ Prepare updated fields, using existing values if not provided
-  const updatedTrainerId = trainerId ?? currentPlan.trainerId;
-  const updatedTrainerType = trainerType ?? currentPlan.trainerType;
+  const updateFields = [];
+  const updateValues = [];
 
-  // 3️⃣ Update the plan with the provided fields (only update fields that were provided)
-  const [result] = await pool.query(
-    `UPDATE memberplan 
-     SET name = ?, sessions = ?, validityDays = ?, price = ?, branchId = ?, 
-         trainerId = ?, trainerType = ?, updatedAt = NOW(3)
-     WHERE id = ? AND adminId = ?`,
-    [
-      planName, 
-      sessions, 
-      validity, 
-      price, 
-      branchId ?? null, 
-      updatedTrainerId, 
-      updatedTrainerType, 
-      planId, 
-      adminId
-    ]
-  );
+  /* ------------------------------------
+     3️⃣ Build dynamic update query
+  ------------------------------------ */
+  for (const key in fieldMap) {
+    if (payload[key] !== undefined) {
+      updateFields.push(`${fieldMap[key]} = ?`);
+      updateValues.push(payload[key]);
+    }
+  }
 
-  // 4️⃣ If no rows were affected, return null (indicating no update)
-  if (result.affectedRows === 0) return null;
+  // ❌ Nothing to update
+  if (updateFields.length === 0) {
+    throw { status: 400, message: "No valid fields provided for update" };
+  }
 
-  // 5️⃣ Fetch and return the updated plan
+  /* ------------------------------------
+     4️⃣ Always update timestamp
+  ------------------------------------ */
+  updateFields.push("updatedAt = NOW(3)");
+
+  const sql = `
+    UPDATE memberplan
+    SET ${updateFields.join(", ")}
+    WHERE id = ? AND adminId = ?
+  `;
+
+  updateValues.push(planId, adminId);
+
+  await pool.query(sql, updateValues);
+
+  /* ------------------------------------
+     5️⃣ Return updated plan
+  ------------------------------------ */
   const [rows] = await pool.query(
     `SELECT * FROM memberplan WHERE id = ? AND adminId = ?`,
     [planId, adminId]
   );
 
   return rows[0];
-}
+};
+
+
 
 export const getAllMemberPlansService = async () => {
   const [rows] = await pool.query(
