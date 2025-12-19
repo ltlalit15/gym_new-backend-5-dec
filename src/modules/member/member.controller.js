@@ -14,7 +14,8 @@ import {
   memberDetailService,
   renewMembershipService,
   updateMemberService,
-  updateMemberRenewalStatusService
+  updateMemberRenewalStatusService,
+  getMembersByAdminAndGeneralMemberPlanService
   
 } from "./member.service.js";
 
@@ -267,6 +268,35 @@ export const getMembersByAdminAndGroupPlanController = async (req, res, next) =>
       success: true,
       message: "Members for the specified plan fetched successfully",
      data: {
+        plan: result.plan,
+        members: result.members,
+        statistics: result.statistics,
+        Total_Members: result.members.length
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+export const getMembersByAdminAndGeneralMemberPlanController = async (req, res, next) => {
+  try {
+    const { adminId, planId } = req.params;
+
+    if (!adminId || !planId) {
+      return res.status(400).json({
+        success: false,
+        message: "Admin ID and Plan ID are required"
+      });
+    }
+
+    const result = await getMembersByAdminAndGeneralMemberPlanService(adminId, planId);
+
+    res.json({
+      success: true,
+      message: "MemberShip plan members for trainerType general fetched successfully",
+      data: {
         plan: result.plan,
         members: result.members,
         statistics: result.statistics,

@@ -330,38 +330,38 @@ export const memberDetailService = async (id) => {
   // 🔒 Remove sensitive fields
   delete member.password;
 
-  let total = member.totalSessions || 0;
-  let attended = 0;
-
-  if (member.membershipFrom && member.membershipTo && total > 0) {
-    const start = new Date(member.membershipFrom);
-    const end = new Date(member.membershipTo);
-    const today = new Date();
-
-    const totalDays =
-      Math.ceil((end - start) / (1000 * 60 * 60 * 24)) || 1;
-
-    const daysPassed = Math.min(
-      Math.max(
-        Math.ceil((today - start) / (1000 * 60 * 60 * 24)),
-        0
-      ),
-      totalDays
+   let attended = 0;
+  
+   const total = member.planSessions || 0;
+   if (member.membershipFrom && member.membershipTo) {
+    const [[attendance]] = await pool.query(
+      `
+      SELECT COUNT(*) AS attended
+      FROM memberattendance
+      WHERE memberId = ?
+        AND checkIn BETWEEN ? AND ?
+      `,
+      [
+        member.userId,            // 🔑 matching rule
+        member.membershipFrom,
+        member.membershipTo,
+      ]
     );
 
-    attended = Math.floor((daysPassed / totalDays) * total);
+    attended = attendance.attended || 0;
   }
-
-  const remaining = Math.max(total - attended, 0);
+const isCompleted = total > 0 && attended >= total;
+  const remaining = isCompleted ? 0 : Math.max(total - attended, 0);
   member.plan = member.planName || "Unknown";
   member.trainerType = member.trainerType || "Not Assigned";
-  member.sessionDetails = {
+ member.sessionDetails = {
     attended,
     remaining,
     total,
+    sessionState: isCompleted ? "No Session" : "Active",
   };
-delete member.totalSessions;
-  delete member.planName;
+
+
   return member;
 };
 
@@ -1033,6 +1033,109 @@ try {
       members,
       statistics,
       plan
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+
+
+
+export const getMembersByAdminAndGeneralMemberPlanService = async (adminId, planId) => {
+  try {
+    /* =========================
+       FETCH PLAN (VALIDATION)
+    ========================= */
+    const planQuery = `
+      SELECT 
+        mp.id,
+        mp.name,
+        mp.sessions,
+        mp.validityDays,
+        mp.price,
+        mp.type,
+        mp.trainerType
+      FROM memberplan mp
+      WHERE 
+        mp.id = ?
+        AND mp.type = 'MEMBER'
+        AND mp.trainerType = 'general'
+    `;
+
+    const [planResult] = await pool.query(planQuery, [planId]);
+
+    if (planResult.length === 0) {
+      const error = new Error("General member plan not found.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const plan = planResult[0];
+
+    /* =========================
+       FETCH MEMBERS
+    ========================= */
+    const membersQuery = `
+      SELECT 
+        m.id,
+        m.userId,
+        m.fullName,
+        m.email,
+        m.phone,
+        m.gender,
+        m.address,
+        m.joinDate,
+        m.branchId,
+        m.membershipFrom,
+        m.membershipTo,
+        m.paymentMode,
+        m.amountPaid,
+        m.dateOfBirth,
+        m.status,
+        m.planId,
+        mp.name AS planName,
+        mp.sessions,
+        mp.validityDays,
+        mp.price,
+        mp.type AS planType,
+        mp.trainerType
+      FROM member m
+      JOIN memberplan mp ON m.planId = mp.id
+      WHERE 
+        m.adminId = ?
+        AND mp.id = ?
+        AND mp.type = 'MEMBER'
+        AND mp.trainerType = 'general'
+      ORDER BY m.fullName
+    `;
+
+    const [members] = await pool.query(membersQuery, [adminId, planId]);
+
+    /* =========================
+       STATISTICS
+    ========================= */
+    const currentDate = new Date();
+    let active = 0;
+    let expired = 0;
+    let completed = 0;
+
+    members.forEach(member => {
+      if (member.membershipTo && new Date(member.membershipTo) >= currentDate) {
+        active++;
+      } else if (member.membershipTo && new Date(member.membershipTo) < currentDate) {
+        expired++;
+        completed++;
+      }
+    });
+
+    return {
+      plan,
+      members,
+      statistics: {
+        active,
+        expired,
+        completed
+      }
     };
   } catch (error) {
     throw error;
