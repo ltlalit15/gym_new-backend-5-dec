@@ -3,16 +3,16 @@
 import { Router } from "express";
 import {
   createMember,
-  listMembers,
-  memberDetail,
-  updateMember,
   deleteMember,
+  getMembersByAdminAndGroupPlanController,
+  getMembersByAdminAndPlanController,
   getMembersByAdminId,
-  renewMembershipPlan,
   getRenewalPreview,
+  listMembers,
   listPTBookings,
-  getMembersByAdminAndPlanController
-  
+  memberDetail,
+  renewMembershipPlan,
+  updateMember
 } from "./member.controller.js";
 // import { verifyToken } from "../../middlewares/auth.js";
 
@@ -59,6 +59,7 @@ router.delete(
 
 router.get("/admin/:adminId", getMembersByAdminId);
 router.get("/admin/:adminId/plan", getMembersByAdminAndPlanController);
+router.get("/group-plan/:adminId/admin/:planId", getMembersByAdminAndGroupPlanController);
 
 router.get("/pt-bookings/:branchId", listPTBookings);
 

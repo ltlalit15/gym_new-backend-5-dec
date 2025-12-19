@@ -1247,6 +1247,7 @@ export const getUnifiedPersonalAndGeneralTrainersService = async (req, res) => {
       WHERE b.trainerId = u.id
         AND b.bookingType = 'PT'
         AND b.bookingStatus = 'Booked'
+        AND b.paymentStatus = 'Paid'
     )
   ORDER BY u.id DESC
   `,

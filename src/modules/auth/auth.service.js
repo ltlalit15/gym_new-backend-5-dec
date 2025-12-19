@@ -771,16 +771,17 @@ export const getAdminDashboardData = async (adminId) => {
 
       -- Today's Member Check-ins (JOIN member → user → adminId)
       (SELECT COUNT(*) FROM memberattendance ma
-        JOIN user u ON ma.memberId = u.id
-        WHERE u.adminId = ?
+        JOIN member m ON ma.memberId = m.userId
+        WHERE m.adminId = ?
         AND DATE(ma.checkIn) = CURDATE()
       ) AS todaysMemberCheckins,
 
       -- Today's Staff Check-ins (JOIN staff → adminId)
-      (SELECT COUNT(*) FROM staffattendance sa
-        JOIN staff s ON sa.staffId = s.id
+      (SELECT COUNT(*) 
+        FROM memberattendance ma
+        JOIN staff s ON ma.memberId = s.userId
         WHERE s.adminId = ?
-        AND DATE(sa.checkIn) = CURDATE()
+        AND DATE(ma.checkIn) = CURDATE()
       ) AS todaysStaffCheckins
   `;
 
