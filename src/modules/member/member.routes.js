@@ -11,7 +11,8 @@ import {
   renewMembershipPlan,
   getRenewalPreview,
   listPTBookings,
-  getMembersByAdminAndPlanController
+  getMembersByAdminAndPlanController,
+  updateMemberRenewalStatus
   
 } from "./member.controller.js";
 // import { verifyToken } from "../../middlewares/auth.js";
@@ -35,12 +36,18 @@ router.get(
   listMembers
 );
 
-router.get("/renew/:memberId", getRenewalPreview);
+router.get("/renew/:adminId", getRenewalPreview);
+
 /** Get Member Detail */
 router.get(
   "/detail/:id",
   // verifyToken(["Superadmin", "Admin", "Staff"]),
   memberDetail
+);
+
+router.put(
+  "/admin/renewal/:memberId/status",
+  updateMemberRenewalStatus
 );
 
 /** Update Member */

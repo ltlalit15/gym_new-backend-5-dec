@@ -11,7 +11,8 @@ import {
   renewMembershipService,
   getRenewalPreviewService,
   listPTBookingsService,
-  getMembersByAdminAndPlan
+  getMembersByAdminAndPlan,
+  updateMemberRenewalStatusService
   
 } from "./member.service.js";
 import { uploadToCloudinary } from "../../config/cloudinary.js";
@@ -146,21 +147,69 @@ export const getMembersByAdminId = async (req, res, next) => {
 
 export const getRenewalPreview = async (req, res, next) => {
   try {
-    const memberId = parseInt(req.params.memberId);
-    if (Number.isNaN(memberId)) {
-      return res.status(400).json({ success: false, message: "Invalid memberId" });
+    const adminId = Number(req.params.adminId);
+
+    if (!Number.isInteger(adminId)) {
+      return res.status(400).json({
+        success: false,
+        message: "adminId must be a valid number",
+      });
     }
 
-    const data = await getRenewalPreviewService(memberId);
+    const data = await getRenewalPreviewService(adminId);
 
     return res.status(200).json({
       success: true,
-      data, // { member: {...}, plans: [...] }
+      data,
     });
   } catch (err) {
     next(err);
   }
 };
+
+export const updateMemberRenewalStatus = async (req, res, next) => {
+  try {
+    const memberId = Number(req.params.memberId);
+    const { status, adminId } = req.body;
+
+    if (!Number.isInteger(memberId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid memberId",
+      });
+    }
+
+    if (!adminId) {
+      return res.status(400).json({
+        success: false,
+        message: "adminId is required",
+      });
+    }
+
+    if (!["Active", "Reject"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "status must be either Active or Reject",
+      });
+    }
+
+    const data = await updateMemberRenewalStatusService(
+      memberId,
+      adminId,
+      status
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: `Member renewal ${status} successfully`,
+      data,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
 
 
 export const listPTBookings = async (req, res, next) => {

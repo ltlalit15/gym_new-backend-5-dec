@@ -225,7 +225,7 @@ export const renewMembershipService = async (memberId, body) => {
         paymentMode = ?, 
         amountPaid = ?, 
         adminId = ?, 
-        status = 'Active'  
+        status = 'Inactive'  
      WHERE id = ?`,
     [
       planId,
@@ -669,65 +669,171 @@ export const getMembersByAdminIdService = async (adminId) => {
 };
 
 
-export const getRenewalPreviewService = async (memberId) => {
-  // 1) Fetch member with required fields
-  const [memberRows] = await pool.query(
-    `SELECT 
-        id, userId, fullName, email, phone, planId, membershipFrom, membershipTo, 
-        paymentMode, amountPaid, branchId, status, adminId
-     FROM member
-     WHERE id = ?`,
-    [memberId]
-  );
+const calculateMembershipDates = (lastMembershipTo, validityDays = 30) => {
+  const start = lastMembershipTo
+    ? new Date(lastMembershipTo)
+    : new Date();
 
-  if (!memberRows.length) {
-    throw { status: 404, message: "Member not found" };
+  // next day after previous expiry
+  start.setDate(start.getDate() + 1);
+
+  const end = new Date(start);
+  end.setDate(end.getDate() + validityDays);
+
+  return { start, end };
+};
+
+export const getRenewalPreviewService = async (adminId) => {
+  if (!adminId) {
+    throw { status: 400, message: "adminId is required" };
   }
 
-  const member = memberRows[0];
+  /* =====================================================
+     1️⃣ FETCH ONLY INACTIVE (RENEWED) MEMBERS
+  ===================================================== */
+  const [membersRaw] = await pool.query(
+    `
+    SELECT 
+      m.id,
+      m.userId,
+      m.adminId,
+      m.fullName,
+      m.email,
+      m.phone,
+      m.planId,
+      m.membershipFrom,
+      m.membershipTo,
+      m.paymentMode,
+      m.amountPaid,
+      m.branchId,
+      m.status,
 
-  // Convert to ISO-safe return
-  const safeMember = {
-    ...member,
-    membershipFrom: member.membershipFrom
-      ? new Date(member.membershipFrom).toISOString()
-      : null,
-    membershipTo: member.membershipTo
-      ? new Date(member.membershipTo).toISOString()
-      : null,
-  };
-
-  // 2) Fetch plans
-  const [plansRaw] = await pool.query(
-    `SELECT id, name, sessions, validityDays, price, type, adminId, branchId,
-            createdAt, updatedAt
-     FROM memberplan
-     ORDER BY id ASC`
+      -- plan details (ONLY RENEWED PLAN)
+      p.name        AS planName,
+      p.validityDays,
+      p.price
+    FROM member m
+    JOIN memberplan p ON p.id = m.planId
+    WHERE m.adminId = ?
+      AND m.status = 'Inactive'
+    ORDER BY m.membershipTo DESC
+    `,
+    [adminId]
   );
 
-  // 3) Preview Calculation
-  const basePreviewStart = member.membershipTo
-    ? new Date(member.membershipTo)
-    : new Date();
-  basePreviewStart.setDate(basePreviewStart.getDate() + 1);
+  if (membersRaw.length === 0) {
+    return {
+      adminId,
+      totalPending: 0,
+      members: [],
+    };
+  }
 
-  const plans = plansRaw.map((p) => {
-    const days = p.validityDays ?? 30;
-
-    const previewStart = new Date(basePreviewStart);
-    const previewEnd = new Date(previewStart);
-    previewEnd.setDate(previewEnd.getDate() + days);
+  /* =====================================================
+     2️⃣ DATE NORMALIZATION
+  ===================================================== */
+  const members = membersRaw.map((m) => {
+    const { start, end } = calculateMembershipDates(
+      m.membershipTo,
+      m.validityDays
+    );
 
     return {
-      ...p,
-      previewDurationDays: days,
-      previewMembershipFrom: previewStart.toISOString(),
-      previewMembershipTo: previewEnd.toISOString(),
+      id: m.id,
+      fullName: m.fullName,
+      email: m.email,
+      phone: m.phone,
+      status: m.status, // always Inactive
+
+      plan: {
+        planId: m.planId,
+        planName: m.planName,
+        price: m.price,
+        validityDays: m.validityDays,
+      },
+
+      membershipFrom: m.membershipFrom
+        ? new Date(m.membershipFrom).toISOString()
+        : null,
+      membershipTo: m.membershipTo
+        ? new Date(m.membershipTo).toISOString()
+        : null,
+
+      previewMembershipFrom: start.toISOString(),
+      previewMembershipTo: end.toISOString(),
+
+      paymentMode: m.paymentMode,
+      amountPaid: m.amountPaid,
+      branchId: m.branchId,
     };
   });
 
-  return { member: safeMember, plans };
+  /* =====================================================
+     3️⃣ FINAL RESPONSE (STRICT MODE)
+  ===================================================== */
+  return {
+    adminId,
+    totalPending: members.length,
+    members,
+  };
 };
+
+export const updateMemberRenewalStatusService = async (
+  memberId,
+  adminId,
+  status
+) => {
+  // 1️⃣ Check member belongs to admin & is inactive
+  const [[member]] = await pool.query(
+    `
+    SELECT id, status 
+    FROM member
+    WHERE id = ?
+      AND adminId = ?
+      AND status = 'Inactive'
+    `,
+    [memberId, adminId]
+  );
+
+  if (!member) {
+    throw {
+      status: 404,
+      message: "Inactive renewal not found for this admin",
+    };
+  }
+
+  // 2️⃣ Update status
+  await pool.query(
+    `
+    UPDATE member
+    SET status = ?
+    WHERE id = ?
+    `,
+    [status, memberId]
+  );
+
+  // 3️⃣ Return updated record
+  const [[updated]] = await pool.query(
+    `
+    SELECT 
+      id,
+      fullName,
+      status,
+      membershipFrom,
+      membershipTo,
+      planId
+    FROM member
+    WHERE id = ?
+    `,
+    [memberId]
+  );
+
+  return updated;
+};
+
+
+
+
 
 export const listPTBookingsService = async (branchId) => {
   const [rows] = await pool.query(
