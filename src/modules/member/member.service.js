@@ -330,38 +330,38 @@ export const memberDetailService = async (id) => {
   // 🔒 Remove sensitive fields
   delete member.password;
 
-  let total = member.totalSessions || 0;
-  let attended = 0;
-
-  if (member.membershipFrom && member.membershipTo && total > 0) {
-    const start = new Date(member.membershipFrom);
-    const end = new Date(member.membershipTo);
-    const today = new Date();
-
-    const totalDays =
-      Math.ceil((end - start) / (1000 * 60 * 60 * 24)) || 1;
-
-    const daysPassed = Math.min(
-      Math.max(
-        Math.ceil((today - start) / (1000 * 60 * 60 * 24)),
-        0
-      ),
-      totalDays
+   let attended = 0;
+  
+   const total = member.planSessions || 0;
+   if (member.membershipFrom && member.membershipTo) {
+    const [[attendance]] = await pool.query(
+      `
+      SELECT COUNT(*) AS attended
+      FROM memberattendance
+      WHERE memberId = ?
+        AND checkIn BETWEEN ? AND ?
+      `,
+      [
+        member.userId,            // 🔑 matching rule
+        member.membershipFrom,
+        member.membershipTo,
+      ]
     );
 
-    attended = Math.floor((daysPassed / totalDays) * total);
+    attended = attendance.attended || 0;
   }
-
-  const remaining = Math.max(total - attended, 0);
+const isCompleted = total > 0 && attended >= total;
+  const remaining = isCompleted ? 0 : Math.max(total - attended, 0);
   member.plan = member.planName || "Unknown";
   member.trainerType = member.trainerType || "Not Assigned";
-  member.sessionDetails = {
+ member.sessionDetails = {
     attended,
     remaining,
     total,
+    sessionState: isCompleted ? "No Session" : "Active",
   };
-delete member.totalSessions;
-  delete member.planName;
+
+
   return member;
 };
 
