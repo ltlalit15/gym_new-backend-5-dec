@@ -1,21 +1,22 @@
 
 
 
+import { uploadToCloudinary } from "../../config/cloudinary.js";
 import {
   createMemberService,
-  listMembersService,
-  memberDetailService,
-  updateMemberService,
   deleteMemberService,
-  getMembersByAdminIdService,
-  renewMembershipService,
-  getRenewalPreviewService,
-  listPTBookingsService,
+  getMembersByAdminAndGroupPlanService,
   getMembersByAdminAndPlan,
+  getMembersByAdminIdService,
+  getRenewalPreviewService,
+  listMembersService,
+  listPTBookingsService,
+  memberDetailService,
+  renewMembershipService,
+  updateMemberService,
   updateMemberRenewalStatusService
   
 } from "./member.service.js";
-import { uploadToCloudinary } from "../../config/cloudinary.js";
 
 export const createMember = async (req, res, next) => {
   try {
@@ -241,5 +242,38 @@ export const getMembersByAdminAndPlanController = async (req, res, next) => {
     return res.json({ success: true, members });
   } catch (err) {
     next(err);
+  }
+};
+
+
+
+export const getMembersByAdminAndGroupPlanController = async (req, res, next) => {
+   try {
+    // CHANGED: Extract both adminId and planId from request parameters
+    const { adminId, planId } = req.params;
+    
+    // CHANGED: Validate that both IDs are present
+    if (!adminId || !planId) {
+      return res.status(400).json({
+        success: false,
+        message: "Admin ID and Plan ID are required"
+      });
+    }
+    
+    // CHANGED: Call the updated service with both IDs
+    const result = await getMembersByAdminAndGroupPlanService(adminId, planId);
+    
+    res.json({
+      success: true,
+      message: "Members for the specified plan fetched successfully",
+     data: {
+        plan: result.plan,
+        members: result.members,
+        statistics: result.statistics,
+        Total_Members: result.members.length
+      }
+    });
+  } catch (error) {
+    next(error);
   }
 };

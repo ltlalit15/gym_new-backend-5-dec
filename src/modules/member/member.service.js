@@ -307,9 +307,15 @@ export const memberDetailService = async (id) => {
     `
     SELECT
       m.*,
-      u.profileImage
+      u.profileImage,
+
+      mp.name AS planName,
+      mp.sessions AS totalSessions,
+      mp.validityDays,
+      mp.trainerType
     FROM member m
     JOIN user u ON u.id = m.userId
+    LEFT JOIN memberplan mp ON m.planId = mp.id
     WHERE m.id = ?
     `,
     [id]
@@ -324,6 +330,38 @@ export const memberDetailService = async (id) => {
   // 🔒 Remove sensitive fields
   delete member.password;
 
+  let total = member.totalSessions || 0;
+  let attended = 0;
+
+  if (member.membershipFrom && member.membershipTo && total > 0) {
+    const start = new Date(member.membershipFrom);
+    const end = new Date(member.membershipTo);
+    const today = new Date();
+
+    const totalDays =
+      Math.ceil((end - start) / (1000 * 60 * 60 * 24)) || 1;
+
+    const daysPassed = Math.min(
+      Math.max(
+        Math.ceil((today - start) / (1000 * 60 * 60 * 24)),
+        0
+      ),
+      totalDays
+    );
+
+    attended = Math.floor((daysPassed / totalDays) * total);
+  }
+
+  const remaining = Math.max(total - attended, 0);
+  member.plan = member.planName || "Unknown";
+  member.trainerType = member.trainerType || "Not Assigned";
+  member.sessionDetails = {
+    attended,
+    remaining,
+    total,
+  };
+delete member.totalSessions;
+  delete member.planName;
   return member;
 };
 
@@ -880,23 +918,123 @@ export const getMembersByAdminAndPlan = async (adminId) => {
   try {
     // Fetch members with the given adminId, plan type 'MEMBER' or 'GROUP'
     const query = `
-      SELECT m.id, m.fullName, m.email, m.phone, m.planId, m.membershipFrom, m.membershipTo, mp.type, mp.trainerType
+      SELECT m.id, m.fullName, m.email, m.phone, m.planId, m.membershipFrom, m.membershipTo, m.status, mp.type, mp.trainerType
       FROM member m
       JOIN memberplan mp ON m.planId = mp.id
       WHERE m.adminId = ? AND (mp.type = 'MEMBER' OR mp.type = 'GROUP')`;
 
     const [members] = await pool.query(query, [adminId]);
+    
 
     // Filter out members whose trainerType is not 'general' if the type is 'MEMBER'
     const filteredMembers = members.filter((member) => {
-      if (member.type === "MEMBER" && member.trainerType !== "general") {
-        return false;
-      }
-      return true;
-    });
+  // MEMBER plan → only allow GENERAL trainer
+  if (member.type === "MEMBER") {
+    return member.trainerType === "general";
+  }
+
+  // GROUP (or any other type) → allow
+  return true;
+});
 
     return filteredMembers;
   } catch (error) {
     throw { status: 500, message: "Error fetching members", error };
+  }
+};
+
+
+
+export const getMembersByAdminAndGroupPlanService = async (adminId,planId) => {
+try {
+  const planQuery = `
+      SELECT 
+        mp.id,
+        mp.name,
+        mp.sessions,
+        mp.validityDays,
+        mp.price,
+        mp.type
+      FROM 
+        memberplan mp
+      WHERE 
+        mp.id = ?
+    `;
+    
+    const [planResult] = await pool.query(planQuery, [planId]);
+
+    // If no plan is found with the given ID, throw an error
+    if (planResult.length === 0) {
+      const error = new Error("Plan not found.");
+      error.statusCode = 404; // Not Found
+      throw error;
+    }
+    const plan = planResult[0];
+    // Query to get all members for a specific plan ID
+    const membersQuery = `
+      SELECT 
+        m.id,
+        m.userId,
+        m.fullName,
+        m.email,
+        m.phone,
+        m.gender,
+        m.address,
+        m.joinDate,
+        m.branchId,
+        m.membershipFrom,
+        m.membershipTo,
+        m.paymentMode,
+        m.amountPaid,
+        m.dateOfBirth,
+        m.status,
+        m.planId,
+        mp.name as planName,
+        mp.sessions,
+        mp.validityDays,
+        mp.price,
+        mp.type as planType
+      FROM 
+        member m
+      JOIN 
+        memberplan mp ON m.planId = mp.id
+      WHERE 
+        mp.id = ?         -- CHANGED: Filter by specific planId
+        AND m.adminId = ?
+      ORDER BY 
+        m.fullName
+    `;
+    
+    // CHANGED: Pass both planId and adminId to the query
+    const [members] = await pool.query(membersQuery, [planId, adminId]);
+    
+    // Calculate statistics (this logic remains the same)
+    const currentDate = new Date();
+    let activeCount = 0;
+    let expiredCount = 0;
+    let completedCount = 0;
+    
+    members.forEach(member => {
+      if (member.membershipTo && new Date(member.membershipTo) >= currentDate) {
+        activeCount++;
+      } else if (member.membershipTo && new Date(member.membershipTo) < currentDate) {
+        expiredCount++;
+        completedCount++;
+      }
+    });
+    
+    const statistics = {
+      active: activeCount,
+      expired: expiredCount,
+      completed: completedCount
+    };
+    
+    return {
+      members,
+      statistics,
+      plan
+    };
+  } catch (error) {
+    throw error;
   }
 };
