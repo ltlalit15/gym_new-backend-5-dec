@@ -29,7 +29,8 @@ createUnifiedBooking,
   deleteUnifiedBooking,
   getUnifiedBookingById,
   getPTBookingsByAdminId,
-  getBookingRequestsByMember
+  getBookingRequestsByMember,
+  getUnifiedPersonalAndGeneralTrainersService
 } from "./classbooking.controller.js";
 // import { verifyToken } from "./classbookingrequest.js";   // adminId lene ke liye
 
@@ -106,6 +107,8 @@ router.get("/unifiedbymember/:memberId", getUnifiedBookingsByMember);
     ⭐ GET BOOKINGS BY TRAINER (PT ONLY)
 ----------------------------------------------------- */
 router.get("/unifiedbytrainer/:trainerId", getUnifiedBookingsByTrainer);
+
+router.get("/unifiedbyPersonalGeneral/:adminId",getUnifiedPersonalAndGeneralTrainersService)
 
 /* -----------------------------------------------------
     ⭐ GET SINGLE BOOKING BY ID
