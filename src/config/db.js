@@ -1,6 +1,6 @@
 // import mysql from 'mysql2';
 // import dotenv from 'dotenv';
-// dotenv.config();
+// dotenv.config(); 
 
 // // Create a **Promise Pool directly**
 // export const pool = mysql

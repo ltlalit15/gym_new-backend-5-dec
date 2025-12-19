@@ -4,10 +4,8 @@ import { pool } from "../../config/db.js";
    1️⃣  MEMBER CHECK-IN  (Manual + QR + Manual Times)
 ------------------------------------------------------ */
 export const memberCheckIn = async (req, res, next) => {
-  
   try {
-    // ❌ checkOut hata diya body se
-    const { memberId, branchId, mode, status, notes, checkIn } = req.body;
+    const { memberId, branchId, mode, notes, checkIn } = req.body;
 
     if (!memberId) {
       return res.status(400).json({
@@ -16,7 +14,7 @@ export const memberCheckIn = async (req, res, next) => {
       });
     }
 
-    // ✅ checkIn agar nahi bhejoge to current time use hoga
+    // ✅ Check-in time (default = now)
     const finalCheckIn = checkIn ? new Date(checkIn) : new Date();
     if (isNaN(finalCheckIn.getTime())) {
       return res.status(400).json({
@@ -25,16 +23,16 @@ export const memberCheckIn = async (req, res, next) => {
       });
     }
 
-    // ✅ checkOut hamesha null (check-in time pe nahi jayega)
+    // ❌ CheckOut always NULL at check-in
     const finalCheckOut = null;
 
-    // 🔁 Same day open attendance already hai to error
+    // 🔁 Prevent multiple open check-ins same day
     const [existing] = await pool.query(
       `
       SELECT id FROM memberattendance
       WHERE memberId = ?
-      AND DATE(checkIn) = CURDATE()
-      AND checkOut IS NULL
+        AND DATE(checkIn) = CURDATE()
+        AND checkOut IS NULL
       `,
       [memberId]
     );
@@ -46,33 +44,33 @@ export const memberCheckIn = async (req, res, next) => {
       });
     }
 
-    // ✅ Insert only checkIn, checkOut = NULL
+    // ✅ INSERT with correct status
     await pool.query(
       `
-      INSERT INTO memberattendance 
+      INSERT INTO memberattendance
       (memberId, branchId, checkIn, checkOut, mode, status, notes)
       VALUES (?, ?, ?, ?, ?, ?, ?)
       `,
       [
         memberId,
-        branchId,
+        branchId || null,
         finalCheckIn,
-        finalCheckOut,          // hamesha NULL
+        finalCheckOut,
         mode || "QR",
-        status || "Present",
+        "In Gym",          // ✅ FIXED STATUS
         notes || null,
       ]
     );
 
     res.json({
       success: true,
-      message: "Attendance saved successfully",
+      message: "Member checked in successfully",
     });
-
   } catch (err) {
     next(err);
   }
 };
+
 
 export const getAttendanceByMemberId = async (req, res, next) => {
   try {
@@ -128,7 +126,7 @@ export const getAttendanceByMemberId = async (req, res, next) => {
 ------------------------------------------------------ */
 export const memberCheckOut = async (req, res, next) => {
   try {
-    const attendanceId = req.params.id;   // /checkout/:id
+    const attendanceId = req.params.id; // /checkout/:id
 
     if (!attendanceId) {
       return res.status(400).json({
@@ -137,7 +135,7 @@ export const memberCheckOut = async (req, res, next) => {
       });
     }
 
-    // 1️⃣ Record exist karta hai?
+    // 1️⃣ Check record exists
     const [existing] = await pool.query(
       `SELECT * FROM memberattendance WHERE id = ?`,
       [attendanceId]
@@ -152,7 +150,7 @@ export const memberCheckOut = async (req, res, next) => {
 
     const record = existing[0];
 
-    // 2️⃣ Already checkout ho chuka?
+    // 2️⃣ Already checked out?
     if (record.checkOut !== null) {
       return res.status(400).json({
         success: false,
@@ -160,13 +158,16 @@ export const memberCheckOut = async (req, res, next) => {
       });
     }
 
-    // 3️⃣ CheckOut time = abhi ka current time
+    // 3️⃣ Checkout time = now
     const finalCheckOut = new Date();
 
+    // 4️⃣ Update checkout + status
     const [result] = await pool.query(
       `
       UPDATE memberattendance
-      SET checkOut = ?
+      SET 
+        checkOut = ?,
+        status = 'Present'
       WHERE id = ?
       `,
       [finalCheckOut, attendanceId]
@@ -181,14 +182,15 @@ export const memberCheckOut = async (req, res, next) => {
 
     res.json({
       success: true,
-      message: "Checkout updated successfully",
+      message: "Member checked out successfully",
       checkOut: finalCheckOut,
+      status: "Present",
     });
-
   } catch (err) {
     next(err);
   }
 };
+
 
 
 /* -----------------------------------------------------
@@ -502,7 +504,7 @@ export const deleteAttendance = async (req, res, next) => {
 
 export const getAttendanceByAdminId = async (req, res, next) => {
   try {
-    const { adminId } = req.query; // Only adminId is coming from the request
+    const { adminId } = req.query;
 
     if (!adminId) {
       return res.status(400).json({
@@ -511,39 +513,38 @@ export const getAttendanceByAdminId = async (req, res, next) => {
       });
     }
 
-    // SQL query to get attendance records based on adminId and memberId
-    let sql = `
+    const sql = `
       SELECT
         a.id,
         DATE(a.checkIn) AS date,
-        mu.fullName AS name,  -- Member's full name
-        mr.name AS role,      -- Role name from the role table
+        mu.fullName AS name,
+        mr.name AS role,
         a.checkIn,
         a.checkOut,
         a.mode,
-        NULL AS shift,        -- No shift in this case, so null
-        a.status
+        NULL AS shift,
+
+        /* ✅ DYNAMIC STATUS */
+        CASE
+          WHEN a.checkIn IS NOT NULL AND a.checkOut IS NULL THEN 'In Gym'
+          WHEN a.checkOut IS NOT NULL THEN 'Present'
+          ELSE a.status
+        END AS status
 
       FROM memberattendance a
-
-      /* ===== MEMBER ATTENDANCE TO USER JOIN ===== */
-      LEFT JOIN user mu ON mu.id = a.memberId  -- Member's user details
-      LEFT JOIN role mr ON mr.id = mu.roleId   -- Getting role name from the role table
-
-      /* ===== FILTER BASED ON adminId IN USER TABLE ===== */
-      WHERE mu.adminId = ?  -- Ensure that the adminId in the user table matches
+      LEFT JOIN user mu ON mu.id = a.memberId
+      LEFT JOIN role mr ON mr.id = mu.roleId
+      WHERE mu.adminId = ?
+      ORDER BY a.checkIn DESC
     `;
 
-    const params = [adminId];  // Only passing adminId as a parameter
-
-    // Execute the query with parameters
-    const [rows] = await pool.query(sql, params);
+    const [rows] = await pool.query(sql, [adminId]);
 
     res.json({
       success: true,
-      attendance: rows, // Returning the attendance data
+      attendance: rows,
     });
   } catch (err) {
-    next(err);  // Handling errors
+    next(err);
   }
 };
