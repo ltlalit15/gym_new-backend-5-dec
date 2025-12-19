@@ -2,58 +2,52 @@
 import { pool } from "../../config/db.js";
 
 export const getMemberDashboardService = async (memberId) => {
-  // 1️⃣ MEMBER + MEMBERSHIP DETAIL
-  const [memberRows] = await pool.query(
+  /* 1️⃣ MEMBER */
+  const [[member]] = await pool.query(
     `
-      SELECT 
-        m.id              AS memberId,
-        m.fullName        AS fullName,
-        m.status          AS membershipStatus,
-        m.membershipTo    AS membershipTo,
-        m.membershipFrom  AS membershipFrom,
-        mp.name           AS planName
-      FROM member m
-      LEFT JOIN memberplan mp ON mp.id = m.planId
-      WHERE m.id = ?
+    SELECT 
+      m.id,
+      m.fullName,
+      m.membershipFrom,
+      m.membershipTo,
+      mp.name AS planName
+    FROM member m
+    LEFT JOIN memberplan mp ON mp.id = m.planId
+    WHERE m.id = ?
     `,
     [memberId]
   );
 
-  if (memberRows.length === 0) {
-    throw { status: 404, message: "Member not found" };
+  if (!member) throw { status: 404, message: "Member not found" };
+
+  /* MEMBERSHIP STATUS */
+  let membershipStatus = "No Plan";
+  if (member.membershipFrom && member.membershipTo) {
+    membershipStatus =
+      new Date(member.membershipTo) < new Date()
+        ? "Expired"
+        : "Active";
   }
 
-  const member = memberRows[0];
-
-  // membership expiry se status
-  let derivedStatus = member.membershipStatus;
-  if (member.membershipTo && new Date(member.membershipTo) < new Date()) {
-    derivedStatus = "Expired";
-  }
-
-  // 2️⃣ WORKOUT PROGRESS – last 7 din ka attendance
+  /* 2️⃣ WORKOUT PROGRESS */
   const [attendanceRows] = await pool.query(
     `
-      SELECT 
-        DATE(checkIn) AS date,
-        COUNT(*)      AS checkIns
-      FROM memberattendance
-      WHERE memberId = ?
-        AND checkIn >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-      GROUP BY DATE(checkIn)
-      ORDER BY DATE(checkIn)
+    SELECT DATE(checkIn) AS date, COUNT(*) AS count
+    FROM memberattendance
+    WHERE memberId = ?
+      AND checkIn >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+    GROUP BY DATE(checkIn)
     `,
     [memberId]
   );
 
-  const today = new Date();
   const days = [];
+  const today = new Date();
 
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(today.getDate() - i);
-
-    const key = d.toISOString().slice(0, 10); // YYYY-MM-DD
+    const key = d.toISOString().slice(0, 10);
 
     const found = attendanceRows.find(
       (r) => r.date.toISOString().slice(0, 10) === key
@@ -61,38 +55,63 @@ export const getMemberDashboardService = async (memberId) => {
 
     days.push({
       date: key,
-      dayLabel: d.toLocaleDateString("en-US", { weekday: "short" }), // Mon, Tue...
-      checkIns: found ? found.checkIns : 0,
+      dayLabel: d.toLocaleDateString("en-US", { weekday: "short" }),
+      checkIns: found ? found.count : 0,
     });
   }
 
-  const workoutProgress = {
-    period: "week",
-    days,
-  };
+  /* 3️⃣ CLASSES THIS WEEK */
+  const [[classesRow]] = await pool.query(
+    `
+    SELECT COUNT(*) AS total
+    FROM classschedule
+    WHERE date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+      AND status = 'Active'
+    `
+  );
 
-  // 3️⃣ CLASSES THIS WEEK – abhi STATIC (kyunki booking/classschedule schema clear nahi)
-  const classesThisWeek = {
-    count: 0,
-    message: "No classes data available yet", // UI pe text
-  };
+  /* 4️⃣ NEXT SESSION */
+  const [[nextSessionRow]] = await pool.query(
+    `
+    SELECT id, sessionName, date, time, duration
+    FROM session
+    WHERE status = 'Upcoming'
+      AND date >= NOW()
+    ORDER BY date, time
+    LIMIT 1
+    `
+  );
 
-  // 4️⃣ NEXT SESSION – abhi koi real calculation nahi, isliye null
-  const nextSession = null;
-
-  // FINAL OBJECT – UI ke hisaab se
   return {
     member: {
-      id: member.memberId,
+      id: member.id,
       fullName: member.fullName,
       planName: member.planName,
     },
     membership: {
-      status: derivedStatus,
+      status: membershipStatus,
       expiresOn: member.membershipTo,
     },
-    workoutProgress,
-    classesThisWeek,
-    nextSession,
+    workoutProgress: {
+      period: "week",
+      days,
+    },
+    classesThisWeek: {
+      count: classesRow.total,
+      message:
+        classesRow.total > 0
+          ? `${classesRow.total} classes this week`
+          : "No classes this week",
+    },
+    nextSession: nextSessionRow
+      ? {
+          id: nextSessionRow.id,
+          name: nextSessionRow.sessionName,
+          date: nextSessionRow.date,
+          time: nextSessionRow.time,
+          duration: nextSessionRow.duration,
+        }
+      : null,
   };
 };
+
