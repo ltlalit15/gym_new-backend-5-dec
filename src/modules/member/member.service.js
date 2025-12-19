@@ -709,9 +709,10 @@ export const getRenewalPreviewService = async (adminId) => {
       m.status,
 
       -- plan details (ONLY RENEWED PLAN)
-      p.name        AS planName,
-      p.validityDays,
-      p.price
+      p.name          AS planName,
+      p.validityDays  AS validityDays,
+      p.price         AS price,
+      p.type          AS planType
     FROM member m
     JOIN memberplan p ON p.id = m.planId
     WHERE m.adminId = ?
@@ -730,7 +731,7 @@ export const getRenewalPreviewService = async (adminId) => {
   }
 
   /* =====================================================
-     2️⃣ DATE NORMALIZATION
+     2️⃣ DATE NORMALIZATION + RESPONSE SHAPE
   ===================================================== */
   const members = membersRaw.map((m) => {
     const { start, end } = calculateMembershipDates(
@@ -748,6 +749,7 @@ export const getRenewalPreviewService = async (adminId) => {
       plan: {
         planId: m.planId,
         planName: m.planName,
+        planType: m.planType,          // ✅ ADDED
         price: m.price,
         validityDays: m.validityDays,
       },
@@ -769,7 +771,7 @@ export const getRenewalPreviewService = async (adminId) => {
   });
 
   /* =====================================================
-     3️⃣ FINAL RESPONSE (STRICT MODE)
+     3️⃣ FINAL RESPONSE
   ===================================================== */
   return {
     adminId,
@@ -777,6 +779,7 @@ export const getRenewalPreviewService = async (adminId) => {
     members,
   };
 };
+
 
 export const updateMemberRenewalStatusService = async (
   memberId,
