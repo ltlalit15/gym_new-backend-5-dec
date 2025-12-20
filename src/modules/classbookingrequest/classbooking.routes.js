@@ -31,7 +31,8 @@ createUnifiedBooking,
   getPTBookingsByAdminId,
   getBookingRequestsByMember,
   getUnifiedPersonalAndGeneralTrainersService,
-  getBookingRequestsForAdmin
+  getBookingRequestsForAdmin,
+  approveBookingRequest
 } from "./classbooking.controller.js";
 // import { verifyToken } from "./classbookingrequest.js";   // adminId lene ke liye
 
@@ -44,6 +45,10 @@ router.post("/create", createBookingRequest);
 router.get(
   "/admin/booking-requests/:adminId",
   getBookingRequestsForAdmin
+);
+router.post(
+  "/approve/:bookingRequestId",
+  approveBookingRequest
 );
 
 /* ----------------------------------------------------

@@ -13,7 +13,7 @@
 //     waitForConnections: true,
 //     connectionLimit: 10,
 //     queueLimit: 0,
-//   })
+//   }) 
 //   .promise();  // 🔥 THIS MAKES pool.query() RETURN A PROMISE
 
 // // Test MySQL connection

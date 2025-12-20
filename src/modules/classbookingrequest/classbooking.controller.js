@@ -3,37 +3,80 @@
    CREATE BOOKING REQUEST (MEMBER)
 -------------------------------------------------------- */
 import { pool } from "../../config/db.js";
-
+import bcrypt from "bcryptjs";
 
 export const createBookingRequest = async (req, res) => {
-  const connection = await pool.getConnection();
+  let connection;
 
   try {
+    connection = await pool.getConnection();
+
     const {
       fullName,
       email,
       phone,
-      gender,          // ✅ NEW
+      gender,
       adminId,
-      branchId = null
+      branchId = null,
+      planId,
+      price,
+      upiId = null
     } = req.body;
 
-    // ✅ validation
-    if (!fullName || !phone || !adminId || !gender) {
+    /* -------------------------
+       1️⃣ BASIC VALIDATION
+    ------------------------- */
+    if (!fullName || !phone || !gender || !adminId || !planId || !price) {
       return res.status(400).json({
         success: false,
-        message: "fullName, phone, gender and adminId are required"
+        message:
+          "fullName, phone, gender, adminId, planId and price are required"
       });
     }
 
     await connection.beginTransaction();
 
     /* -------------------------
-       1️⃣ USER TABLE (Inactive)
+       2️⃣ VALIDATE PLAN (🔥 IMPORTANT)
+    ------------------------- */
+    const [[plan]] = await connection.query(
+      `SELECT id, name, price FROM memberplan WHERE id = ?`,
+      [planId]
+    );
+
+    if (!plan) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "Invalid planId. Plan does not exist"
+      });
+    }
+
+    /* -------------------------
+       3️⃣ PREVENT DUPLICATE USER
+    ------------------------- */
+    const [[existingUser]] = await connection.query(
+      `
+      SELECT id FROM user 
+      WHERE phone = ? AND adminId = ?
+      `,
+      [phone, adminId]
+    );
+
+    if (existingUser) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "User with this phone already exists"
+      });
+    }
+
+    /* -------------------------
+       4️⃣ CREATE USER (Inactive)
     ------------------------- */
     const [userResult] = await connection.query(
       `
-      INSERT INTO user
+      INSERT INTO \`user\`
         (adminId, fullName, email, phone, gender, roleId, branchId, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, 'Inactive')
       `,
@@ -51,45 +94,64 @@ export const createBookingRequest = async (req, res) => {
     const userId = userResult.insertId;
 
     /* -------------------------
-       2️⃣ BOOKING REQUEST
-       (memberId = NULL)
+       5️⃣ CREATE BOOKING REQUEST
     ------------------------- */
-    await connection.query(
+    const [bookingResult] = await connection.query(
       `
       INSERT INTO booking_requests
-        (memberId, branchId, status)
-      VALUES (NULL, ?, 'pending')
+        (adminId, userId, memberId, planId, price, branchId, upiId, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
       `,
-      [branchId]
+      [
+        adminId,
+        userId,
+        null,       // memberId (after approval)
+        planId,
+        price,
+        branchId,
+        upiId
+      ]
     );
 
     await connection.commit();
 
-    res.status(201).json({
+    /* -------------------------
+       6️⃣ RESPONSE
+    ------------------------- */
+    return res.status(201).json({
       success: true,
-      message: "Request submitted. Waiting for admin approval.",
+      message:
+        "Booking request submitted successfully. Waiting for admin approval.",
       data: {
+        bookingRequestId: bookingResult.insertId,
         userId,
-        adminId,
+        userName: fullName,
+        phone,
+        email,
+        planId: plan.id,
+        planName: plan.name,
+        price,
+        upiId,
         userStatus: "Inactive",
         bookingStatus: "pending"
       }
     });
 
   } catch (err) {
-    await connection.rollback();
-    console.error("Create Booking Error:", err);
+    if (connection) await connection.rollback();
 
-    res.status(500).json({
+    console.error("❌ Create Booking Error:", err);
+
+    return res.status(500).json({
       success: false,
-      message: err.sqlMessage || "Failed to create booking request"
+      message: err.sqlMessage || err.message,
+      code: err.code
     });
+
   } finally {
-    connection.release();
+    if (connection) connection.release();
   }
 };
-
-
 
 export const getBookingRequestsForAdmin = async (req, res) => {
   try {
@@ -98,70 +160,270 @@ export const getBookingRequestsForAdmin = async (req, res) => {
     if (!adminId) {
       return res.status(400).json({
         success: false,
-        message: "adminId is required"
+        message: "adminId is required",
       });
     }
 
     const [rows] = await pool.query(
       `
       SELECT 
-        br.id                    AS bookingRequestId,
-        br.status                AS bookingStatus,
+        br.id            AS bookingRequestId,
+        br.status        AS bookingStatus,
         br.createdAt,
+        br.planId,
+        br.price,
+        br.upiId,
 
-        -- MEMBER (NULL if pending)
-        m.id                     AS memberId,
-        m.fullName               AS memberName,
-        m.phone                  AS memberPhone,
-        m.gender                 AS memberGender,
-        m.status                 AS memberStatus,
+        -- USER
+        u.id             AS userId,
+        u.fullName       AS userName,
+        u.email          AS userEmail,
+        u.phone          AS userPhone,
+        u.gender         AS userGender,
+        u.status         AS userStatus,
 
-        -- USER (always available)
-        u.id                     AS userId,
-        u.fullName               AS userName,
-        u.phone                  AS userPhone,
-        u.gender                 AS userGender,
-        u.status                 AS userStatus,
+        -- MEMBER
+        m.id             AS memberId,
+        m.status         AS memberStatus,
+
+        -- PLAN ✅
+        mp.id            AS planIdCheck,
+        mp.name          AS planName,
 
         -- BRANCH
-        b.id                     AS branchId,
-        b.name                   AS branchName
+        b.id             AS branchId,
+        b.name           AS branchName
 
       FROM booking_requests br
 
-      /* member only exists after approval */
-      LEFT JOIN member m 
-        ON br.memberId = m.id
+      JOIN user u 
+        ON u.id = br.userId
 
-      /* user comes either via member OR directly */
-      LEFT JOIN user u 
-        ON u.id = m.userId
-        OR (m.id IS NULL AND u.branchId = br.branchId)
+      LEFT JOIN member m 
+        ON m.id = br.memberId
+
+      -- 🔥 IMPORTANT FIX
+      LEFT JOIN memberplan mp 
+        ON mp.id = br.planId
 
       LEFT JOIN branch b 
         ON b.id = br.branchId
 
-      WHERE u.adminId = ?
+      WHERE br.adminId = ?
       ORDER BY br.createdAt DESC
       `,
       [adminId]
     );
 
-    res.json({
+    return res.json({
       success: true,
-      message: "Booking requests fetched successfully",
       total: rows.length,
-      data: rows
+      data: rows,
     });
 
   } catch (err) {
     console.error("Get Booking Requests Error:", err);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: err.sqlMessage || "Failed to fetch booking requests"
+      message: err.sqlMessage || "Failed to fetch booking requests",
     });
   }
 };
+
+;
+
+/* ---------------------------------
+   🔐 6-Digit Password Generator
+---------------------------------- */
+const generate6DigitPassword = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+/* =====================================================
+   ✅ APPROVE BOOKING REQUEST (ADMIN)
+===================================================== */
+export const approveBookingRequest = async (req, res) => {
+  let connection;
+
+  try {
+    connection = await pool.getConnection();
+    const { bookingRequestId } = req.params;
+
+    if (!bookingRequestId) {
+      return res.status(400).json({
+        success: false,
+        message: "bookingRequestId is required",
+      });
+    }
+
+    await connection.beginTransaction();
+
+    /* ------------------------------------------------
+       1️⃣ FETCH PENDING BOOKING + USER
+    ------------------------------------------------ */
+    const [[booking]] = await connection.query(
+      `
+      SELECT 
+        br.id,
+        br.adminId,
+        br.userId,
+        br.planId,
+        br.branchId,
+
+        u.fullName,
+        u.email,
+        u.phone,
+        u.gender
+      FROM booking_requests br
+      JOIN user u ON u.id = br.userId
+      WHERE br.id = ?
+        AND br.status = 'pending'
+      `,
+      [bookingRequestId]
+    );
+
+    if (!booking) {
+      await connection.rollback();
+      return res.status(404).json({
+        success: false,
+        message: "Pending booking request not found",
+      });
+    }
+
+    /* ------------------------------------------------
+       2️⃣ FETCH PLAN VALIDITY
+    ------------------------------------------------ */
+    const [[plan]] = await connection.query(
+      `
+      SELECT validityDays
+      FROM memberplan
+      WHERE id = ?
+      `,
+      [booking.planId]
+    );
+
+    if (!plan) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "Invalid plan",
+      });
+    }
+
+    /* ------------------------------------------------
+       3️⃣ CALCULATE MEMBERSHIP DATES
+    ------------------------------------------------ */
+    const membershipFrom = new Date();
+    const membershipTo = new Date();
+    membershipTo.setDate(membershipFrom.getDate() + plan.validityDays);
+
+    /* ------------------------------------------------
+       4️⃣ GENERATE + HASH PASSWORD
+    ------------------------------------------------ */
+    const plainPassword = generate6DigitPassword();
+    const hashedPassword = await bcrypt.hash(plainPassword, 10);
+
+    /* ------------------------------------------------
+       5️⃣ CREATE MEMBER (ACTIVE + DATES)
+    ------------------------------------------------ */
+    const [memberResult] = await connection.query(
+      `
+      INSERT INTO member
+        (
+          userId,
+          adminId,
+          fullName,
+          email,
+          phone,
+          gender,
+          planId,
+          branchId,
+          password,
+          membershipFrom,
+          membershipTo,
+          status
+        )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active')
+      `,
+      [
+        booking.userId,
+        booking.adminId,
+        booking.fullName,
+        booking.email,
+        booking.phone,
+        booking.gender,
+        booking.planId,
+        booking.branchId,
+        hashedPassword,
+        membershipFrom,
+        membershipTo
+      ]
+    );
+
+    const memberId = memberResult.insertId;
+
+    /* ------------------------------------------------
+       6️⃣ UPDATE USER (ACTIVE + PASSWORD)
+    ------------------------------------------------ */
+    await connection.query(
+      `
+      UPDATE user
+      SET 
+        status = 'Active',
+        password = ?
+      WHERE id = ?
+      `,
+      [hashedPassword, booking.userId]
+    );
+
+    /* ------------------------------------------------
+       7️⃣ UPDATE BOOKING REQUEST
+    ------------------------------------------------ */
+    await connection.query(
+      `
+      UPDATE booking_requests
+      SET 
+        status = 'approved',
+        memberId = ?
+      WHERE id = ?
+      `,
+      [memberId, bookingRequestId]
+    );
+
+    await connection.commit();
+
+    /* ------------------------------------------------
+       8️⃣ SUCCESS RESPONSE
+    ------------------------------------------------ */
+    return res.status(200).json({
+      success: true,
+      message: "Booking approved & membership activated",
+      data: {
+        bookingRequestId,
+        memberId,
+        userId: booking.userId,
+        membershipFrom,
+        membershipTo,
+        generatedPassword: plainPassword,
+        userStatus: "Active",
+        memberStatus: "Active",
+      },
+    });
+
+  } catch (err) {
+    if (connection) await connection.rollback();
+
+    console.error("❌ Approve Booking Error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: err.sqlMessage || err.message,
+    });
+  } finally {
+    if (connection) connection.release();
+  }
+};
+
 
 
 
