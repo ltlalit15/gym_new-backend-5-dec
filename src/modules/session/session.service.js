@@ -31,6 +31,8 @@ export const createSessionService = async (data) => {
     throw { status: 400, message: "adminId is required" };
   }
 
+  
+
   const [result] = await pool.query(
     `INSERT INTO session 
      (sessionName, trainerId, adminId, date, time, duration, description, status)
@@ -39,13 +41,14 @@ export const createSessionService = async (data) => {
       sessionName,
       Number(trainerId),
       Number(adminId),
-      new Date(date),
+      date,
       time,
       Number(duration),
       description || null,
       status || "Upcoming"
     ]
   );
+  
 
   const sessionId = result.insertId;
 
