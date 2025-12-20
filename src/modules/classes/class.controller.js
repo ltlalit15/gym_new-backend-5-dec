@@ -11,7 +11,8 @@ import {
   updateScheduleService,
   deleteScheduleService,
    getTrainersService,
-    getPersonalAndGeneralTrainersService
+    getPersonalAndGeneralTrainersService,
+    getScheduledClassesWithBookingStatusService
 } from "./class.service.js";
 
 export const createClassType = async (req, res, next) => {
@@ -134,6 +135,35 @@ export const bookClass = async (req, res, next) => {
     });
   }
 };
+
+export const getScheduledClassesWithBookingStatus = async (req, res) => {
+  try {
+    const { memberId } = req.params; // userId from frontend
+
+    if (!memberId) {
+      return res.status(400).json({
+        success: false,
+        message: "memberId is required",
+      });
+    }
+
+    const data = await getScheduledClassesWithBookingStatusService(memberId);
+
+    return res.status(200).json({
+      success: true,
+      message: "Scheduled classes fetched successfully",
+      data,
+    });
+  } catch (error) {
+    console.error("Get Classes With Booking Status Error:", error);
+
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Something went wrong",
+    });
+  }
+};
+
 
 
 export const cancelBooking = async (req, res, next) => {

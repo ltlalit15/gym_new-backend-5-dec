@@ -227,6 +227,75 @@ export const bookClassService = async (memberId, scheduleId) => {
   };
 };
 
+export const getScheduledClassesWithBookingStatusService = async (userId) => {
+  /* 1️⃣ map userId → member.id */
+  const [memberRows] = await pool.query(
+    "SELECT id FROM member WHERE userId = ? AND status = 'ACTIVE'",
+    [userId]
+  );
+
+  if (memberRows.length === 0) {
+    throw { status: 400, message: "Active member not found" };
+  }
+
+  const memberId = memberRows[0].id;
+
+  /* 2️⃣ fetch schedules + booking status */
+  const [rows] = await pool.query(
+    `
+    SELECT 
+      cs.id,
+      cs.className,
+      cs.date,
+      cs.day,
+      cs.startTime,
+      cs.endTime,
+      cs.status,
+      cs.capacity,
+
+      u.fullName AS trainerName,
+      b.name AS branchName,
+
+      COUNT(bk2.id) AS membersCount,
+
+      bk.id AS bookingId
+
+    FROM classschedule cs
+
+    LEFT JOIN user u ON cs.trainerId = u.id
+    LEFT JOIN branch b ON cs.branchId = b.id
+
+    LEFT JOIN booking bk 
+      ON bk.scheduleId = cs.id 
+     AND bk.memberId = ?
+
+    LEFT JOIN booking bk2 
+      ON bk2.scheduleId = cs.id
+
+    GROUP BY cs.id
+    ORDER BY cs.id DESC
+    `,
+    [memberId]
+  );
+
+  return rows.map((item) => ({
+    id: item.id,
+    className: item.className,
+    date: item.date,
+    day: item.day,
+    time: `${item.startTime} - ${item.endTime}`,
+    trainer: item.trainerName,
+    branch: item.branchName,
+    status: item.status,
+    capacity: item.capacity,
+    membersCount: item.membersCount,
+
+    // 🔥 IMPORTANT PART
+    isBooked: item.bookingId ? true : false,
+    bookingId: item.bookingId || null,
+  }));
+};
+
 export const cancelBookingService = async (memberId, scheduleId) => {
   const [existingRows] = await pool.query(
     "SELECT * FROM booking WHERE memberId = ? AND scheduleId = ?",

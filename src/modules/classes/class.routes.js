@@ -14,7 +14,8 @@ import {
   updateSchedule,
   deleteSchedule,
   getTrainers ,
-  getPersonalAndGeneralTrainers                
+  getPersonalAndGeneralTrainers   ,
+  getScheduledClassesWithBookingStatus             
 } from "./class.controller.js";
 
 const router = Router();
@@ -52,6 +53,10 @@ router.get(
   "/schedule/branch/:branchId",
  
   listSchedules
+);
+router.get(
+  "/classes/member/:memberId",
+  getScheduledClassesWithBookingStatus
 );
 
 // BOOKING
