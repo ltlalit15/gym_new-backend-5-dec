@@ -1,7 +1,7 @@
 import cron from "node-cron";
 import { pool } from "../config/db.js";
 export const startMemberExpiryCron = () => {
-  cron.schedule("25 12 * * *", async () => {
+  cron.schedule("0 3 * * *", async () => {
     let lockAcquired = false;
 
     try {
@@ -42,7 +42,7 @@ export const startMemberExpiryCron = () => {
 };
 
 export const startPTAutoCompleteCron = () => {
-  cron.schedule("*/1 * * * *", async () => {
+  cron.schedule("*/5 * * * *", async () => {
     let lockAcquired = false;
 
     try {
