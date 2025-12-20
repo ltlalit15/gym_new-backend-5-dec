@@ -134,35 +134,104 @@ export const getPersonalTrainingPlansByAdminService = async (adminId) => {
   return rows;
 };
 
-export const getPersonalTrainingCustomersByAdminService = async (
-  adminId,   // abhi param ke liye, filter ham planId se kar rahe hain
-  planId
-) => {
-  const [rows] = await pool.query(
-    `
-    SELECT
-      m.id             AS memberId,
-      m.fullName       AS customerName,
-      m.membershipFrom AS purchaseDate,
-      m.membershipTo   AS expiryDate,
-      m.status,
-      p.sessions
-    FROM member m
-    JOIN plan p ON m.planId = p.id
-    WHERE m.planId = ?
-    ORDER BY m.membershipFrom DESC
-    `,
-    [planId]
-  );
+export const getPersonalTrainingCustomersByAdminService = async (adminId, planId) => {
+  try {
+    /* =========================
+       FETCH PLAN (VALIDATION)
+    ========================= */
 
-  return rows.map((row, index) => ({
-    srNo: index + 1,
-    memberId: row.memberId,
-    customerName: row.customerName,
-    purchaseDate: row.purchaseDate,
-    expiryDate: row.expiryDate,
-    bookedSessions: 0,          // future me session tracking ke liye
-    leftSessions: row.sessions || 0,
-    status: row.status,
-  }));
+    const planQuery = `
+      SELECT 
+        mp.id,
+        mp.name,
+        mp.sessions,
+        mp.validityDays,
+        mp.price,
+        mp.type,
+        mp.trainerType
+      FROM memberplan mp
+      WHERE 
+        mp.id = ?
+        AND mp.type = 'MEMBER'
+        AND mp.trainerType = 'personal'
+    `;
+
+    const [planResult] = await pool.query(planQuery, [planId]);
+
+    if (planResult.length === 0) {
+      const error = new Error("Membership plan for trainertype personal not found.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const plan = planResult[0];
+
+    /* =========================
+       FETCH MEMBERS
+    ========================= */
+    const membersQuery = `
+      SELECT 
+        m.id,
+        m.userId,
+        m.fullName,
+        m.email,
+        m.phone,
+        m.gender,
+        m.address,
+        m.joinDate,
+        m.branchId,
+        m.membershipFrom,
+        m.membershipTo,
+        m.paymentMode,
+        m.amountPaid,
+        m.dateOfBirth,
+        m.status,
+        m.planId,
+        mp.name AS planName,
+        mp.sessions,
+        mp.validityDays,
+        mp.price,
+        mp.type AS planType,
+        mp.trainerType
+      FROM member m
+      JOIN memberplan mp ON m.planId = mp.id
+      WHERE 
+        m.adminId = ?
+        AND mp.id = ?
+        AND mp.type = 'MEMBER'
+        AND mp.trainerType = 'personal'
+      ORDER BY m.fullName
+    `;
+
+    const [members] = await pool.query(membersQuery, [adminId, planId]);
+
+    /* =========================
+       STATISTICS
+    ========================= */
+    const currentDate = new Date();
+    let active = 0;
+    let expired = 0;
+    let completed = 0;
+
+    members.forEach(member => {
+      if (member.membershipTo && new Date(member.membershipTo) >= currentDate) {
+        active++;
+      } else if (member.membershipTo && new Date(member.membershipTo) < currentDate) {
+        expired++;
+        completed++;
+      }
+    });
+
+    return {
+      plan,
+      members,
+      statistics: {
+        active,
+        expired,
+        completed
+      }
+    };
+  } catch (error) {
+    throw error;
+  }
 };

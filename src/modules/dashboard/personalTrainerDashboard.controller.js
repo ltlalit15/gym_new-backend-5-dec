@@ -50,28 +50,29 @@ export const getPersonalTrainingPlansByAdmin = async (req, res, next) => {
 };
 
 export const getPersonalTrainingCustomersByAdmin = async (req, res, next) => {
-  try {
-    const adminId = parseInt(req.params.adminId);
-    const planId = parseInt(req.params.planId);
+ try {
+    const { adminId, planId } = req.params;
 
     if (!adminId || !planId) {
       return res.status(400).json({
         success: false,
-        message: "adminId and planId are required in URL",
+        message: "Admin ID and Plan ID are required"
       });
     }
 
-    const customers = await getPersonalTrainingCustomersByAdminService(
-      adminId,
-      planId
-    );
+    const result = await getPersonalTrainingCustomersByAdminService(adminId, planId);
 
     res.json({
       success: true,
-      message: "Personal training customers fetched successfully",
-      customers,
+      message: "Membership plan for personal trainer members fetched successfully",
+      data: {
+        plan: result.plan,
+        members: result.members,
+        statistics: result.statistics,
+        Total_Members: result.members.length
+      }
     });
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    next(error);
   }
 };

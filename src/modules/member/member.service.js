@@ -1038,3 +1038,106 @@ try {
     throw error;
   }
 };
+
+
+
+export const getMembersByAdminAndGeneralMemberPlanService = async (adminId, planId) => {
+  try {
+    /* =========================
+       FETCH PLAN (VALIDATION)
+    ========================= */
+    const planQuery = `
+      SELECT 
+        mp.id,
+        mp.name,
+        mp.sessions,
+        mp.validityDays,
+        mp.price,
+        mp.type,
+        mp.trainerType
+      FROM memberplan mp
+      WHERE 
+        mp.id = ?
+        AND mp.type = 'MEMBER'
+        AND mp.trainerType = 'general'
+    `;
+
+    const [planResult] = await pool.query(planQuery, [planId]);
+
+    if (planResult.length === 0) {
+      const error = new Error("General member plan not found.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const plan = planResult[0];
+
+    /* =========================
+       FETCH MEMBERS
+    ========================= */
+    const membersQuery = `
+      SELECT 
+        m.id,
+        m.userId,
+        m.fullName,
+        m.email,
+        m.phone,
+        m.gender,
+        m.address,
+        m.joinDate,
+        m.branchId,
+        m.membershipFrom,
+        m.membershipTo,
+        m.paymentMode,
+        m.amountPaid,
+        m.dateOfBirth,
+        m.status,
+        m.planId,
+        mp.name AS planName,
+        mp.sessions,
+        mp.validityDays,
+        mp.price,
+        mp.type AS planType,
+        mp.trainerType
+      FROM member m
+      JOIN memberplan mp ON m.planId = mp.id
+      WHERE 
+        m.adminId = ?
+        AND mp.id = ?
+        AND mp.type = 'MEMBER'
+        AND mp.trainerType = 'general'
+      ORDER BY m.fullName
+    `;
+
+    const [members] = await pool.query(membersQuery, [adminId, planId]);
+
+    /* =========================
+       STATISTICS
+    ========================= */
+    const currentDate = new Date();
+    let active = 0;
+    let expired = 0;
+    let completed = 0;
+
+    members.forEach(member => {
+      if (member.membershipTo && new Date(member.membershipTo) >= currentDate) {
+        active++;
+      } else if (member.membershipTo && new Date(member.membershipTo) < currentDate) {
+        expired++;
+        completed++;
+      }
+    });
+
+    return {
+      plan,
+      members,
+      statistics: {
+        active,
+        expired,
+        completed
+      }
+    };
+  } catch (error) {
+    throw error;
+  }
+};

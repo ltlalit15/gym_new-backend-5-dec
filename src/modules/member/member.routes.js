@@ -4,6 +4,7 @@ import { Router } from "express";
 import {
   createMember,
   deleteMember,
+  getMembersByAdminAndGeneralMemberPlanController,
   getMembersByAdminAndGroupPlanController,
   getMembersByAdminAndPlanController,
   getMembersByAdminId,
@@ -68,6 +69,10 @@ router.delete(
 router.get("/admin/:adminId", getMembersByAdminId);
 router.get("/admin/:adminId/plan", getMembersByAdminAndPlanController);
 router.get("/group-plan/:adminId/admin/:planId", getMembersByAdminAndGroupPlanController);
+router.get(
+  "/member-plan/general/:adminId/admin/:planId",
+  getMembersByAdminAndGeneralMemberPlanController
+);
 
 router.get("/pt-bookings/:branchId", listPTBookings);
 
