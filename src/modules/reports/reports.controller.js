@@ -1,4 +1,4 @@
-import { generateGeneralTrainerReportService, generateMemberReportService, generatePersonalTrainerReportService ,getReceptionReportService,getMemberAttendanceReportService,generateManagerReportService, generatePersonalTrainerReportByStaffService, generateGeneralTrainerReportByStaffService} from "./reports.service.js";
+import { generateGeneralTrainerReportService, generateMemberReportService, generatePersonalTrainerReportService ,getReceptionReportService,getMemberAttendanceReportService,generateManagerReportService, generatePersonalTrainerReportByStaffService, generateGeneralTrainerReportByStaffService, generateStaffHousekeepingReportService, generateAdminHousekeepingReportService} from "./reports.service.js";
 // import { generateGeneralTrainerReportService, generateManagerReportService, generateMemberReportService, generatePersonalTrainerReportService ,getReceptionReportService} from "./reports.service.js";
 
 // Generate Member Report Controller
@@ -215,6 +215,49 @@ export const generateGeneralTrainerReportByStaffController = async (req, res) =>
     res.status(500).json({
       success: false,
       message: error.message
+    });
+  }
+};
+
+
+export const getAdminHousekeepingReport = async (req, res) => {
+  try {
+    const adminId = req.user?.id || req.params.adminId;
+    const { startDate, endDate } = req.query;
+    
+    const report = await generateAdminHousekeepingReportService(adminId, startDate, endDate);
+    
+    return res.status(200).json({
+      success: true,
+      message: "Admin housekeeping report generated successfully",
+      data: report
+    });
+  } catch (error) {
+    return res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
+  }
+};
+
+// Get housekeeping report for a specific staff member under an admin
+export const getStaffHousekeepingReport = async (req, res) => {
+  try {
+    const adminId = req.user?.id || req.params.adminId;
+    const { staffId } = req.params;
+    const { startDate, endDate } = req.query;
+    
+    const report = await generateStaffHousekeepingReportService(adminId, staffId, startDate, endDate);
+    
+    return res.status(200).json({
+      success: true,
+      message: "Staff housekeeping report generated successfully",
+      data: report
+    });
+  } catch (error) {
+    return res.status(500).json({ 
+      success: false, 
+      message: error.message 
     });
   }
 };
