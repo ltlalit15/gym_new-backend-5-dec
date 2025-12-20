@@ -6,43 +6,165 @@ import { pool } from "../../config/db.js";
 
 
 export const createBookingRequest = async (req, res) => {
+  const connection = await pool.getConnection();
+
   try {
     const {
-      memberId = null,
-      classId = null,
-      branchId = null,
-      price = null,
-      adminId = null,
-      upiId = null
+      fullName,
+      email,
+      phone,
+      gender,          // ✅ NEW
+      adminId,
+      branchId = null
     } = req.body;
 
-    await pool.query(
-      `INSERT INTO booking_requests 
-        (adminId, memberId, classId, branchId, price, upiId, status)
-       VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
+    // ✅ validation
+    if (!fullName || !phone || !adminId || !gender) {
+      return res.status(400).json({
+        success: false,
+        message: "fullName, phone, gender and adminId are required"
+      });
+    }
+
+    await connection.beginTransaction();
+
+    /* -------------------------
+       1️⃣ USER TABLE (Inactive)
+    ------------------------- */
+    const [userResult] = await connection.query(
+      `
+      INSERT INTO user
+        (adminId, fullName, email, phone, gender, roleId, branchId, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'Inactive')
+      `,
       [
         adminId,
-        memberId,
-        classId,
-        branchId,
-        price,
-        upiId
+        fullName,
+        email || null,
+        phone,
+        gender,
+        4,          // MEMBER roleId
+        branchId
       ]
+    );
+
+    const userId = userResult.insertId;
+
+    /* -------------------------
+       2️⃣ BOOKING REQUEST
+       (memberId = NULL)
+    ------------------------- */
+    await connection.query(
+      `
+      INSERT INTO booking_requests
+        (memberId, branchId, status)
+      VALUES (NULL, ?, 'pending')
+      `,
+      [branchId]
+    );
+
+    await connection.commit();
+
+    res.status(201).json({
+      success: true,
+      message: "Request submitted. Waiting for admin approval.",
+      data: {
+        userId,
+        adminId,
+        userStatus: "Inactive",
+        bookingStatus: "pending"
+      }
+    });
+
+  } catch (err) {
+    await connection.rollback();
+    console.error("Create Booking Error:", err);
+
+    res.status(500).json({
+      success: false,
+      message: err.sqlMessage || "Failed to create booking request"
+    });
+  } finally {
+    connection.release();
+  }
+};
+
+
+
+export const getBookingRequestsForAdmin = async (req, res) => {
+  try {
+    const adminId = parseInt(req.params.adminId);
+
+    if (!adminId) {
+      return res.status(400).json({
+        success: false,
+        message: "adminId is required"
+      });
+    }
+
+    const [rows] = await pool.query(
+      `
+      SELECT 
+        br.id                    AS bookingRequestId,
+        br.status                AS bookingStatus,
+        br.createdAt,
+
+        -- MEMBER (NULL if pending)
+        m.id                     AS memberId,
+        m.fullName               AS memberName,
+        m.phone                  AS memberPhone,
+        m.gender                 AS memberGender,
+        m.status                 AS memberStatus,
+
+        -- USER (always available)
+        u.id                     AS userId,
+        u.fullName               AS userName,
+        u.phone                  AS userPhone,
+        u.gender                 AS userGender,
+        u.status                 AS userStatus,
+
+        -- BRANCH
+        b.id                     AS branchId,
+        b.name                   AS branchName
+
+      FROM booking_requests br
+
+      /* member only exists after approval */
+      LEFT JOIN member m 
+        ON br.memberId = m.id
+
+      /* user comes either via member OR directly */
+      LEFT JOIN user u 
+        ON u.id = m.userId
+        OR (m.id IS NULL AND u.branchId = br.branchId)
+
+      LEFT JOIN branch b 
+        ON b.id = br.branchId
+
+      WHERE u.adminId = ?
+      ORDER BY br.createdAt DESC
+      `,
+      [adminId]
     );
 
     res.json({
       success: true,
-      message: "Booking request created "
+      message: "Booking requests fetched successfully",
+      total: rows.length,
+      data: rows
     });
 
   } catch (err) {
-    console.error(err);
+    console.error("Get Booking Requests Error:", err);
     res.status(500).json({
       success: false,
-      message: "Failed to create booking request"
+      message: err.sqlMessage || "Failed to fetch booking requests"
     });
   }
 };
+
+
+
 
 
 /* --------------------------------------------------------
