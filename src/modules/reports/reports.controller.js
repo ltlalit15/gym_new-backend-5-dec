@@ -1,4 +1,4 @@
-import { generateGeneralTrainerReportService, generateMemberReportService, generatePersonalTrainerReportService ,getReceptionReportService,getMemberAttendanceReportService,generateManagerReportService} from "./reports.service.js";
+import { generateGeneralTrainerReportService, generateMemberReportService, generatePersonalTrainerReportService ,getReceptionReportService,getMemberAttendanceReportService,generateManagerReportService, generatePersonalTrainerReportByStaffService, generateGeneralTrainerReportByStaffService} from "./reports.service.js";
 // import { generateGeneralTrainerReportService, generateManagerReportService, generateMemberReportService, generatePersonalTrainerReportService ,getReceptionReportService} from "./reports.service.js";
 
 // Generate Member Report Controller
@@ -149,6 +149,70 @@ export const getManagerReportController = async (req, res) => {
 
   } catch (error) {
     return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+export const generatePersonalTrainerReportByStaffController = async (req, res) => {
+  try {
+    const { adminId, staffId } = req.params;
+    const { fromDate, toDate } = req.query; // Get dates from query parameters
+    
+    // Validate input
+    if (!adminId || !staffId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Admin ID and Staff ID are required'
+      });
+    }
+
+    const report = await generatePersonalTrainerReportByStaffService(
+      adminId, 
+      staffId, 
+      fromDate, 
+      toDate
+    );
+    
+    res.status(200).json({
+      success: true,
+      data: report
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+export const generateGeneralTrainerReportByStaffController = async (req, res) => {
+  try {
+    const { adminId, staffId } = req.params;
+    const { fromDate, toDate } = req.query; // Get dates from query parameters
+    
+    // Validate input
+    if (!adminId || !staffId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Admin ID and Staff ID are required'
+      });
+    }
+
+    const report = await generateGeneralTrainerReportByStaffService(
+      adminId, 
+      staffId, 
+      fromDate, 
+      toDate
+    );
+    
+    res.status(200).json({
+      success: true,
+      data: report
+    });
+  } catch (error) {
+    res.status(500).json({
       success: false,
       message: error.message
     });

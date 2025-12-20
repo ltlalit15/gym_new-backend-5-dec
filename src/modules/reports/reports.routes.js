@@ -1,7 +1,7 @@
 
 
 import express from "express";
-import { generateGeneralTrainerReportController, generateMemberReportController, generatePersonalTrainerReportController,getReceptionReportForAdmin,getMemberAttendanceReport,getManagerReportController } from "./reports.controller.js";
+import { generateGeneralTrainerReportController, generateMemberReportController, generatePersonalTrainerReportController,getReceptionReportForAdmin,getMemberAttendanceReport,getManagerReportController, generatePersonalTrainerReportByStaffController, generateGeneralTrainerReportByStaffController } from "./reports.controller.js";
 // import { generateGeneralTrainerReportController, generateMemberReportController, generatePersonalTrainerReportController,getManagerReportController,getReceptionReportForAdmin } from "./reports.controller.js";
 
 const router = express.Router();
@@ -17,4 +17,7 @@ router.get("/attendance/:adminId", getMemberAttendanceReport);
 router.get("/general-trainer", generateGeneralTrainerReportController);
 router.get("/reception/:adminId",getReceptionReportForAdmin)
 router.get("/manager-report", getManagerReportController);
+router.get('/personal-trainer/staff/:adminId/:staffId', generatePersonalTrainerReportByStaffController);
+router.get('/general-trainer/staff/:adminId/:staffId', generateGeneralTrainerReportByStaffController);
+
 export default router;

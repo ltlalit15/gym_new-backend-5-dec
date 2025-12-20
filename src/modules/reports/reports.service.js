@@ -1029,3 +1029,531 @@ export const getMemberAttendanceReportService = async (adminId) => {
     throw new Error(`Manager Report Error: ${error.message}`);
   }
 };
+
+// export const generatePersonalTrainerReportByStaffService = async (adminId, staffId) => {
+
+//   try {
+//     // 1️⃣ Verify the staff belongs to the admin
+//     const [staffVerification] = await pool.query(
+//       `SELECT s.id, s.userId, u.fullName 
+//        FROM staff s
+//        JOIN user u ON s.userId = u.id
+//        WHERE s.id = ? AND s.adminId = ?`,
+//       [staffId, adminId]
+//     );
+
+//     if (staffVerification.length === 0) {
+//       return {
+//         stats: {
+//           totalBookings: 0,
+//           confirmed: 0,
+//           cancelled: 0,
+//           booked: 0
+//         },
+//         bookingsByDay: [],
+//         bookingStatus: [],
+//         transactions: []
+//       };
+//     }
+
+//     // Get the userId of the staff member
+//     const staffUserId = staffVerification[0].userId;
+
+//     // 2️⃣ PT booking stats for this specific staff member
+//     const [bookingStats] = await pool.query(
+//       `SELECT 
+//         COUNT(*) as totalBookings,
+//         SUM(CASE WHEN bookingStatus = 'Completed' THEN 1 ELSE 0 END) as confirmed,
+//         SUM(CASE WHEN bookingStatus = 'Cancelled' THEN 1 ELSE 0 END) as cancelled,
+//         SUM(CASE WHEN bookingStatus = 'Booked' THEN 1 ELSE 0 END) as booked
+//       FROM unified_bookings
+//       WHERE trainerId = ?
+//         AND bookingType = 'PT'`,
+//       [staffUserId]
+//     );
+
+//     // 3️⃣ PT bookings group by day for this staff member
+//     const [bookingsByDay] = await pool.query(
+//       `SELECT 
+//         DATE(createdAt) AS date,
+//         COUNT(*) AS count
+//       FROM unified_bookings
+//       WHERE trainerId = ?
+//         AND bookingType = 'PT'
+//       GROUP BY DATE(createdAt)
+//       ORDER BY date ASC`,
+//       [staffUserId]
+//     );
+
+//     // 4️⃣ PT booking status distribution for this staff member
+//     const [bookingStatus] = await pool.query(
+//       `SELECT 
+//         bookingStatus,
+//         COUNT(*) AS count
+//       FROM unified_bookings
+//       WHERE trainerId = ?
+//         AND bookingType = 'PT'
+//       GROUP BY bookingStatus`,
+//       [staffUserId]
+//     );
+
+//     // 5️⃣ PT transactions list for this staff member
+//     const [transactions] = await pool.query(
+//       `SELECT 
+//           ub.date,
+//           trainerUser.fullName AS trainerName,
+//           memberUser.fullName AS memberName,
+//           'Personal Training' AS type,
+//           ub.startTime AS time,
+//           ub.bookingStatus AS status
+//         FROM unified_bookings ub
+//         LEFT JOIN user AS trainerUser 
+//               ON ub.trainerId = trainerUser.id
+//         LEFT JOIN member AS m
+//               ON ub.memberId = m.id
+//         LEFT JOIN user AS memberUser
+//               ON m.userId = memberUser.id
+//         WHERE ub.trainerId = ?
+//           AND ub.bookingType = 'PT'
+//         ORDER BY ub.date DESC`,
+//       [staffUserId]
+//     );
+
+//     // Format output for UI
+//     const formattedStats = {
+//       totalBookings: bookingStats[0].totalBookings || 0,
+//       confirmed: bookingStats[0].confirmed || 0,
+//       cancelled: bookingStats[0].cancelled || 0,
+//       booked: bookingStats[0].booked || 0
+//     };
+
+//     const formattedTransactions = transactions.map(tx => ({
+//       date: tx.date,
+//       trainer: tx.trainerName || 'N/A',
+//       username: tx.memberName || 'N/A',
+//       type: tx.type,
+//       time: tx.time,
+//       status: tx.status
+//     }));
+
+//     return {
+//       stats: formattedStats,
+//       bookingsByDay,
+//       bookingStatus,
+//       transactions: formattedTransactions
+//     };
+
+//   } catch (error) {
+//     throw new Error(`Error generating personal trainer report by staff: ${error.message}`);
+//   }
+// };
+
+
+// export const generatePersonalTrainerReportByStaffService = async (adminId, staffId) => {
+//   try {
+//     // 1️⃣ Verify the staff belongs to the admin
+//     const [staffVerification] = await pool.query(
+//       `SELECT s.id, s.userId, u.fullName 
+//        FROM staff s
+//        JOIN user u ON s.userId = u.id
+//        WHERE s.id = ? AND s.adminId = ?`,
+//       [staffId, adminId]
+//     );
+
+//     if (staffVerification.length === 0) {
+//       return {
+//         stats: {
+//           totalBookings: 0,
+//           confirmed: 0,
+//           cancelled: 0,
+//           booked: 0
+//         },
+//         bookingsByDay: [],
+//         bookingStatus: [],
+//         transactions: []
+//       };
+//     }
+
+//     // Get the userId of the staff member
+//     const staffUserId = staffVerification[0].userId;
+
+//     // 2️⃣ PT booking stats for this specific staff member
+//     const [bookingStats] = await pool.query(
+//       `SELECT 
+//         COUNT(*) as totalBookings,
+//         SUM(CASE WHEN bookingStatus = 'Completed' THEN 1 ELSE 0 END) as confirmed,
+//         SUM(CASE WHEN bookingStatus = 'Cancelled' THEN 1 ELSE 0 END) as cancelled,
+//         SUM(CASE WHEN bookingStatus = 'Booked' THEN 1 ELSE 0 END) as booked
+//       FROM unified_bookings
+//       WHERE trainerId = ?
+//         AND bookingType = 'PT'`,
+//       [staffUserId]
+//     );
+
+//     // 3️⃣ PT bookings group by day for this staff member
+//     const [bookingsByDay] = await pool.query(
+//       `SELECT 
+//         DATE(createdAt) AS date,
+//         COUNT(*) AS count
+//       FROM unified_bookings
+//       WHERE trainerId = ?
+//         AND bookingType = 'PT'
+//       GROUP BY DATE(createdAt)
+//       ORDER BY date ASC`,
+//       [staffUserId]
+//     );
+
+//     // 4️⃣ PT booking status distribution for this staff member
+//     const [bookingStatus] = await pool.query(
+//       `SELECT 
+//         bookingStatus,
+//         COUNT(*) AS count
+//       FROM unified_bookings
+//       WHERE trainerId = ?
+//         AND bookingType = 'PT'
+//       GROUP BY bookingStatus`,
+//       [staffUserId]
+//     );
+
+//     // 5️⃣ PT transactions list for this staff member (FIXED)
+//     const [transactions] = await pool.query(
+//       `SELECT 
+//           ub.date,
+//           trainerUser.fullName AS trainerName,
+//           m.fullName AS memberName,  -- Get name directly from member table
+//           'Personal Training' AS type,
+//           ub.startTime AS time,
+//           ub.bookingStatus AS status
+//         FROM unified_bookings ub
+//         LEFT JOIN user AS trainerUser 
+//               ON ub.trainerId = trainerUser.id
+//         LEFT JOIN member AS m
+//               ON ub.memberId = m.id
+//         WHERE ub.trainerId = ?
+//           AND ub.bookingType = 'PT'
+//         ORDER BY ub.date DESC`,
+//       [staffUserId]
+//     );
+
+//     // Format output for UI
+//     const formattedStats = {
+//       totalBookings: bookingStats[0].totalBookings || 0,
+//       confirmed: bookingStats[0].confirmed || 0,
+//       cancelled: bookingStats[0].cancelled || 0,
+//       booked: bookingStats[0].booked || 0
+//     };
+
+//     const formattedTransactions = transactions.map(tx => ({
+//       date: tx.date,
+//       trainer: tx.trainerName || 'N/A',
+//       username: tx.memberName || 'N/A',
+//       type: tx.type,
+//       time: tx.time,
+//       status: tx.status
+//     }));
+
+//     return {
+//       stats: formattedStats,
+//       bookingsByDay,
+//       bookingStatus,
+//       transactions: formattedTransactions
+//     };
+
+//   } catch (error) {
+//     throw new Error(`Error generating personal trainer report by staff: ${error.message}`);
+//   }
+// };
+export const generatePersonalTrainerReportByStaffService = async (adminId, staffId, fromDate = null, toDate = null) => {
+  try {
+    // 1️⃣ Verify the staff belongs to the admin
+    const [staffVerification] = await pool.query(
+      `SELECT s.id, s.userId, u.fullName 
+       FROM staff s
+       JOIN user u ON s.userId = u.id
+       WHERE s.id = ? AND s.adminId = ?`,
+      [staffId, adminId]
+    );
+
+    if (staffVerification.length === 0) {
+      return {
+        stats: {
+          totalBookings: 0,
+          confirmed: 0,
+          cancelled: 0,
+          booked: 0
+        },
+        bookingsByDay: [],
+        bookingStatus: [],
+        transactions: []
+      };
+    }
+
+    const staffUserId = staffVerification[0].userId;
+
+    // Helper function to build the date filter part of the query
+    const getDateFilterQuery = () => {
+      if (fromDate && toDate) {
+        return `AND ub.date BETWEEN ? AND ?`;
+      }
+      if (fromDate) {
+        return `AND ub.date >= ?`;
+      }
+      if (toDate) {
+        return `AND ub.date <= ?`;
+      }
+      return ''; // No date filter
+    };
+
+    // Helper function to build the parameters array for the date filter
+    const getDateFilterParams = () => {
+      const params = [];
+      if (fromDate) params.push(fromDate);
+      if (toDate) params.push(toDate);
+      return params;
+    };
+
+    const dateFilterQuery = getDateFilterQuery();
+    const dateFilterParams = getDateFilterParams();
+
+    // 2️⃣ PT booking stats for this specific staff member with date filter
+    const [bookingStats] = await pool.query(
+      `SELECT 
+        COUNT(*) as totalBookings,
+        SUM(CASE WHEN bookingStatus = 'Completed' THEN 1 ELSE 0 END) + 0 as confirmed,
+        SUM(CASE WHEN bookingStatus = 'Cancelled' THEN 1 ELSE 0 END) + 0 as cancelled,
+        SUM(CASE WHEN bookingStatus = 'Booked' THEN 1 ELSE 0 END) + 0 as booked
+      FROM unified_bookings ub
+      WHERE ub.trainerId = ?
+        AND ub.bookingType = 'PT'
+        ${dateFilterQuery}`,
+      [staffUserId, ...dateFilterParams]
+    );
+
+    // 3️⃣ PT bookings group by day with date filter
+    const [bookingsByDay] = await pool.query(
+      `SELECT 
+        DATE(ub.date) AS date,
+        COUNT(*) AS count
+      FROM unified_bookings ub
+      WHERE ub.trainerId = ?
+        AND ub.bookingType = 'PT'
+        ${dateFilterQuery}
+      GROUP BY DATE(ub.date)
+      ORDER BY date ASC`,
+      [staffUserId, ...dateFilterParams]
+    );
+
+    // 4️⃣ PT booking status distribution with date filter
+    const [bookingStatus] = await pool.query(
+      `SELECT 
+        ub.bookingStatus,
+        COUNT(*) AS count
+      FROM unified_bookings ub
+      WHERE ub.trainerId = ?
+        AND ub.bookingType = 'PT'
+        ${dateFilterQuery}
+      GROUP BY ub.bookingStatus`,
+      [staffUserId, ...dateFilterParams]
+    );
+
+    // 5️⃣ PT transactions list with date filter
+    const [transactions] = await pool.query(
+      `SELECT 
+          ub.date,
+          trainerUser.fullName AS trainerName,
+          m.fullName AS memberName,
+          'Personal Training' AS type,
+          ub.startTime AS time,
+          ub.bookingStatus AS status
+        FROM unified_bookings ub
+        LEFT JOIN user AS trainerUser 
+              ON ub.trainerId = trainerUser.id
+        LEFT JOIN member AS m
+              ON ub.memberId = m.id
+        WHERE ub.trainerId = ?
+          AND ub.bookingType = 'PT'
+          ${dateFilterQuery}
+        ORDER BY ub.date DESC, ub.startTime DESC`,
+      [staffUserId, ...dateFilterParams]
+    );
+
+    // Format output for UI (no changes needed here)
+    const formattedStats = {
+      totalBookings: bookingStats[0].totalBookings || 0,
+      confirmed: bookingStats[0].confirmed || 0,
+      cancelled: bookingStats[0].cancelled || 0,
+      booked: bookingStats[0].booked || 0
+    };
+
+    const formattedTransactions = transactions.map(tx => ({
+      date: tx.date,
+      trainer: tx.trainerName || 'N/A',
+      username: tx.memberName || 'N/A',
+      type: tx.type,
+      time: tx.time,
+      status: tx.status
+    }));
+
+    return {
+      stats: formattedStats,
+      bookingsByDay,
+      bookingStatus,
+      transactions: formattedTransactions
+    };
+
+  } catch (error) {
+    throw new Error(`Error generating personal trainer report by staff: ${error.message}`);
+  }
+};
+
+
+export const generateGeneralTrainerReportByStaffService = async (adminId, staffId, fromDate = null, toDate = null) => {
+  try {
+    // 1️⃣ Verify the staff belongs to the admin
+    const [staffVerification] = await pool.query(
+      `SELECT s.id, s.userId, u.fullName 
+       FROM staff s
+       JOIN user u ON s.userId = u.id
+       WHERE s.id = ? AND s.adminId = ?`,
+      [staffId, adminId]
+    );
+
+    if (staffVerification.length === 0) {
+      return {
+        stats: {
+          totalBookings: 0,
+          totalRevenue: 0,
+          avgTicket: 0,
+          confirmed: 0,
+          cancelled: 0,
+          booked: 0
+        },
+        bookingsByDay: [],
+        bookingStatus: [],
+        transactions: []
+      };
+    }
+
+    // Get the userId of the staff member to use as trainerId
+    const staffUserId = staffVerification[0].userId;
+
+    // Helper function to build the date filter part of the query
+    const getDateFilterQuery = () => {
+      if (fromDate && toDate) {
+        return `AND ub.date BETWEEN ? AND ?`;
+      }
+      if (fromDate) {
+        return `AND ub.date >= ?`;
+      }
+      if (toDate) {
+        return `AND ub.date <= ?`;
+      }
+      return ''; // No date filter
+    };
+
+    // Helper function to build the parameters array for the date filter
+    const getDateFilterParams = () => {
+      const params = [];
+      if (fromDate) params.push(fromDate);
+      if (toDate) params.push(toDate);
+      return params;
+    };
+
+    const dateFilterQuery = getDateFilterQuery();
+    const dateFilterParams = getDateFilterParams();
+
+    // 2️⃣ Get booking statistics for GROUP bookings for this specific trainer
+    const [bookingStats] = await pool.query(
+      `SELECT 
+        COUNT(*) as totalBookings,
+        0 as totalRevenue,
+        0 as avgTicket,
+        SUM(CASE WHEN bookingStatus = 'Confirmed' THEN 1 ELSE 0 END) + 0 as confirmed,
+        SUM(CASE WHEN bookingStatus = 'Cancelled' THEN 1 ELSE 0 END) + 0 as cancelled,
+        SUM(CASE WHEN bookingStatus = 'Booked' THEN 1 ELSE 0 END) + 0 as booked
+      FROM unified_bookings ub
+      WHERE ub.trainerId = ?
+        AND ub.bookingType = 'GROUP'
+        ${dateFilterQuery}`,
+      [staffUserId, ...dateFilterParams]
+    );
+
+    // 3️⃣ Bookings by day for this trainer
+    const [bookingsByDay] = await pool.query(
+      `SELECT 
+        DATE(ub.date) as date,
+        COUNT(*) as count
+      FROM unified_bookings ub
+      WHERE ub.trainerId = ?
+        AND ub.bookingType = 'GROUP'
+        ${dateFilterQuery}
+      GROUP BY DATE(ub.date)
+      ORDER BY date ASC`,
+      [staffUserId, ...dateFilterParams]
+    );
+
+    // 4️⃣ Booking status distribution for this trainer
+    const [bookingStatus] = await pool.query(
+      `SELECT 
+        ub.bookingStatus,
+        COUNT(*) as count
+      FROM unified_bookings ub
+      WHERE ub.trainerId = ?
+        AND ub.bookingType = 'GROUP'
+        ${dateFilterQuery}
+      GROUP BY ub.bookingStatus`,
+      [staffUserId, ...dateFilterParams]
+    );
+
+    // 5️⃣ Transactions list for this trainer (JOIN IS FIXED HERE)
+    const [transactions] = await pool.query(
+      `SELECT 
+          ub.date,
+          trainerUser.fullName AS trainerName,
+          m.fullName AS memberName, -- Get name directly from member table
+          'Group Training' AS type,
+          ub.startTime AS time,
+          ub.bookingStatus AS status
+        FROM unified_bookings ub
+        LEFT JOIN user AS trainerUser 
+            ON ub.trainerId = trainerUser.id
+        LEFT JOIN member AS m
+            ON ub.memberId = m.id
+        WHERE ub.trainerId = ?
+          AND ub.bookingType = 'GROUP'
+          ${dateFilterQuery}
+        ORDER BY ub.date DESC, ub.startTime DESC`,
+      [staffUserId, ...dateFilterParams]
+    );
+
+    // Format summary stats (identical to original)
+    const formattedStats = {
+      totalBookings: bookingStats[0].totalBookings || 0,
+      totalRevenue: bookingStats[0].totalRevenue || 0,
+      avgTicket: bookingStats[0].avgTicket || 0,
+      confirmed: bookingStats[0].confirmed || 0,
+      cancelled: bookingStats[0].cancelled || 0,
+      booked: bookingStats[0].booked || 0
+    };
+
+    // Format transaction list (identical to original)
+    const formattedTransactions = transactions.map(tx => ({
+      date: tx.date,
+      trainer: tx.trainerName || 'N/A',
+      username: tx.memberName || 'N/A',
+      type: tx.type,
+      time: tx.time,
+      status: tx.status
+    }));
+
+    return {
+      stats: formattedStats,
+      bookingsByDay,
+      bookingStatus,
+      transactions: formattedTransactions
+    };
+
+  } catch (error) {
+    throw new Error(`Error generating general trainer report by staff: ${error.message}`);
+  }
+}
