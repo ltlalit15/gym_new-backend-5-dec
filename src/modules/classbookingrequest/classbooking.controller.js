@@ -1217,9 +1217,59 @@ export const getUnifiedBookingsByTrainer = async (req, res) => {
 
 //   return rows;
 // };
+// export const getUnifiedPersonalAndGeneralTrainersService = async (req, res) => {
+//   try {
+//     // adminId should come from auth middleware or params/query
+//     const adminId = Number(req.user?.adminId || req.params.adminId);
+
+//     if (!adminId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "adminId is required"
+//       });
+//     }
+
+//     const [rows] = await pool.query(
+//   `
+//   SELECT 
+//     u.id,
+//     u.fullName,
+//     u.email,
+//     u.phone,
+//     u.branchId,
+//     u.roleId
+//   FROM user u
+//   WHERE u.roleId IN (5, 6)
+//     AND u.adminId = ?
+//     AND NOT EXISTS (
+//       SELECT 1
+//       FROM unified_bookings b
+//       WHERE b.trainerId = u.id
+//         AND b.bookingType = 'PT'
+//         AND b.bookingStatus = 'Booked'
+//         AND b.paymentStatus = 'Paid'
+//     )
+//   ORDER BY u.id DESC
+//   `,
+//   [adminId]
+// );
+
+//     return res.status(200).json({
+//       success: true,
+//       trainers: rows
+//     });
+
+//   } catch (error) {
+//     console.error("getUnifiedPersonalAndGeneralTrainersService ERROR →", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: error.message
+//     });
+//   }
+// };
+
 export const getUnifiedPersonalAndGeneralTrainersService = async (req, res) => {
   try {
-    // adminId should come from auth middleware or params/query
     const adminId = Number(req.user?.adminId || req.params.adminId);
 
     if (!adminId) {
@@ -1230,29 +1280,49 @@ export const getUnifiedPersonalAndGeneralTrainersService = async (req, res) => {
     }
 
     const [rows] = await pool.query(
-  `
-  SELECT 
-    u.id,
-    u.fullName,
-    u.email,
-    u.phone,
-    u.branchId,
-    u.roleId
-  FROM user u
-  WHERE u.roleId IN (5, 6)
-    AND u.adminId = ?
-    AND NOT EXISTS (
-      SELECT 1
-      FROM unified_bookings b
-      WHERE b.trainerId = u.id
-        AND b.bookingType = 'PT'
-        AND b.bookingStatus = 'Booked'
-        AND b.paymentStatus = 'Paid'
-    )
-  ORDER BY u.id DESC
-  `,
-  [adminId]
-);
+      `
+      SELECT 
+        u.id,
+        u.fullName,
+        u.email,
+        u.phone,
+        u.branchId,
+        u.roleId
+      FROM user u
+      WHERE u.roleId IN (5, 6)
+        AND u.adminId = ?
+
+        -- ❌ Active PT booking (not completed yet)
+        AND NOT EXISTS (
+          SELECT 1
+          FROM unified_bookings b
+          WHERE b.trainerId = u.id
+            AND b.bookingType = 'PT'
+            AND b.bookingStatus = 'Booked'
+            AND TIMESTAMP(
+                  COALESCE(b.endDate, b.date),
+                  b.endTime
+                ) >= NOW()
+        )
+
+        -- ❌ Active session (time + duration not finished)
+        AND NOT EXISTS (
+          SELECT 1
+          FROM session s
+          WHERE s.trainerId = u.id
+            AND NOW() BETWEEN
+              TIMESTAMP(DATE(s.date), s.time)
+              AND
+              TIMESTAMP(
+                DATE(s.date),
+                ADDTIME(s.time, SEC_TO_TIME(s.duration * 60))
+              )
+        )
+
+      ORDER BY u.id DESC
+      `,
+      [adminId]
+    );
 
     return res.status(200).json({
       success: true,
@@ -1267,7 +1337,6 @@ export const getUnifiedPersonalAndGeneralTrainersService = async (req, res) => {
     });
   }
 };
-
 export const getUnifiedBookingById = async (req, res) => {
   try {
     const { id } = req.params;

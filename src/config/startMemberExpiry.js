@@ -42,7 +42,7 @@ export const startMemberExpiryCron = () => {
 };
 
 export const startPTAutoCompleteCron = () => {
-  cron.schedule("*/5 * * * *", async () => {
+  cron.schedule("*/1 * * * *", async () => {
     let lockAcquired = false;
 
     try {
@@ -57,26 +57,73 @@ export const startPTAutoCompleteCron = () => {
 
       lockAcquired = true;
 
-      const istTime = new Date().toLocaleString("en-IN", {
-        timeZone: "Asia/Kolkata",
-      });
+      const nowIST = "CONVERT_TZ(NOW(), '+00:00', '+05:30')";
+      console.log(
+        `⏳ PT auto-complete cron started | IST: ${new Date().toLocaleString(
+          "en-IN",
+          { timeZone: "Asia/Kolkata" }
+        )}`
+      );
 
-      console.log(`⏳ PT auto-complete cron started | IST: ${istTime}`);
-
-      const [result] = await pool.query(`
-        UPDATE unified_bookings
-        SET bookingStatus = 'Completed'
-        WHERE bookingType = 'PT'
-          AND bookingStatus = 'Booked'
-          AND TIMESTAMP(
-                COALESCE(endDate, date),
-                endTime
-              ) < CONVERT_TZ(NOW(), '+00:00', '+05:30')
+      /* =====================================
+         1️⃣ UPCOMING → ACTIVE
+         (Force ACTIVE if the session is in the window)
+      ===================================== */
+      const [activateResult] = await pool.query(`
+        UPDATE session
+        SET status = 'Active'
+        WHERE status = 'Upcoming'
+          AND ${nowIST} BETWEEN
+              TIMESTAMP(DATE(date), time)
+              AND
+              TIMESTAMP(
+                DATE(date),
+                ADDTIME(time, SEC_TO_TIME(duration * 60))
+              )
       `);
 
-      if (result.affectedRows > 0) {
-        console.log(`✅ PT bookings completed: ${result.affectedRows}`);
+      if (activateResult.affectedRows > 0) {
+        console.log(`▶️ Sessions activated: ${activateResult.affectedRows}`);
       }
+
+      /* =====================================
+         2️⃣ ACTIVE → COMPLETE
+         (Only if current time has passed session end time)
+      ===================================== */
+      const [completeResult] = await pool.query(`
+        UPDATE session
+        SET status = 'Complete'
+        WHERE status = 'Active'
+          AND ${nowIST} >
+              TIMESTAMP(
+                DATE(date),
+                ADDTIME(time, SEC_TO_TIME(duration * 60))
+              )
+      `);
+
+      if (completeResult.affectedRows > 0) {
+        console.log(`🏁 Sessions completed: ${completeResult.affectedRows}`);
+      }
+
+      /* =====================================
+         3️⃣ UPCOMING → COMPLETE (MISSED)
+         (server / cron was down, mark missed session complete)
+      ===================================== */
+      const [missedResult] = await pool.query(`
+        UPDATE session
+        SET status = 'Complete'
+        WHERE status = 'Upcoming'
+          AND ${nowIST} >
+              TIMESTAMP(
+                DATE(date),
+                ADDTIME(time, SEC_TO_TIME(duration * 60))
+              )
+      `);
+
+      if (missedResult.affectedRows > 0) {
+        console.log(`⚠️ Missed sessions auto-completed: ${missedResult.affectedRows}`);
+      }
+
     } catch (err) {
       console.error("❌ PT auto-complete cron failed", err);
     } finally {
