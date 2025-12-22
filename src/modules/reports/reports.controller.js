@@ -219,26 +219,37 @@ export const generateGeneralTrainerReportByStaffController = async (req, res) =>
   }
 };
 
-
 export const getAdminHousekeepingReport = async (req, res) => {
   try {
     const adminId = req.user?.id || req.params.adminId;
     const { startDate, endDate } = req.query;
-    
-    const report = await generateAdminHousekeepingReportService(adminId, startDate, endDate);
-    
+
+    if (!adminId) {
+      return res.status(400).json({
+        success: false,
+        message: "adminId is required"
+      });
+    }
+
+    const report = await generateAdminHousekeepingReportService(
+      adminId,
+      startDate,
+      endDate
+    );
+
     return res.status(200).json({
       success: true,
       message: "Admin housekeeping report generated successfully",
       data: report
     });
   } catch (error) {
-    return res.status(500).json({ 
-      success: false, 
-      message: error.message 
+    return res.status(500).json({
+      success: false,
+      message: error.message
     });
   }
 };
+
 
 // Get housekeeping report for a specific staff member under an admin
 export const getStaffHousekeepingReport = async (req, res) => {
