@@ -227,8 +227,11 @@ export const bookClassService = async (memberId, scheduleId) => {
   };
 };
 
+
 export const getScheduledClassesWithBookingStatusService = async (userId) => {
-  /* 1️⃣ map userId → member.id */
+  /* ================================
+     1️⃣ map userId → member.id
+  ================================= */
   const [memberRows] = await pool.query(
     "SELECT id FROM member WHERE userId = ? AND status = 'ACTIVE'",
     [userId]
@@ -240,7 +243,10 @@ export const getScheduledClassesWithBookingStatusService = async (userId) => {
 
   const memberId = memberRows[0].id;
 
-  /* 2️⃣ fetch schedules + booking status */
+  /* ================================
+     2️⃣ fetch schedules + booking status
+     🔥 ONLY_FULL_GROUP_BY SAFE QUERY
+  ================================= */
   const [rows] = await pool.query(
     `
     SELECT 
@@ -258,26 +264,46 @@ export const getScheduledClassesWithBookingStatusService = async (userId) => {
 
       COUNT(bk2.id) AS membersCount,
 
-      bk.id AS bookingId
+      -- 🔥 FIX: aggregate use kiya
+      MAX(bk.id) AS bookingId
 
     FROM classschedule cs
 
-    LEFT JOIN user u ON cs.trainerId = u.id
-    LEFT JOIN branch b ON cs.branchId = b.id
+    LEFT JOIN user u 
+      ON cs.trainerId = u.id
 
+    LEFT JOIN branch b 
+      ON cs.branchId = b.id
+
+    -- member-specific booking
     LEFT JOIN booking bk 
-      ON bk.scheduleId = cs.id 
+      ON bk.scheduleId = cs.id
      AND bk.memberId = ?
 
+    -- total members booking count
     LEFT JOIN booking bk2 
       ON bk2.scheduleId = cs.id
 
-    GROUP BY cs.id
+    GROUP BY 
+      cs.id,
+      cs.className,
+      cs.date,
+      cs.day,
+      cs.startTime,
+      cs.endTime,
+      cs.status,
+      cs.capacity,
+      u.fullName,
+      b.name
+
     ORDER BY cs.id DESC
     `,
     [memberId]
   );
 
+  /* ================================
+     3️⃣ response formatting
+  ================================= */
   return rows.map((item) => ({
     id: item.id,
     className: item.className,
@@ -290,9 +316,9 @@ export const getScheduledClassesWithBookingStatusService = async (userId) => {
     capacity: item.capacity,
     membersCount: item.membersCount,
 
-    // 🔥 IMPORTANT PART
-    isBooked: item.bookingId ? true : false,
-    bookingId: item.bookingId || null,
+    // ✅ booking status
+    isBooked: item.bookingId !== null,
+    bookingId: item.bookingId,
   }));
 };
 

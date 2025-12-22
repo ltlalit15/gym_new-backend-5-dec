@@ -138,7 +138,7 @@ export const bookClass = async (req, res, next) => {
 
 export const getScheduledClassesWithBookingStatus = async (req, res) => {
   try {
-    const { memberId } = req.params; // userId from frontend
+    const { memberId } = req.params; // frontend se userId aa raha hai
 
     if (!memberId) {
       return res.status(400).json({
