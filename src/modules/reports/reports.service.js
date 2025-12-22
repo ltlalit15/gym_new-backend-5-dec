@@ -1557,3 +1557,303 @@ export const generateGeneralTrainerReportByStaffService = async (adminId, staffI
     throw new Error(`Error generating general trainer report by staff: ${error.message}`);
   }
 }
+
+
+
+export const generateAdminHousekeepingReportService = async (adminId, startDate, endDate) => {
+  try {
+    // Get all housekeeping staff under the admin (roleId = 8)
+    const [staffMembers] = await pool.query(`
+      SELECT s.id, s.status, u.id as userId, u.fullName, u.email, u.phone
+      FROM staff s
+      JOIN user u ON s.userId = u.id
+      WHERE s.adminId = ? AND u.roleId = 8
+    `, [adminId]);
+
+    // Get housekeeping tasks for the admin's housekeeping staff
+    let taskQuery = `
+      SELECT t.*, u.fullName as assignedToName
+      FROM tasks t
+      JOIN staff s ON t.assignedTo = s.id
+      JOIN user u ON s.userId = u.id
+      WHERE t.createdById = ? AND t.taskTitle LIKE '%housekeeping%' AND u.roleId = 8
+    `;
+    
+    let queryParams = [adminId];
+    
+    if (startDate && endDate) {
+      taskQuery += ` AND t.createdAt BETWEEN ? AND ?`;
+      queryParams.push(startDate, endDate);
+    }
+    
+    const [housekeepingTasks] = await pool.query(taskQuery, queryParams);
+
+    // Get attendance records for housekeeping staff
+    const staffIds = staffMembers.map(staff => staff.id);
+    let attendanceQuery = `
+      SELECT ma.*, u.fullName as staffName
+      FROM memberAttendance ma
+      JOIN staff s ON ma.staffId = s.id
+      JOIN user u ON s.userId = u.id
+      WHERE ma.staffId IN (?) AND u.roleId = 8
+    `;
+    
+    let attendanceParams = [staffIds];
+    
+    if (startDate && endDate) {
+      attendanceQuery += ` AND ma.checkIn BETWEEN ? AND ?`;
+      attendanceParams.push(startDate, endDate);
+    }
+    
+    const [attendanceRecords] = await pool.query(attendanceQuery, attendanceParams);
+
+    // Process data for report
+    const staffReport = staffMembers.map(staff => {
+      const staffTasks = housekeepingTasks.filter(task => task.assignedTo === staff.id);
+      const staffAttendance = attendanceRecords.filter(record => record.staffId === staff.id);
+      
+      // Calculate task completion rate
+      const completedTasks = staffTasks.filter(task => task.status === 'Completed').length;
+      const taskCompletionRate = staffTasks.length > 0 ? (completedTasks / staffTasks.length) * 100 : 0;
+      
+      // Calculate attendance metrics
+      const totalDays = staffAttendance.length;
+      const presentDays = staffAttendance.filter(record => record.status === 'Present').length;
+      const attendanceRate = totalDays > 0 ? (presentDays / totalDays) * 100 : 0;
+      
+      // Calculate average working hours
+      let totalMinutes = 0;
+      let daysWithCheckout = 0;
+      
+      staffAttendance.forEach(record => {
+        if (record.checkOut) {
+          const checkIn = new Date(record.checkIn);
+          const checkOut = new Date(record.checkOut);
+          totalMinutes += (checkOut - checkIn) / (1000 * 60);
+          daysWithCheckout++;
+        }
+      });
+      
+      const avgWorkingHours = daysWithCheckout > 0 ? (totalMinutes / daysWithCheckout / 60).toFixed(2) : 0;
+      
+      return {
+        staffId: staff.id,
+        staffName: staff.fullName,
+        email: staff.email,
+        phone: staff.phone,
+        status: staff.status,
+        totalTasks: staffTasks.length,
+        completedTasks,
+        pendingTasks: staffTasks.filter(task => task.status === 'Pending').length,
+        inProgressTasks: staffTasks.filter(task => task.status === 'In Progress').length,
+        taskCompletionRate: taskCompletionRate.toFixed(2),
+        attendanceMetrics: {
+          totalDays,
+          presentDays,
+          attendanceRate: attendanceRate.toFixed(2),
+          avgWorkingHours
+        },
+        recentTasks: staffTasks.slice(0, 5).map(task => ({
+          id: task.id,
+          title: task.taskTitle,
+          description: task.description,
+          priority: task.priority,
+          status: task.status,
+          dueDate: task.dueDate
+        })),
+        recentAttendance: staffAttendance.slice(0, 5).map(record => ({
+          id: record.id,
+          checkIn: record.checkIn,
+          checkOut: record.checkOut,
+          status: record.status,
+          notes: record.notes
+        }))
+      };
+    });
+
+    // Calculate summary metrics
+    const summary = {
+      totalStaff: staffMembers.length,
+      activeStaff: staffMembers.filter(staff => staff.status === 'Active').length,
+      totalTasks: housekeepingTasks.length,
+      completedTasks: housekeepingTasks.filter(task => task.status === 'Completed').length,
+      pendingTasks: housekeepingTasks.filter(task => task.status === 'Pending').length,
+      inProgressTasks: housekeepingTasks.filter(task => task.status === 'In Progress').length,
+      overallTaskCompletionRate: housekeepingTasks.length > 0 ? 
+        ((housekeepingTasks.filter(task => task.status === 'Completed').length / housekeepingTasks.length) * 100).toFixed(2) : 0,
+      totalAttendanceRecords: attendanceRecords.length,
+      presentDays: attendanceRecords.filter(record => record.status === 'Present').length,
+      overallAttendanceRate: attendanceRecords.length > 0 ? 
+        ((attendanceRecords.filter(record => record.status === 'Present').length / attendanceRecords.length) * 100).toFixed(2) : 0
+    };
+
+    return {
+      adminId,
+      reportDate: new Date(),
+      dateRange: { startDate, endDate },
+      summary,
+      staffDetails: staffReport
+    };
+  } catch (error) {
+    console.error('Error generating admin housekeeping report:', error);
+    throw new Error('Failed to generate admin housekeeping report');
+  }
+};
+
+// Generate housekeeping report for a specific staff member
+export const generateStaffHousekeepingReportService = async (adminId, staffId, startDate, endDate) => {
+  try {
+    // Verify staff belongs to the admin and has housekeeping role (roleId = 8)
+    const [staffResult] = await pool.query(`
+      SELECT s.id, s.status, s.joinDate, u.id as userId, u.fullName, u.email, u.phone, u.profileImage, u.roleId
+      FROM staff s
+      JOIN user u ON s.userId = u.id
+      WHERE s.id = ? AND s.adminId = ? AND u.roleId = 8
+    `, [staffId, adminId]);
+
+    if (staffResult.length === 0) {
+      throw new Error('Housekeeping staff not found or does not belong to this admin');
+    }
+
+    const staff = staffResult[0];
+
+    // Get housekeeping tasks for the staff
+    let taskQuery = `
+      SELECT *
+      FROM tasks
+      WHERE assignedTo = ? AND taskTitle LIKE '%housekeeping%'
+    `;
+    
+    let queryParams = [staffId];
+    
+    if (startDate && endDate) {
+      taskQuery += ` AND createdAt BETWEEN ? AND ?`;
+      queryParams.push(startDate, endDate);
+    }
+    
+    const [housekeepingTasks] = await pool.query(taskQuery, queryParams);
+
+    // Get attendance records for the staff
+    let attendanceQuery = `
+      SELECT *
+      FROM memberAttendance
+      WHERE staffId = ?
+    `;
+    
+    let attendanceParams = [staffId];
+    
+    if (startDate && endDate) {
+      attendanceQuery += ` AND checkIn BETWEEN ? AND ?`;
+      attendanceParams.push(startDate, endDate);
+    }
+    
+    const [attendanceRecords] = await pool.query(attendanceQuery, attendanceParams);
+
+    // Calculate task metrics
+    const completedTasks = housekeepingTasks.filter(task => task.status === 'Completed').length;
+    const pendingTasks = housekeepingTasks.filter(task => task.status === 'Pending').length;
+    const inProgressTasks = housekeepingTasks.filter(task => task.status === 'In Progress').length;
+    const taskCompletionRate = housekeepingTasks.length > 0 ? (completedTasks / housekeepingTasks.length) * 100 : 0;
+
+    // Calculate attendance metrics
+    const totalDays = attendanceRecords.length;
+    const presentDays = attendanceRecords.filter(record => record.status === 'Present').length;
+    const attendanceRate = totalDays > 0 ? (presentDays / totalDays) * 100 : 0;
+
+    // Calculate working hours
+    let totalMinutes = 0;
+    let daysWithCheckout = 0;
+    
+    attendanceRecords.forEach(record => {
+      if (record.checkOut) {
+        const checkIn = new Date(record.checkIn);
+        const checkOut = new Date(record.checkOut);
+        totalMinutes += (checkOut - checkIn) / (1000 * 60);
+        daysWithCheckout++;
+      }
+    });
+    
+    const avgWorkingHours = daysWithCheckout > 0 ? (totalMinutes / daysWithCheckout / 60).toFixed(2) : 0;
+
+    // Group tasks by priority
+    const tasksByPriority = {
+      High: housekeepingTasks.filter(task => task.priority === 'High').length,
+      Medium: housekeepingTasks.filter(task => task.priority === 'Medium').length,
+      Low: housekeepingTasks.filter(task => task.priority === 'Low').length
+    };
+
+    // Group attendance by month
+    const attendanceByMonth = {};
+    attendanceRecords.forEach(record => {
+      const month = new Date(record.checkIn).toLocaleString('default', { month: 'long', year: 'numeric' });
+      if (!attendanceByMonth[month]) {
+        attendanceByMonth[month] = {
+          total: 0,
+          present: 0
+        };
+      }
+      attendanceByMonth[month].total++;
+      if (record.status === 'Present') {
+        attendanceByMonth[month].present++;
+      }
+    });
+
+    // Calculate monthly attendance rates
+    Object.keys(attendanceByMonth).forEach(month => {
+      const data = attendanceByMonth[month];
+      data.rate = data.total > 0 ? ((data.present / data.total) * 100).toFixed(2) : 0;
+    });
+
+    return {
+      adminId,
+      staffId,
+      staffInfo: {
+        id: staff.id,
+        fullName: staff.fullName,
+        email: staff.email,
+        phone: staff.phone,
+        profileImage: staff.profileImage,
+        status: staff.status,
+        joinDate: staff.joinDate,
+        roleId: staff.roleId
+      },
+      reportDate: new Date(),
+      dateRange: { startDate, endDate },
+      taskMetrics: {
+        total: housekeepingTasks.length,
+        completed: completedTasks,
+        pending: pendingTasks,
+        inProgress: inProgressTasks,
+        completionRate: taskCompletionRate.toFixed(2),
+        byPriority: tasksByPriority
+      },
+      attendanceMetrics: {
+        totalDays,
+        presentDays,
+        attendanceRate: attendanceRate.toFixed(2),
+        avgWorkingHours,
+        byMonth: attendanceByMonth
+      },
+      recentTasks: housekeepingTasks.slice(0, 10).map(task => ({
+        id: task.id,
+        title: task.taskTitle,
+        description: task.description,
+        priority: task.priority,
+        status: task.status,
+        dueDate: task.dueDate,
+        createdAt: task.createdAt
+      })),
+      recentAttendance: attendanceRecords.slice(0, 10).map(record => ({
+        id: record.id,
+        checkIn: record.checkIn,
+        checkOut: record.checkOut,
+        status: record.status,
+        notes: record.notes,
+        mode: record.mode
+      }))
+    };
+  } catch (error) {
+    console.error('Error generating staff housekeeping report:', error);
+    throw new Error('Failed to generate staff housekeeping report');
+  }
+};
