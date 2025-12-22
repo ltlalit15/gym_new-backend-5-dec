@@ -1806,109 +1806,176 @@ export const generateAdminHousekeepingReportService = async (
 };
 
 // Generate housekeeping report for a specific staff member
-export const generateStaffHousekeepingReportService = async (adminId, staffId, startDate, endDate) => {
+export const generateStaffHousekeepingReportService = async (
+  adminId,
+  staffId,
+  startDate,
+  endDate
+) => {
   try {
-    // Verify staff belongs to the admin and has housekeeping role (roleId = 8)
-    const [staffResult] = await pool.query(`
-      SELECT s.id, s.status, s.joinDate, u.id as userId, u.fullName, u.email, u.phone, u.profileImage, u.roleId
+    /* =====================================================
+       1️⃣ VERIFY STAFF (ADMIN + ROLE)
+    ===================================================== */
+    const [staffResult] = await pool.query(
+      `
+      SELECT 
+        s.id,
+        s.status,
+        s.joinDate,
+        u.id AS userId,
+        u.fullName,
+        u.email,
+        u.phone,
+        u.profileImage,
+        u.roleId
       FROM staff s
       JOIN user u ON s.userId = u.id
-      WHERE s.id = ? AND s.adminId = ? AND u.roleId = 8
-    `, [staffId, adminId]);
+      WHERE s.id = ?
+        AND s.adminId = ?
+        AND u.roleId = 8
+      `,
+      [staffId, adminId]
+    );
 
     if (staffResult.length === 0) {
-      throw new Error('Housekeeping staff not found or does not belong to this admin');
+      return {
+        adminId,
+        staffId,
+        reportDate: new Date(),
+        dateRange: { startDate, endDate },
+        message: "No housekeeping staff found for this admin",
+        staffInfo: null,
+        taskMetrics: {},
+        attendanceMetrics: {},
+        recentTasks: [],
+        recentAttendance: []
+      };
     }
 
     const staff = staffResult[0];
 
-    // Get housekeeping tasks for the staff
+    /* =====================================================
+       2️⃣ DATE RANGE NORMALIZATION (LIVE FIX)
+    ===================================================== */
+    let fromDate = null;
+    let toDate = null;
+
+    if (startDate && endDate) {
+      fromDate = `${startDate} 00:00:00`;
+      toDate = `${endDate} 23:59:59`;
+    }
+
+    /* =====================================================
+       3️⃣ FETCH TASKS
+    ===================================================== */
     let taskQuery = `
       SELECT *
       FROM tasks
-      WHERE assignedTo = ? AND taskTitle LIKE '%housekeeping%'
+      WHERE assignedTo = ?
+        AND taskTitle LIKE '%housekeeping%'
     `;
-    
-    let queryParams = [staffId];
-    
-    if (startDate && endDate) {
-      taskQuery += ` AND createdAt BETWEEN ? AND ?`;
-      queryParams.push(startDate, endDate);
-    }
-    
-    const [housekeepingTasks] = await pool.query(taskQuery, queryParams);
+    const taskParams = [staffId];
 
-    // Get attendance records for the staff
+    if (fromDate && toDate) {
+      taskQuery += ` AND createdAt BETWEEN ? AND ?`;
+      taskParams.push(fromDate, toDate);
+    }
+
+    const [housekeepingTasks] = await pool.query(taskQuery, taskParams);
+
+    /* =====================================================
+       4️⃣ FETCH ATTENDANCE (⚠️ TABLE CASE SAFE)
+    ===================================================== */
     let attendanceQuery = `
       SELECT *
-      FROM memberAttendance
+      FROM memberattendance   -- ✅ keep lowercase for Linux
       WHERE staffId = ?
     `;
-    
-    let attendanceParams = [staffId];
-    
-    if (startDate && endDate) {
+    const attendanceParams = [staffId];
+
+    if (fromDate && toDate) {
       attendanceQuery += ` AND checkIn BETWEEN ? AND ?`;
-      attendanceParams.push(startDate, endDate);
+      attendanceParams.push(fromDate, toDate);
     }
-    
-    const [attendanceRecords] = await pool.query(attendanceQuery, attendanceParams);
 
-    // Calculate task metrics
-    const completedTasks = housekeepingTasks.filter(task => task.status === 'Completed').length;
-    const pendingTasks = housekeepingTasks.filter(task => task.status === 'Pending').length;
-    const inProgressTasks = housekeepingTasks.filter(task => task.status === 'In Progress').length;
-    const taskCompletionRate = housekeepingTasks.length > 0 ? (completedTasks / housekeepingTasks.length) * 100 : 0;
+    const [attendanceRecords] = await pool.query(
+      attendanceQuery,
+      attendanceParams
+    );
 
-    // Calculate attendance metrics
+    /* =====================================================
+       5️⃣ TASK METRICS
+    ===================================================== */
+    const completedTasks = housekeepingTasks.filter(t => t.status === "Completed").length;
+    const pendingTasks = housekeepingTasks.filter(t => t.status === "Pending").length;
+    const inProgressTasks = housekeepingTasks.filter(t => t.status === "In Progress").length;
+
+    const taskCompletionRate =
+      housekeepingTasks.length > 0
+        ? ((completedTasks / housekeepingTasks.length) * 100).toFixed(2)
+        : "0.00";
+
+    const tasksByPriority = {
+      High: housekeepingTasks.filter(t => t.priority === "High").length,
+      Medium: housekeepingTasks.filter(t => t.priority === "Medium").length,
+      Low: housekeepingTasks.filter(t => t.priority === "Low").length
+    };
+
+    /* =====================================================
+       6️⃣ ATTENDANCE METRICS
+    ===================================================== */
     const totalDays = attendanceRecords.length;
-    const presentDays = attendanceRecords.filter(record => record.status === 'Present').length;
-    const attendanceRate = totalDays > 0 ? (presentDays / totalDays) * 100 : 0;
+    const presentDays = attendanceRecords.filter(r => r.status === "Present").length;
 
-    // Calculate working hours
+    const attendanceRate =
+      totalDays > 0
+        ? ((presentDays / totalDays) * 100).toFixed(2)
+        : "0.00";
+
     let totalMinutes = 0;
     let daysWithCheckout = 0;
-    
-    attendanceRecords.forEach(record => {
-      if (record.checkOut) {
-        const checkIn = new Date(record.checkIn);
-        const checkOut = new Date(record.checkOut);
+
+    attendanceRecords.forEach(r => {
+      if (r.checkOut) {
+        const checkIn = new Date(r.checkIn);
+        const checkOut = new Date(r.checkOut);
         totalMinutes += (checkOut - checkIn) / (1000 * 60);
         daysWithCheckout++;
       }
     });
-    
-    const avgWorkingHours = daysWithCheckout > 0 ? (totalMinutes / daysWithCheckout / 60).toFixed(2) : 0;
 
-    // Group tasks by priority
-    const tasksByPriority = {
-      High: housekeepingTasks.filter(task => task.priority === 'High').length,
-      Medium: housekeepingTasks.filter(task => task.priority === 'Medium').length,
-      Low: housekeepingTasks.filter(task => task.priority === 'Low').length
-    };
+    const avgWorkingHours =
+      daysWithCheckout > 0
+        ? (totalMinutes / daysWithCheckout / 60).toFixed(2)
+        : "0.00";
 
-    // Group attendance by month
+    /* =====================================================
+       7️⃣ ATTENDANCE BY MONTH
+    ===================================================== */
     const attendanceByMonth = {};
-    attendanceRecords.forEach(record => {
-      const month = new Date(record.checkIn).toLocaleString('default', { month: 'long', year: 'numeric' });
+
+    attendanceRecords.forEach(r => {
+      const month = new Date(r.checkIn).toLocaleString("en-IN", {
+        month: "long",
+        year: "numeric"
+      });
+
       if (!attendanceByMonth[month]) {
-        attendanceByMonth[month] = {
-          total: 0,
-          present: 0
-        };
+        attendanceByMonth[month] = { total: 0, present: 0 };
       }
+
       attendanceByMonth[month].total++;
-      if (record.status === 'Present') {
-        attendanceByMonth[month].present++;
-      }
+      if (r.status === "Present") attendanceByMonth[month].present++;
     });
 
-    // Calculate monthly attendance rates
-    Object.keys(attendanceByMonth).forEach(month => {
-      const data = attendanceByMonth[month];
-      data.rate = data.total > 0 ? ((data.present / data.total) * 100).toFixed(2) : 0;
+    Object.keys(attendanceByMonth).forEach(m => {
+      const d = attendanceByMonth[m];
+      d.rate = d.total > 0 ? ((d.present / d.total) * 100).toFixed(2) : "0.00";
     });
 
+    /* =====================================================
+       8️⃣ FINAL RESPONSE
+    ===================================================== */
     return {
       adminId,
       staffId,
@@ -1929,36 +1996,21 @@ export const generateStaffHousekeepingReportService = async (adminId, staffId, s
         completed: completedTasks,
         pending: pendingTasks,
         inProgress: inProgressTasks,
-        completionRate: taskCompletionRate.toFixed(2),
+        completionRate: taskCompletionRate,
         byPriority: tasksByPriority
       },
       attendanceMetrics: {
         totalDays,
         presentDays,
-        attendanceRate: attendanceRate.toFixed(2),
+        attendanceRate,
         avgWorkingHours,
         byMonth: attendanceByMonth
       },
-      recentTasks: housekeepingTasks.slice(0, 10).map(task => ({
-        id: task.id,
-        title: task.taskTitle,
-        description: task.description,
-        priority: task.priority,
-        status: task.status,
-        dueDate: task.dueDate,
-        createdAt: task.createdAt
-      })),
-      recentAttendance: attendanceRecords.slice(0, 10).map(record => ({
-        id: record.id,
-        checkIn: record.checkIn,
-        checkOut: record.checkOut,
-        status: record.status,
-        notes: record.notes,
-        mode: record.mode
-      }))
+      recentTasks: housekeepingTasks.slice(0, 10),
+      recentAttendance: attendanceRecords.slice(0, 10)
     };
   } catch (error) {
-    console.error('Error generating staff housekeeping report:', error);
-    throw new Error('Failed to generate staff housekeeping report');
+    console.error("STAFF HOUSEKEEPING REPORT ERROR:", error);
+    throw error; // 🔥 ORIGINAL ERROR THROW (LIVE DEBUG)
   }
 };

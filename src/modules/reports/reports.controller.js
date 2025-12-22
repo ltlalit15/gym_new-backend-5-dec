@@ -257,18 +257,39 @@ export const getStaffHousekeepingReport = async (req, res) => {
     const adminId = req.user?.id || req.params.adminId;
     const { staffId } = req.params;
     const { startDate, endDate } = req.query;
-    
-    const report = await generateStaffHousekeepingReportService(adminId, staffId, startDate, endDate);
-    
+
+    // 🔒 Validation (LIVE FIX)
+    if (!adminId) {
+      return res.status(400).json({
+        success: false,
+        message: "adminId is required"
+      });
+    }
+
+    if (!staffId) {
+      return res.status(400).json({
+        success: false,
+        message: "staffId is required"
+      });
+    }
+
+    const report = await generateStaffHousekeepingReportService(
+      adminId,
+      staffId,
+      startDate,
+      endDate
+    );
+
     return res.status(200).json({
       success: true,
       message: "Staff housekeeping report generated successfully",
       data: report
     });
   } catch (error) {
-    return res.status(500).json({ 
-      success: false, 
-      message: error.message 
+    console.error("STAFF REPORT CONTROLLER ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to generate staff housekeeping report"
     });
   }
 };
