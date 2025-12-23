@@ -1231,7 +1231,8 @@ export const deleteGroupBooking = async (req, res) => {
 
 
 export const createUnifiedBooking = async (req, res) => {
-    console.log("Unified Booking Bodyyyy:", req.body);
+  console.log("Unified Booking Bodyyyy:", req.body);
+
   try {
     const {
       memberId,
@@ -1244,27 +1245,25 @@ export const createUnifiedBooking = async (req, res) => {
       endTime,
       bookingType,
       notes,
-      branchId= null,
-      bookingStatus,
-      paymentStatus,
-      price
+      branchId = null,
+      bookingStatus = "CONFIRMED",
+      paymentStatus = "PENDING",
+      price = 0
     } = req.body;
 
-    // BASIC VALIDATION
+    /* =========================
+       1️⃣ BASIC VALIDATION
+    ========================= */
     if (!memberId || !date || !startTime || !endTime || !bookingType) {
       return res.status(400).json({
         success: false,
-        message: "memberId, date, startTime, endTime, bookingType, are required"
+        message: "memberId, date, startTime, endTime, bookingType are required"
       });
     }
 
-    // PT Booking Validation
-    // if (bookingType === "PT" && !trainerId) {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: "PT booking requires trainerId and sessionId"
-    //   });
-    // }
+    /* =========================
+       2️⃣ PT VALIDATION
+    ========================= */
     if (bookingType === "PT") {
       if (!trainerId) {
         return res.status(400).json({
@@ -1280,7 +1279,9 @@ export const createUnifiedBooking = async (req, res) => {
       }
     }
 
-    // Group Booking Validation
+    /* =========================
+       3️⃣ GROUP VALIDATION
+    ========================= */
     if (bookingType === "GROUP" && !classId) {
       return res.status(400).json({
         success: false,
@@ -1288,10 +1289,41 @@ export const createUnifiedBooking = async (req, res) => {
       });
     }
 
+    /* =========================
+       4️⃣ 🔥 TRAINER AVAILABILITY CHECK
+    ========================= */
+    if (bookingType === "PT") {
+      const [conflicts] = await pool.query(
+        `
+        SELECT id FROM unified_bookings
+        WHERE trainerId = ?
+          AND date = ?
+          AND bookingType = 'PT'
+          AND bookingStatus != 'CANCELLED'
+          AND (
+            startTime < ? AND endTime > ?
+          )
+        `,
+        [trainerId, date, endTime, startTime]
+      );
+
+      if (conflicts.length > 0) {
+        return res.status(409).json({
+          success: false,
+          message: "Trainer is already booked for this time slot"
+        });
+      }
+    }
+
+    /* =========================
+       5️⃣ CREATE BOOKING
+    ========================= */
     await pool.query(
       `
-      INSERT INTO unified_bookings 
-      (memberId, trainerId, sessionId, classId, date,endDate ,startTime, endTime, bookingType, bookingStatus, paymentStatus,price ,notes, branchId)
+      INSERT INTO unified_bookings
+      (memberId, trainerId, sessionId, classId, date, endDate,
+       startTime, endTime, bookingType, bookingStatus,
+       paymentStatus, price, notes, branchId)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
@@ -1314,14 +1346,18 @@ export const createUnifiedBooking = async (req, res) => {
 
     res.json({
       success: true,
-      message: "Booking created successfully!"
+      message: "Booking created successfully"
     });
 
   } catch (err) {
     console.error("createUnifiedBooking ERROR →", err);
-    res.status(500).json({ success: false, message: err.message });
+    res.status(500).json({
+      success: false,
+      message: "Failed to create booking"
+    });
   }
 };
+
 
 // export const getUnifiedBookingsByBranch = async (req, res) => {
 //   try {
@@ -1412,38 +1448,54 @@ export const getUnifiedBookingsByBranch = async (req, res) => {
     const [rows] = await pool.query(
       `
       SELECT 
-        b.*,
+        b.id,
+
+        -- ✅ SAME DATE LOGIC (NO CONVERT_TZ)
+        DATE_FORMAT(b.date, '%Y-%m-%d') AS date,
+        DATE_FORMAT(b.endDate, '%Y-%m-%d') AS endDate,
+
+        b.startTime,
+        b.endTime,
+        b.bookingType,
+        b.bookingStatus,
+        b.paymentStatus,
+        b.price,
+        b.notes,
+        b.branchId,
+
         um.fullName AS memberName,
         ut.fullName AS trainerName,
         s.sessionName,
         c.className
+
       FROM unified_bookings b
-       
-      -- Join to get member details
       LEFT JOIN member m ON m.id = b.memberId
       LEFT JOIN user um ON um.id = m.userId
-
-      -- Join to get trainer details
       LEFT JOIN user ut ON ut.id = b.trainerId
-
-      -- Join to get session and class details
       LEFT JOIN session s ON s.id = b.sessionId
       LEFT JOIN classschedule c ON c.id = b.classId
 
-      -- Filter by adminId from member table (adminId is now coming from member table)
       WHERE m.adminId = ?
       ORDER BY b.date DESC, b.startTime DESC
       `,
-      [adminId]  // Using adminId from the URL parameter
+      [adminId]
     );
 
-    res.json({ success: true, bookings: rows });
+    res.json({
+      success: true,
+      bookings: rows
+    });
 
   } catch (err) {
     console.error("getUnifiedBookingsByBranch ERROR →", err);
-    res.status(500).json({ success: false, message: err.message });
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
   }
 };
+
+
 
 
 export const getUnifiedBookingsByTrainer = async (req, res) => {
@@ -1557,54 +1609,69 @@ export const getUnifiedPersonalAndGeneralTrainersService = async (req, res) => {
       });
     }
 
-    const [rows] = await pool.query(
+    /* 1️⃣ GET TRAINERS */
+    const [trainers] = await pool.query(
       `
       SELECT 
         u.id,
         u.fullName,
-        u.email,
         u.phone,
-        u.branchId,
         u.roleId
       FROM user u
       WHERE u.roleId IN (5, 6)
         AND u.adminId = ?
-
-        -- ❌ Active PT booking (not completed yet)
-        AND NOT EXISTS (
-          SELECT 1
-          FROM unified_bookings b
-          WHERE b.trainerId = u.id
-            AND b.bookingType = 'PT'
-            AND b.bookingStatus = 'Booked'
-            AND TIMESTAMP(
-                  COALESCE(b.endDate, b.date),
-                  b.endTime
-                ) >= NOW()
-        )
-
-        -- ❌ Active session (time + duration not finished)
-        AND NOT EXISTS (
-          SELECT 1
-          FROM session s
-          WHERE s.trainerId = u.id
-            AND NOW() BETWEEN
-              TIMESTAMP(DATE(s.date), s.time)
-              AND
-              TIMESTAMP(
-                DATE(s.date),
-                ADDTIME(s.time, SEC_TO_TIME(s.duration * 60))
-              )
-        )
-
       ORDER BY u.id DESC
       `,
       [adminId]
     );
 
+    /* 2️⃣ GET TODAY + FUTURE BOOKINGS (FIXED) */
+    const [bookings] = await pool.query(
+      `
+      SELECT
+        b.trainerId,
+        b.bookingType,
+        DATE_FORMAT(b.date, '%Y-%m-%d') AS date,
+        b.startTime,
+        b.endTime
+      FROM unified_bookings b
+      WHERE b.trainerId IS NOT NULL
+        AND b.bookingStatus = 'Booked'
+        AND TIMESTAMP(b.date, b.endTime) >= NOW()
+      `
+    );
+
+    /* 3️⃣ MAP TRAINERS */
+    const response = trainers.map(trainer => {
+      const trainerBookings = bookings.filter(
+        b => b.trainerId === trainer.id
+      );
+
+      return {
+        trainerId: trainer.id,
+        name: trainer.fullName,
+        phone: trainer.phone,
+        roleId: trainer.roleId,
+
+        isBooked: trainerBookings.length > 0,
+
+        bookedSlots: trainerBookings.map(b => ({
+          type: b.bookingType,
+          date: b.date,          // ✅ CORRECT DATE
+          startTime: b.startTime,
+          endTime: b.endTime
+        })),
+
+        availability:
+          trainerBookings.length > 0
+            ? "PARTIALLY BOOKED"
+            : "AVAILABLE"
+      };
+    });
+
     return res.status(200).json({
       success: true,
-      trainers: rows
+      trainers: response
     });
 
   } catch (error) {
@@ -1615,6 +1682,11 @@ export const getUnifiedPersonalAndGeneralTrainersService = async (req, res) => {
     });
   }
 };
+
+
+
+
+
 export const getUnifiedBookingById = async (req, res) => {
   try {
     const { id } = req.params;
