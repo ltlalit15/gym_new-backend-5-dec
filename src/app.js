@@ -43,7 +43,8 @@ app.use(
       "http://localhost:5173",
       "http://localhost:5175",
       "https://gym-latest-new.netlify.app",
-      "https://gym-speed-fitness.netlify.app"
+      "https://gym-speed-fitness.netlify.app",
+      "https://speedfitness.live"
 
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
