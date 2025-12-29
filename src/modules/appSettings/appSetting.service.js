@@ -163,7 +163,7 @@ export const createAppSettingsService = async (adminId, data, file) => {
   const [result] = await pool.query(
     `INSERT INTO app_settings 
      (logo, gym_name,description, url, memberPlanId, adminId)
-     VALUES (?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?)`,
     [
       logoUrl ?? null,
       data.gym_name ?? null,
