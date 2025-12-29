@@ -13,7 +13,7 @@ import {
 const router = express.Router();
 
 router.post("/create", createShift);
-router.get("/all", getAllShifts);
+router.get("/all/:adminId", getAllShifts);
 router.get("/:id", getShiftById);
 router.get("/byshiftId/:shiftId", getShiftByShiftId);
 router.get("/bystaff/:staffId", getShiftByStaffId);

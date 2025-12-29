@@ -62,11 +62,37 @@ export const createShift = async (req, res) => {
   }
 };
 
+export const getAllShifts = async (req, res) => { 
+  try {
+    const adminId = Number(req.params.adminId);
 
-export const getAllShifts = async (req, res) => {
-  const shifts = await getAllShiftsService();
-  return res.json({ success: true, data: shifts });
+    console.log("ADMIN ID:", adminId);
+
+    if (!adminId) {
+      return res.status(400).json({
+        success: false,
+        message: "adminId is required",
+      });
+    }
+
+    const shifts = await getAllShiftsService(adminId);
+
+    return res.status(200).json({
+      success: true,
+      count: shifts.length,
+      data: shifts,
+    });
+  } catch (error) {
+    console.error("Get shifts error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
 };
+
+
+
 
 export const getShiftByStaffId = async (req, res, next) => {
   try {
