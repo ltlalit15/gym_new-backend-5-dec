@@ -798,40 +798,156 @@ export const getReceptionReportService = async (adminId) => {
 //   };
 // };
 
+// export const getMemberAttendanceReportService = async (adminId) => {
+//   // 1️⃣ Get all members under this admin
+//   const [members] = await pool.query(
+//     `SELECT m.id AS memberId, m.userId
+//      FROM member m
+//      WHERE m.adminId = ?`,
+//     [adminId]
+//   );
+
+//   if (members.length === 0) return { error: "No members found" };
+
+//   const memberIds = members.map((m) => m.memberId); // Ensure it's 'memberId'
+//   const userIds = members.map((m) => m.userId);
+
+//   // Dynamically create placeholders for the IN clause
+//   const placeholders = memberIds.map(() => "?").join(",");
+
+//   console.log(
+//     "SQL Query with Member IDs:",
+//     `
+//     SELECT
+//       DATE(checkIn) AS date,
+//       COUNT(*) AS checkins
+//     FROM memberattendance
+//     WHERE memberId IN (${placeholders})
+//       AND DATE(checkIn) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+//     GROUP BY DATE(checkIn)
+//     ORDER BY DATE(checkIn)
+//   `
+//   );
+
+//   console.log("Member IDs:", memberIds);
+
+//   // 2️⃣ Execute the query for heatmap data
+//   const [heatmap] = await pool.query(
+//     `
+//     SELECT
+//       DATE(checkIn) AS date,
+//       COUNT(*) AS checkins
+//     FROM memberattendance
+//     WHERE memberId IN (${placeholders})
+//       AND DATE(checkIn) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+//     GROUP BY DATE(checkIn)
+//     ORDER BY DATE(checkIn)
+//     `,
+//     memberIds // Pass the memberIds array as the parameter
+//   );
+
+//   console.log("Heatmap Results:", heatmap); // Check what the query returns
+
+//   // ------------------------------------------------------------
+//   // 🔵 PART-2: MEMBER-WISE ATTENDANCE SUMMARY (NO JOIN ISSUES)
+//   // ------------------------------------------------------------
+
+//   const [attendanceSummary] = await pool.query(
+//     `
+//     SELECT
+//       memberId,
+//       COUNT(id) AS totalCheckins,
+
+//       SUM(
+//         CASE
+//           WHEN checkOut IS NULL THEN 1
+//           ELSE 0
+//         END
+//       ) AS noShows,
+
+//       SUM(
+//         CASE
+//           WHEN checkOut IS NOT NULL THEN
+//             TIMESTAMPDIFF(MINUTE, checkIn, checkOut)
+//           ELSE 0
+//         END
+//       ) AS totalMinutes
+
+//     FROM memberattendance
+//     WHERE memberId IN (?)
+//     GROUP BY memberId
+//     `,
+//     [memberIds]
+//   );
+
+//   const [users] = await pool.query(
+//     `
+//     SELECT id AS userId, fullName
+//     FROM user
+//     WHERE id IN (?)
+//     `,
+//     [userIds]
+//   );
+
+//   // Create a map of userId to fullName
+//   const userMap = {};
+//   users.forEach((u) => {
+//     userMap[u.userId] = u.fullName;
+//   });
+
+//   // Final formatted response
+//   const finalMembers = attendanceSummary.map((r) => ({
+//     memberId: r.memberId,
+//     fullName: userMap[r.userId] || "Unknown Member", // Use userId to get fullName
+//     checkins: r.totalCheckins,
+//     noShows: r.noShows,
+//     avgSessionTime:
+//       r.totalCheckins > 0
+//         ? Math.round(r.totalMinutes / r.totalCheckins) + " min"
+//         : "0 min",
+//   }));
+
+//   return {
+//     heatmap,
+//     members: finalMembers,
+//   };
+// };
 export const getMemberAttendanceReportService = async (adminId) => {
-  // 1️⃣ Get all branches under this admin
-  const [branches] = await pool.query(
-    `SELECT id FROM branch WHERE adminId = ?`,
+  // 1️⃣ Get all members under this admin
+  const [members] = await pool.query(
+    `SELECT m.id AS memberId, m.userId, m.fullName
+     FROM member m
+     WHERE m.adminId = ?`,
     [adminId]
   );
 
-  if (branches.length === 0) return { error: "No branches found" };
+  if (members.length === 0) return { error: "No members found" };
 
-  const branchIds = branches.map((b) => b.id);
+  const memberIds = members.map((m) => m.memberId); // Ensure it's 'memberId'
+  const userIds = members.map((m) => m.userId);
 
-  // ------------------------------------------------------------
-  // 🔵 PART-1: ATTENDANCE HEATMAP (LAST 30 DAYS)
-  // ------------------------------------------------------------
+  // Dynamically create placeholders for the IN clause
+  const placeholders = memberIds.map(() => "?").join(",");
 
+  // 2️⃣ Execute the query for heatmap data
   const [heatmap] = await pool.query(
     `
     SELECT 
       DATE(checkIn) AS date,
       COUNT(*) AS checkins
     FROM memberattendance
-    WHERE branchId IN (?)
+    WHERE memberId IN (${placeholders})
       AND DATE(checkIn) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
     GROUP BY DATE(checkIn)
     ORDER BY DATE(checkIn)
     `,
-    [branchIds]
+    memberIds
   );
 
   // ------------------------------------------------------------
   // 🔵 PART-2: MEMBER-WISE ATTENDANCE SUMMARY (NO JOIN ISSUES)
   // ------------------------------------------------------------
 
-  // First → get all attendance grouped by memberId
   const [attendanceSummary] = await pool.query(
     `
     SELECT 
@@ -854,39 +970,46 @@ export const getMemberAttendanceReportService = async (adminId) => {
       ) AS totalMinutes
 
     FROM memberattendance
-    WHERE branchId IN (?)
+    WHERE memberId IN (?)
     GROUP BY memberId
     `,
-    [branchIds]
+    [memberIds]
   );
 
-  // Fetch member names separately
-  const [members] = await pool.query(
+  const [users] = await pool.query(
     `
-    SELECT id, fullName
-    FROM member
-    WHERE branchId IN (?)
+    SELECT id AS userId, fullName
+    FROM user
+    WHERE id IN (?)
     `,
-    [branchIds]
+    [userIds]
   );
 
-  // Convert to map for fast lookup
-  const memberMap = {};
-  members.forEach((m) => {
-    memberMap[m.id] = m.fullName;
+  // Create a map of userId to fullName
+  const userMap = {};
+  users.forEach((u) => {
+    userMap[u.userId] = u.fullName;
   });
 
-  // Final formatted response
-  const finalMembers = attendanceSummary.map((r) => ({
-    memberId: r.memberId,
-    fullName: memberMap[r.memberId] || "Unknown Member",
-    checkins: r.totalCheckins,
-    noShows: r.noShows,
-    avgSessionTime:
-      r.totalCheckins > 0
-        ? Math.round(r.totalMinutes / r.totalCheckins) + " min"
-        : "0 min",
-  }));
+  // Final formatted response with fallback for missing userId
+  const finalMembers = attendanceSummary.map((r) => {
+    // Check if userId exists in the userMap
+    const memberFullName =
+      userMap[r.userId] ||
+      members.find((m) => m.memberId === r.memberId)?.fullName ||
+      "Unknown Member";
+
+    return {
+      memberId: r.memberId,
+      fullName: memberFullName, // Use fallback name or member's full name
+      checkins: r.totalCheckins,
+      noShows: r.noShows,
+      avgSessionTime:
+        r.totalCheckins > 0
+          ? Math.round(r.totalMinutes / r.totalCheckins) + " min"
+          : "0 min",
+    };
+  });
 
   return {
     heatmap,
