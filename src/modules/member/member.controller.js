@@ -134,7 +134,7 @@ export const deleteMember = async (req, res, next) => {
 };
 
 
-// member.controller.js
+
 
 
 export const getMembersByAdminId = async (req, res, next) => {
