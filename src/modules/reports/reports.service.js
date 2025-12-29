@@ -43,7 +43,7 @@ export const generateMemberReportService = async (adminId) => {
 
     // Get transactions from pt_bookings table
     // const [transactions] = await pool.query(
-    //   `SELECT 
+    //   `SELECT
     //     ptb.date,
     //     u.fullName as trainer,
     //     m.fullName as username,
@@ -58,8 +58,8 @@ export const generateMemberReportService = async (adminId) => {
     //   ORDER BY ptb.date DESC`,
     //   [adminId]
     // );
-   const [transactions] = await pool.query(
-  `SELECT 
+    const [transactions] = await pool.query(
+      `SELECT 
     ptb.date,
     u.fullName as trainer,
     m.fullName as username,
@@ -75,8 +75,8 @@ export const generateMemberReportService = async (adminId) => {
   LEFT JOIN user u ON ptb.trainerId = u.id
   WHERE m.adminId = ?
   ORDER BY ptb.date DESC`,
-  [adminId]
-);
+      [adminId]
+    );
     // Format the data for the UI
     const formattedStats = {
       totalBookings: bookingStats[0].totalBookings || 0,
@@ -84,24 +84,24 @@ export const generateMemberReportService = async (adminId) => {
       avgTicket: bookingStats[0].avgTicket || 0,
       confirmed: bookingStats[0].confirmed || 0,
       cancelled: bookingStats[0].cancelled || 0,
-      booked: bookingStats[0].booked || 0
+      booked: bookingStats[0].booked || 0,
     };
 
     // Format transactions data
-    const formattedTransactions = transactions.map(transaction => ({
+    const formattedTransactions = transactions.map((transaction) => ({
       date: transaction.date,
-      trainer: transaction.trainer || 'N/A',
-      username: transaction.username || 'N/A',
+      trainer: transaction.trainer || "N/A",
+      username: transaction.username || "N/A",
       type: transaction.type,
       time: transaction.time,
-      status: transaction.status
+      status: transaction.status,
     }));
 
     return {
       stats: formattedStats,
       bookingsByDay,
       bookingStatus,
-      transactions: formattedTransactions
+      transactions: formattedTransactions,
     };
   } catch (error) {
     throw new Error(`Error generating member report: ${error.message}`);
@@ -109,7 +109,7 @@ export const generateMemberReportService = async (adminId) => {
 };
 
 export const generateGeneralTrainerReportService = async (adminId) => {
-   try {
+  try {
     // 1️⃣ Get all branches owned by this admin
     const [branches] = await pool.query(
       `SELECT id FROM branch WHERE adminId = ?`,
@@ -124,19 +124,19 @@ export const generateGeneralTrainerReportService = async (adminId) => {
           avgTicket: 0,
           confirmed: 0,
           cancelled: 0,
-          booked: 0
+          booked: 0,
         },
         bookingsByDay: [],
         bookingStatus: [],
-        transactions: []
+        transactions: [],
       };
     }
 
     // Extract branch IDs
-    const branchIds = branches.map(b => b.id);
+    const branchIds = branches.map((b) => b.id);
 
     // Convert to SQL IN (?,?,?)
-    const branchIdPlaceholders = branchIds.map(() => '?').join(',');
+    const branchIdPlaceholders = branchIds.map(() => "?").join(",");
 
     // 2️⃣ Get booking statistics for GROUP bookings in these branches
     const [bookingStats] = await pool.query(
@@ -180,7 +180,7 @@ export const generateGeneralTrainerReportService = async (adminId) => {
 
     // 5️⃣ Transactions list for UI
     // const [transactions] = await pool.query(
-    //   `SELECT 
+    //   `SELECT
     //     date,
     //     trainerId,
     //     memberId,
@@ -193,8 +193,8 @@ export const generateGeneralTrainerReportService = async (adminId) => {
     //   ORDER BY date DESC`,
     //   branchIds
     // );
-const [transactions] = await pool.query(
-  `SELECT 
+    const [transactions] = await pool.query(
+      `SELECT 
       ub.date,
       trainerUser.fullName AS trainerName,
       memberUser.fullName AS memberName,
@@ -211,37 +211,38 @@ const [transactions] = await pool.query(
     WHERE ub.branchId IN (${branchIdPlaceholders})
       AND ub.bookingType = 'GROUP'
     ORDER BY ub.date DESC`,
-  branchIds
-);
+      branchIds
+    );
     // Format summary stats
     const formattedStats = {
       totalBookings: bookingStats[0].totalBookings || 0,
-    //   totalRevenue: bookingStats[0].totalRevenue || 0,
-    //   avgTicket: bookingStats[0].avgTicket || 0,
+      //   totalRevenue: bookingStats[0].totalRevenue || 0,
+      //   avgTicket: bookingStats[0].avgTicket || 0,
       confirmed: bookingStats[0].confirmed || 0,
       cancelled: bookingStats[0].cancelled || 0,
-      booked: bookingStats[0].booked || 0
+      booked: bookingStats[0].booked || 0,
     };
 
     // Format transaction list
-   const formattedTransactions = transactions.map(tx => ({
-  date: tx.date,
-  trainer: tx.trainerName || 'N/A',
-  username: tx.memberName || 'N/A',
-  type: tx.type,
-  time: tx.time,
-  status: tx.status
-}));
+    const formattedTransactions = transactions.map((tx) => ({
+      date: tx.date,
+      trainer: tx.trainerName || "N/A",
+      username: tx.memberName || "N/A",
+      type: tx.type,
+      time: tx.time,
+      status: tx.status,
+    }));
 
     return {
       stats: formattedStats,
       bookingsByDay,
       bookingStatus,
-      transactions: formattedTransactions
+      transactions: formattedTransactions,
     };
-
   } catch (error) {
-    throw new Error(`Error generating general trainer report: ${error.message}`);
+    throw new Error(
+      `Error generating general trainer report: ${error.message}`
+    );
   }
 };
 
@@ -249,7 +250,7 @@ const [transactions] = await pool.query(
 
 //   try {
 //     const [stats] = await pool.query(
-//       `SELECT 
+//       `SELECT
 //         COUNT(*) as totalBookings,
 //         0 as totalRevenue,
 //         0 as avgTicket,
@@ -263,7 +264,7 @@ const [transactions] = await pool.query(
 //     );
 
 //     const [bookingsByDay] = await pool.query(
-//       `SELECT 
+//       `SELECT
 //         DATE(ub.date) AS date,
 //         COUNT(*) AS count,
 //         0 AS revenue
@@ -285,7 +286,7 @@ const [transactions] = await pool.query(
 //     );
 
 //     const [transactions] = await pool.query(
-//       `SELECT 
+//       `SELECT
 //         ub.date,
 //         u.fullName AS trainer,
 //         m.fullName AS username,
@@ -317,7 +318,6 @@ const [transactions] = await pool.query(
 
 export const generatePersonalTrainerReportService = async (adminId) => {
   try {
-
     // 1️⃣ Get all branches for this admin
     const [branches] = await pool.query(
       `SELECT id FROM branch WHERE adminId = ?`,
@@ -330,17 +330,39 @@ export const generatePersonalTrainerReportService = async (adminId) => {
           totalBookings: 0,
           confirmed: 0,
           cancelled: 0,
-          booked: 0
+          booked: 0,
         },
         bookingsByDay: [],
         bookingStatus: [],
-        transactions: []
+        transactions: [],
       };
     }
 
     // Extract branch IDs
-    const branchIds = branches.map(b => b.id);
-    const placeholders = branchIds.map(() => '?').join(',');
+    const branchIds = branches.map((b) => b.id);
+    const placeholders = branchIds.map(() => "?").join(",");
+
+    const [members] = await pool.query(
+      `SELECT id FROM member WHERE adminId = ?`,
+      [adminId]
+    );
+
+    if (members.length === 0) {
+      return {
+        stats: {
+          totalBookings: 0,
+          confirmed: 0,
+          cancelled: 0,
+          booked: 0,
+        },
+        bookingsByDay: [],
+        bookingStatus: [],
+        transactions: [],
+      };
+    }
+
+    // Extract member IDs
+    const memberIds = members.map((m) => m.id);
 
     // 2️⃣ PT booking stats
     const [bookingStats] = await pool.query(
@@ -350,9 +372,9 @@ export const generatePersonalTrainerReportService = async (adminId) => {
         SUM(CASE WHEN bookingStatus = 'Cancelled' THEN 1 ELSE 0 END) as cancelled,
         SUM(CASE WHEN bookingStatus = 'Booked' THEN 1 ELSE 0 END) as booked
       FROM unified_bookings
-      WHERE branchId IN (${placeholders})
+      WHERE memberId IN (${placeholders})
         AND bookingType = 'PT'`,
-      branchIds
+      memberIds
     );
 
     // 3️⃣ PT bookings group by day
@@ -361,11 +383,11 @@ export const generatePersonalTrainerReportService = async (adminId) => {
         DATE(createdAt) AS date,
         COUNT(*) AS count
       FROM unified_bookings
-      WHERE branchId IN (${placeholders})
+      WHERE memberId IN (${placeholders})
         AND bookingType = 'PT'
       GROUP BY DATE(createdAt)
       ORDER BY date ASC`,
-      branchIds
+      memberIds
     );
 
     // 4️⃣ PT booking status distribution
@@ -374,10 +396,10 @@ export const generatePersonalTrainerReportService = async (adminId) => {
         bookingStatus,
         COUNT(*) AS count
       FROM unified_bookings
-      WHERE branchId IN (${placeholders})
+      WHERE memberId IN (${placeholders})
         AND bookingType = 'PT'
       GROUP BY bookingStatus`,
-      branchIds
+      memberIds
     );
 
     // 5️⃣ PT transactions list
@@ -396,10 +418,10 @@ export const generatePersonalTrainerReportService = async (adminId) => {
               ON ub.memberId = m.id
         LEFT JOIN user AS memberUser
               ON m.userId = memberUser.id
-        WHERE ub.branchId IN (${placeholders})
+        WHERE ub.memberId IN (${placeholders})
           AND ub.bookingType = 'PT'
         ORDER BY ub.date DESC`,
-      branchIds
+      memberIds
     );
 
     // Format output for UI
@@ -407,30 +429,30 @@ export const generatePersonalTrainerReportService = async (adminId) => {
       totalBookings: bookingStats[0].totalBookings || 0,
       confirmed: bookingStats[0].confirmed || 0,
       cancelled: bookingStats[0].cancelled || 0,
-      booked: bookingStats[0].booked || 0
+      booked: bookingStats[0].booked || 0,
     };
 
-    const formattedTransactions = transactions.map(tx => ({
+    const formattedTransactions = transactions.map((tx) => ({
       date: tx.date,
-      trainer: tx.trainerName || 'N/A',
-      username: tx.memberName || 'N/A',
+      trainer: tx.trainerName || "N/A",
+      username: tx.memberName || "N/A",
       type: tx.type,
       time: tx.time,
-      status: tx.status
+      status: tx.status,
     }));
 
     return {
       stats: formattedStats,
       bookingsByDay,
       bookingStatus,
-      transactions: formattedTransactions
+      transactions: formattedTransactions,
     };
-
   } catch (error) {
-    throw new Error(`Error generating personal trainer report: ${error.message}`);
+    throw new Error(
+      `Error generating personal trainer report: ${error.message}`
+    );
   }
 };
-
 
 // export const getReceptionReportService = async (adminId) => {
 
@@ -450,7 +472,7 @@ export const generatePersonalTrainerReportService = async (adminId) => {
 
 //   // ✔ All-time check-ins
 //   const [[checkinsSummary]] = await pool.query(
-//     `SELECT COUNT(*) AS total 
+//     `SELECT COUNT(*) AS total
 //      FROM memberattendance
 //      WHERE branchId = ?`,
 //     [branchId]
@@ -458,7 +480,7 @@ export const generatePersonalTrainerReportService = async (adminId) => {
 
 //   // ✔ All-time new members
 //   const [[newMembersSummary]] = await pool.query(
-//     `SELECT COUNT(*) AS total 
+//     `SELECT COUNT(*) AS total
 //      FROM member
 //      WHERE branchId = ?`,
 //     [branchId]
@@ -466,13 +488,13 @@ export const generatePersonalTrainerReportService = async (adminId) => {
 
 //   // ✔ All-time payments (No branchId column)
 //   const [[paymentsSummary]] = await pool.query(
-//     `SELECT IFNULL(SUM(amount), 0) AS total 
+//     `SELECT IFNULL(SUM(amount), 0) AS total
 //      FROM payment`
 //   );
 
 //   // ✔ All PT bookings
 //   const [[ptSummary]] = await pool.query(
-//     `SELECT COUNT(*) AS total 
+//     `SELECT COUNT(*) AS total
 //      FROM unified_bookings
 //      WHERE branchId = ?
 //      AND bookingType = 'PT'`,
@@ -481,7 +503,7 @@ export const generatePersonalTrainerReportService = async (adminId) => {
 
 //   // ✔ All Class bookings
 //   const [[classSummary]] = await pool.query(
-//     `SELECT COUNT(*) AS total 
+//     `SELECT COUNT(*) AS total
 //      FROM unified_bookings
 //      WHERE branchId = ?
 //      AND bookingType = 'CLASS'`,
@@ -492,7 +514,7 @@ export const generatePersonalTrainerReportService = async (adminId) => {
 
 //   // All Check-ins list
 //   const [checkinsList] = await pool.query(
-//     `SELECT * 
+//     `SELECT *
 //      FROM memberattendance
 //      WHERE branchId = ?`,
 //     [branchId]
@@ -508,7 +530,7 @@ export const generatePersonalTrainerReportService = async (adminId) => {
 
 //   // All Payments list
 //   const [paymentsList] = await pool.query(
-//     `SELECT * 
+//     `SELECT *
 //      FROM payment`
 //   );
 
@@ -560,7 +582,7 @@ export const getReceptionReportService = async (adminId) => {
     return { error: "No branches found for this admin" };
   }
 
-  const branchIds = branches.map(b => b.id);
+  const branchIds = branches.map((b) => b.id);
 
   // ---------------- WEEKLY ATTENDANCE (ALL BRANCHES) ----------------
   const [weekly] = await pool.query(
@@ -667,7 +689,7 @@ export const getReceptionReportService = async (adminId) => {
       totalCheckins: totalCheckins.count,
       activeMembers: activeMembers.count,
       completedMembers: completedMembers.count,
-      totalRevenue: revenue?.total || 0
+      totalRevenue: revenue?.total || 0,
     });
   }
 
@@ -678,15 +700,14 @@ export const getReceptionReportService = async (adminId) => {
     summary: {
       present: present.count,
       active: active.count,
-      completed: completed.count
+      completed: completed.count,
     },
     revenue: {
-      total: revenue?.total || 0
+      total: revenue?.total || 0,
     },
-    receptionists: receptionistStats
+    receptionists: receptionistStats,
   };
 };
-
 
 // export const getMemberAttendanceReportService = async (adminId) => {
 //   // 1️⃣ Fetch all branches of this admin
@@ -705,7 +726,7 @@ export const getReceptionReportService = async (adminId) => {
 
 //   const [heatmap] = await pool.query(
 //     `
-//     SELECT 
+//     SELECT
 //       DATE(checkIn) AS date,
 //       COUNT(*) AS checkins
 //     FROM memberattendance
@@ -723,17 +744,17 @@ export const getReceptionReportService = async (adminId) => {
 
 //   const [memberStats] = await pool.query(
 //     `
-//     SELECT 
+//     SELECT
 //       m.id AS memberId,
 //       m.fullName,
 //       COUNT(ma.id) AS totalCheckins,
 
 //       SUM(
-//         CASE 
-//           WHEN ma.checkOut IS NOT NULL THEN 
+//         CASE
+//           WHEN ma.checkOut IS NOT NULL THEN
 //             TIMESTAMPDIFF(
-//               MINUTE, 
-//               ma.checkIn, 
+//               MINUTE,
+//               ma.checkIn,
 //               ma.checkOut
 //             )
 //           ELSE 0
@@ -741,15 +762,15 @@ export const getReceptionReportService = async (adminId) => {
 //       ) AS totalMinutes,
 
 //       SUM(
-//         CASE 
-//           WHEN ma.checkOut IS NULL THEN 1 
-//           ELSE 0 
+//         CASE
+//           WHEN ma.checkOut IS NULL THEN 1
+//           ELSE 0
 //         END
 //       ) AS noShows
 
 //     FROM member m
-//     LEFT JOIN memberattendance ma 
-//       ON ma.memberId = m.id 
+//     LEFT JOIN memberattendance ma
+//       ON ma.memberId = m.id
 //       AND ma.branchId IN (?)
 
 //     WHERE m.branchId IN (?)
@@ -766,7 +787,7 @@ export const getReceptionReportService = async (adminId) => {
 //     fullName: m.fullName,
 //     checkins: m.totalCheckins,
 //     noShows: m.noShows,
-//     avgSessionTime: m.totalCheckins > 0 
+//     avgSessionTime: m.totalCheckins > 0
 //       ? Math.round(m.totalMinutes / m.totalCheckins) + " min"
 //       : "0 min"
 //   }));
@@ -786,7 +807,7 @@ export const getMemberAttendanceReportService = async (adminId) => {
 
   if (branches.length === 0) return { error: "No branches found" };
 
-  const branchIds = branches.map(b => b.id);
+  const branchIds = branches.map((b) => b.id);
 
   // ------------------------------------------------------------
   // 🔵 PART-1: ATTENDANCE HEATMAP (LAST 30 DAYS)
@@ -851,12 +872,12 @@ export const getMemberAttendanceReportService = async (adminId) => {
 
   // Convert to map for fast lookup
   const memberMap = {};
-  members.forEach(m => {
+  members.forEach((m) => {
     memberMap[m.id] = m.fullName;
   });
 
   // Final formatted response
-  const finalMembers = attendanceSummary.map(r => ({
+  const finalMembers = attendanceSummary.map((r) => ({
     memberId: r.memberId,
     fullName: memberMap[r.memberId] || "Unknown Member",
     checkins: r.totalCheckins,
@@ -864,18 +885,16 @@ export const getMemberAttendanceReportService = async (adminId) => {
     avgSessionTime:
       r.totalCheckins > 0
         ? Math.round(r.totalMinutes / r.totalCheckins) + " min"
-        : "0 min"
+        : "0 min",
   }));
 
   return {
     heatmap,
-    members: finalMembers
+    members: finalMembers,
   };
 };
 
-
-
- export const generateManagerReportService = async (adminId) => {
+export const generateManagerReportService = async (adminId) => {
   try {
     const [branches] = await pool.query(
       `SELECT id FROM branch WHERE adminId = ?`,
@@ -889,11 +908,11 @@ export const getMemberAttendanceReportService = async (adminId) => {
         sessionsSummary: {},
         classSummary: {},
         inventorySummary: {},
-        alertTaskSummary: {}
+        alertTaskSummary: {},
       };
     }
 
-    const branchIds = branches.map(b => b.id);
+    const branchIds = branches.map((b) => b.id);
     const ph = branchIds.map(() => "?").join(",");
 
     const [
@@ -902,9 +921,8 @@ export const getMemberAttendanceReportService = async (adminId) => {
       sessionsSummaryData,
       classSummaryData,
       inventorySummaryData,
-      alertTaskSummaryData
+      alertTaskSummaryData,
     ] = await Promise.all([
-
       // MEMBER OVERVIEW
       pool.query(
         `SELECT
@@ -1012,8 +1030,7 @@ export const getMemberAttendanceReportService = async (adminId) => {
               WHERE branchId IN (${ph})
             ) AS totalAlerts`,
         [...branchIds, ...branchIds]
-      )
-
+      ),
     ]);
 
     return {
@@ -1022,9 +1039,8 @@ export const getMemberAttendanceReportService = async (adminId) => {
       sessionsSummary: sessionsSummaryData[0][0],
       classSummary: classSummaryData[0][0],
       inventorySummary: inventorySummaryData[0][0],
-      alertTaskSummary: alertTaskSummaryData[0][0]
+      alertTaskSummary: alertTaskSummaryData[0][0],
     };
-
   } catch (error) {
     throw new Error(`Manager Report Error: ${error.message}`);
   }
@@ -1035,7 +1051,7 @@ export const getMemberAttendanceReportService = async (adminId) => {
 //   try {
 //     // 1️⃣ Verify the staff belongs to the admin
 //     const [staffVerification] = await pool.query(
-//       `SELECT s.id, s.userId, u.fullName 
+//       `SELECT s.id, s.userId, u.fullName
 //        FROM staff s
 //        JOIN user u ON s.userId = u.id
 //        WHERE s.id = ? AND s.adminId = ?`,
@@ -1061,7 +1077,7 @@ export const getMemberAttendanceReportService = async (adminId) => {
 
 //     // 2️⃣ PT booking stats for this specific staff member
 //     const [bookingStats] = await pool.query(
-//       `SELECT 
+//       `SELECT
 //         COUNT(*) as totalBookings,
 //         SUM(CASE WHEN bookingStatus = 'Completed' THEN 1 ELSE 0 END) as confirmed,
 //         SUM(CASE WHEN bookingStatus = 'Cancelled' THEN 1 ELSE 0 END) as cancelled,
@@ -1074,7 +1090,7 @@ export const getMemberAttendanceReportService = async (adminId) => {
 
 //     // 3️⃣ PT bookings group by day for this staff member
 //     const [bookingsByDay] = await pool.query(
-//       `SELECT 
+//       `SELECT
 //         DATE(createdAt) AS date,
 //         COUNT(*) AS count
 //       FROM unified_bookings
@@ -1087,7 +1103,7 @@ export const getMemberAttendanceReportService = async (adminId) => {
 
 //     // 4️⃣ PT booking status distribution for this staff member
 //     const [bookingStatus] = await pool.query(
-//       `SELECT 
+//       `SELECT
 //         bookingStatus,
 //         COUNT(*) AS count
 //       FROM unified_bookings
@@ -1099,7 +1115,7 @@ export const getMemberAttendanceReportService = async (adminId) => {
 
 //     // 5️⃣ PT transactions list for this staff member
 //     const [transactions] = await pool.query(
-//       `SELECT 
+//       `SELECT
 //           ub.date,
 //           trainerUser.fullName AS trainerName,
 //           memberUser.fullName AS memberName,
@@ -1107,7 +1123,7 @@ export const getMemberAttendanceReportService = async (adminId) => {
 //           ub.startTime AS time,
 //           ub.bookingStatus AS status
 //         FROM unified_bookings ub
-//         LEFT JOIN user AS trainerUser 
+//         LEFT JOIN user AS trainerUser
 //               ON ub.trainerId = trainerUser.id
 //         LEFT JOIN member AS m
 //               ON ub.memberId = m.id
@@ -1148,12 +1164,11 @@ export const getMemberAttendanceReportService = async (adminId) => {
 //   }
 // };
 
-
 // export const generatePersonalTrainerReportByStaffService = async (adminId, staffId) => {
 //   try {
 //     // 1️⃣ Verify the staff belongs to the admin
 //     const [staffVerification] = await pool.query(
-//       `SELECT s.id, s.userId, u.fullName 
+//       `SELECT s.id, s.userId, u.fullName
 //        FROM staff s
 //        JOIN user u ON s.userId = u.id
 //        WHERE s.id = ? AND s.adminId = ?`,
@@ -1179,7 +1194,7 @@ export const getMemberAttendanceReportService = async (adminId) => {
 
 //     // 2️⃣ PT booking stats for this specific staff member
 //     const [bookingStats] = await pool.query(
-//       `SELECT 
+//       `SELECT
 //         COUNT(*) as totalBookings,
 //         SUM(CASE WHEN bookingStatus = 'Completed' THEN 1 ELSE 0 END) as confirmed,
 //         SUM(CASE WHEN bookingStatus = 'Cancelled' THEN 1 ELSE 0 END) as cancelled,
@@ -1192,7 +1207,7 @@ export const getMemberAttendanceReportService = async (adminId) => {
 
 //     // 3️⃣ PT bookings group by day for this staff member
 //     const [bookingsByDay] = await pool.query(
-//       `SELECT 
+//       `SELECT
 //         DATE(createdAt) AS date,
 //         COUNT(*) AS count
 //       FROM unified_bookings
@@ -1205,7 +1220,7 @@ export const getMemberAttendanceReportService = async (adminId) => {
 
 //     // 4️⃣ PT booking status distribution for this staff member
 //     const [bookingStatus] = await pool.query(
-//       `SELECT 
+//       `SELECT
 //         bookingStatus,
 //         COUNT(*) AS count
 //       FROM unified_bookings
@@ -1217,7 +1232,7 @@ export const getMemberAttendanceReportService = async (adminId) => {
 
 //     // 5️⃣ PT transactions list for this staff member (FIXED)
 //     const [transactions] = await pool.query(
-//       `SELECT 
+//       `SELECT
 //           ub.date,
 //           trainerUser.fullName AS trainerName,
 //           m.fullName AS memberName,  -- Get name directly from member table
@@ -1225,7 +1240,7 @@ export const getMemberAttendanceReportService = async (adminId) => {
 //           ub.startTime AS time,
 //           ub.bookingStatus AS status
 //         FROM unified_bookings ub
-//         LEFT JOIN user AS trainerUser 
+//         LEFT JOIN user AS trainerUser
 //               ON ub.trainerId = trainerUser.id
 //         LEFT JOIN member AS m
 //               ON ub.memberId = m.id
@@ -1263,7 +1278,12 @@ export const getMemberAttendanceReportService = async (adminId) => {
 //     throw new Error(`Error generating personal trainer report by staff: ${error.message}`);
 //   }
 // };
-export const generatePersonalTrainerReportByStaffService = async (adminId, staffId, fromDate = null, toDate = null) => {
+export const generatePersonalTrainerReportByStaffService = async (
+  adminId,
+  staffId,
+  fromDate = null,
+  toDate = null
+) => {
   try {
     // 1️⃣ Verify the staff belongs to the admin
     const [staffVerification] = await pool.query(
@@ -1280,11 +1300,11 @@ export const generatePersonalTrainerReportByStaffService = async (adminId, staff
           totalBookings: 0,
           confirmed: 0,
           cancelled: 0,
-          booked: 0
+          booked: 0,
         },
         bookingsByDay: [],
         bookingStatus: [],
-        transactions: []
+        transactions: [],
       };
     }
 
@@ -1301,7 +1321,7 @@ export const generatePersonalTrainerReportByStaffService = async (adminId, staff
       if (toDate) {
         return `AND ub.date <= ?`;
       }
-      return ''; // No date filter
+      return ""; // No date filter
     };
 
     // Helper function to build the parameters array for the date filter
@@ -1382,32 +1402,37 @@ export const generatePersonalTrainerReportByStaffService = async (adminId, staff
       totalBookings: bookingStats[0].totalBookings || 0,
       confirmed: bookingStats[0].confirmed || 0,
       cancelled: bookingStats[0].cancelled || 0,
-      booked: bookingStats[0].booked || 0
+      booked: bookingStats[0].booked || 0,
     };
 
-    const formattedTransactions = transactions.map(tx => ({
+    const formattedTransactions = transactions.map((tx) => ({
       date: tx.date,
-      trainer: tx.trainerName || 'N/A',
-      username: tx.memberName || 'N/A',
+      trainer: tx.trainerName || "N/A",
+      username: tx.memberName || "N/A",
       type: tx.type,
       time: tx.time,
-      status: tx.status
+      status: tx.status,
     }));
 
     return {
       stats: formattedStats,
       bookingsByDay,
       bookingStatus,
-      transactions: formattedTransactions
+      transactions: formattedTransactions,
     };
-
   } catch (error) {
-    throw new Error(`Error generating personal trainer report by staff: ${error.message}`);
+    throw new Error(
+      `Error generating personal trainer report by staff: ${error.message}`
+    );
   }
 };
 
-
-export const generateGeneralTrainerReportByStaffService = async (adminId, staffId, fromDate = null, toDate = null) => {
+export const generateGeneralTrainerReportByStaffService = async (
+  adminId,
+  staffId,
+  fromDate = null,
+  toDate = null
+) => {
   try {
     // 1️⃣ Verify the staff belongs to the admin
     const [staffVerification] = await pool.query(
@@ -1426,11 +1451,11 @@ export const generateGeneralTrainerReportByStaffService = async (adminId, staffI
           avgTicket: 0,
           confirmed: 0,
           cancelled: 0,
-          booked: 0
+          booked: 0,
         },
         bookingsByDay: [],
         bookingStatus: [],
-        transactions: []
+        transactions: [],
       };
     }
 
@@ -1448,7 +1473,7 @@ export const generateGeneralTrainerReportByStaffService = async (adminId, staffI
       if (toDate) {
         return `AND ub.date <= ?`;
       }
-      return ''; // No date filter
+      return ""; // No date filter
     };
 
     // Helper function to build the parameters array for the date filter
@@ -1533,32 +1558,31 @@ export const generateGeneralTrainerReportByStaffService = async (adminId, staffI
       avgTicket: bookingStats[0].avgTicket || 0,
       confirmed: bookingStats[0].confirmed || 0,
       cancelled: bookingStats[0].cancelled || 0,
-      booked: bookingStats[0].booked || 0
+      booked: bookingStats[0].booked || 0,
     };
 
     // Format transaction list (identical to original)
-    const formattedTransactions = transactions.map(tx => ({
+    const formattedTransactions = transactions.map((tx) => ({
       date: tx.date,
-      trainer: tx.trainerName || 'N/A',
-      username: tx.memberName || 'N/A',
+      trainer: tx.trainerName || "N/A",
+      username: tx.memberName || "N/A",
       type: tx.type,
       time: tx.time,
-      status: tx.status
+      status: tx.status,
     }));
 
     return {
       stats: formattedStats,
       bookingsByDay,
       bookingStatus,
-      transactions: formattedTransactions
+      transactions: formattedTransactions,
     };
-
   } catch (error) {
-    throw new Error(`Error generating general trainer report by staff: ${error.message}`);
+    throw new Error(
+      `Error generating general trainer report by staff: ${error.message}`
+    );
   }
-}
-
-
+};
 
 export const generateAdminHousekeepingReportService = async (
   adminId,
@@ -1608,9 +1632,9 @@ export const generateAdminHousekeepingReportService = async (
           overallTaskCompletionRate: 0,
           totalAttendanceRecords: 0,
           presentDays: 0,
-          overallAttendanceRate: 0
+          overallAttendanceRate: 0,
         },
-        staffDetails: []
+        staffDetails: [],
       };
     }
 
@@ -1633,10 +1657,7 @@ export const generateAdminHousekeepingReportService = async (
 
     if (startDate && endDate) {
       taskQuery += ` AND t.createdAt BETWEEN ? AND ?`;
-      taskParams.push(
-        `${startDate} 00:00:00`,
-        `${endDate} 23:59:59`
-      );
+      taskParams.push(`${startDate} 00:00:00`, `${endDate} 23:59:59`);
     }
 
     const [housekeepingTasks] = await pool.query(taskQuery, taskParams);
@@ -1644,7 +1665,7 @@ export const generateAdminHousekeepingReportService = async (
     /* =====================================================
        4️⃣ GET ATTENDANCE (🔥 IN () SAFE)
     ===================================================== */
-    const staffIds = staffMembers.map(s => s.id);
+    const staffIds = staffMembers.map((s) => s.id);
 
     let attendanceQuery = `
       SELECT 
@@ -1661,10 +1682,7 @@ export const generateAdminHousekeepingReportService = async (
 
     if (startDate && endDate) {
       attendanceQuery += ` AND ma.checkIn BETWEEN ? AND ?`;
-      attendanceParams.push(
-        `${startDate} 00:00:00`,
-        `${endDate} 23:59:59`
-      );
+      attendanceParams.push(`${startDate} 00:00:00`, `${endDate} 23:59:59`);
     }
 
     const [attendanceRecords] = await pool.query(
@@ -1675,17 +1693,17 @@ export const generateAdminHousekeepingReportService = async (
     /* =====================================================
        5️⃣ STAFF LEVEL REPORT
     ===================================================== */
-    const staffReport = staffMembers.map(staff => {
+    const staffReport = staffMembers.map((staff) => {
       const staffTasks = housekeepingTasks.filter(
-        t => t.assignedTo === staff.id
+        (t) => t.assignedTo === staff.id
       );
 
       const staffAttendance = attendanceRecords.filter(
-        a => a.staffId === staff.id
+        (a) => a.staffId === staff.id
       );
 
       const completedTasks = staffTasks.filter(
-        t => t.status === "Completed"
+        (t) => t.status === "Completed"
       ).length;
 
       const taskCompletionRate =
@@ -1695,21 +1713,18 @@ export const generateAdminHousekeepingReportService = async (
 
       const totalDays = staffAttendance.length;
       const presentDays = staffAttendance.filter(
-        a => a.status === "Present"
+        (a) => a.status === "Present"
       ).length;
 
       const attendanceRate =
-        totalDays > 0
-          ? ((presentDays / totalDays) * 100).toFixed(2)
-          : "0.00";
+        totalDays > 0 ? ((presentDays / totalDays) * 100).toFixed(2) : "0.00";
 
       let totalMinutes = 0;
       let daysWithCheckout = 0;
 
-      staffAttendance.forEach(a => {
+      staffAttendance.forEach((a) => {
         if (a.checkOut) {
-          totalMinutes +=
-            (new Date(a.checkOut) - new Date(a.checkIn)) / 60000;
+          totalMinutes += (new Date(a.checkOut) - new Date(a.checkIn)) / 60000;
           daysWithCheckout++;
         }
       });
@@ -1728,33 +1743,34 @@ export const generateAdminHousekeepingReportService = async (
 
         totalTasks: staffTasks.length,
         completedTasks,
-        pendingTasks: staffTasks.filter(t => t.status === "Pending").length,
-        inProgressTasks: staffTasks.filter(t => t.status === "In Progress").length,
+        pendingTasks: staffTasks.filter((t) => t.status === "Pending").length,
+        inProgressTasks: staffTasks.filter((t) => t.status === "In Progress")
+          .length,
         taskCompletionRate,
 
         attendanceMetrics: {
           totalDays,
           presentDays,
           attendanceRate,
-          avgWorkingHours
+          avgWorkingHours,
         },
 
-        recentTasks: staffTasks.slice(0, 5).map(t => ({
+        recentTasks: staffTasks.slice(0, 5).map((t) => ({
           id: t.id,
           title: t.taskTitle,
           description: t.description,
           priority: t.priority,
           status: t.status,
-          dueDate: t.dueDate
+          dueDate: t.dueDate,
         })),
 
-        recentAttendance: staffAttendance.slice(0, 5).map(a => ({
+        recentAttendance: staffAttendance.slice(0, 5).map((a) => ({
           id: a.id,
           checkIn: a.checkIn,
           checkOut: a.checkOut,
           status: a.status,
-          notes: a.notes
-        }))
+          notes: a.notes,
+        })),
       };
     });
 
@@ -1763,33 +1779,39 @@ export const generateAdminHousekeepingReportService = async (
     ===================================================== */
     const summary = {
       totalStaff: staffMembers.length,
-      activeStaff: staffMembers.filter(s => s.status === "Active").length,
+      activeStaff: staffMembers.filter((s) => s.status === "Active").length,
 
       totalTasks: housekeepingTasks.length,
-      completedTasks: housekeepingTasks.filter(t => t.status === "Completed").length,
-      pendingTasks: housekeepingTasks.filter(t => t.status === "Pending").length,
-      inProgressTasks: housekeepingTasks.filter(t => t.status === "In Progress").length,
+      completedTasks: housekeepingTasks.filter((t) => t.status === "Completed")
+        .length,
+      pendingTasks: housekeepingTasks.filter((t) => t.status === "Pending")
+        .length,
+      inProgressTasks: housekeepingTasks.filter(
+        (t) => t.status === "In Progress"
+      ).length,
 
       overallTaskCompletionRate:
         housekeepingTasks.length > 0
           ? (
-              (housekeepingTasks.filter(t => t.status === "Completed").length /
+              (housekeepingTasks.filter((t) => t.status === "Completed")
+                .length /
                 housekeepingTasks.length) *
               100
             ).toFixed(2)
           : "0.00",
 
       totalAttendanceRecords: attendanceRecords.length,
-      presentDays: attendanceRecords.filter(a => a.status === "Present").length,
+      presentDays: attendanceRecords.filter((a) => a.status === "Present")
+        .length,
 
       overallAttendanceRate:
         attendanceRecords.length > 0
           ? (
-              (attendanceRecords.filter(a => a.status === "Present").length /
+              (attendanceRecords.filter((a) => a.status === "Present").length /
                 attendanceRecords.length) *
               100
             ).toFixed(2)
-          : "0.00"
+          : "0.00",
     };
 
     return {
@@ -1797,7 +1819,7 @@ export const generateAdminHousekeepingReportService = async (
       reportDate: new Date(),
       dateRange: { startDate, endDate },
       summary,
-      staffDetails: staffReport
+      staffDetails: staffReport,
     };
   } catch (error) {
     console.error("HOUSEKEEPING REPORT ERROR:", error);
@@ -1848,7 +1870,7 @@ export const generateStaffHousekeepingReportService = async (
         taskMetrics: {},
         attendanceMetrics: {},
         recentTasks: [],
-        recentAttendance: []
+        recentAttendance: [],
       };
     }
 
@@ -1906,9 +1928,15 @@ export const generateStaffHousekeepingReportService = async (
     /* =====================================================
        5️⃣ TASK METRICS
     ===================================================== */
-    const completedTasks = housekeepingTasks.filter(t => t.status === "Completed").length;
-    const pendingTasks = housekeepingTasks.filter(t => t.status === "Pending").length;
-    const inProgressTasks = housekeepingTasks.filter(t => t.status === "In Progress").length;
+    const completedTasks = housekeepingTasks.filter(
+      (t) => t.status === "Completed"
+    ).length;
+    const pendingTasks = housekeepingTasks.filter(
+      (t) => t.status === "Pending"
+    ).length;
+    const inProgressTasks = housekeepingTasks.filter(
+      (t) => t.status === "In Progress"
+    ).length;
 
     const taskCompletionRate =
       housekeepingTasks.length > 0
@@ -1916,26 +1944,26 @@ export const generateStaffHousekeepingReportService = async (
         : "0.00";
 
     const tasksByPriority = {
-      High: housekeepingTasks.filter(t => t.priority === "High").length,
-      Medium: housekeepingTasks.filter(t => t.priority === "Medium").length,
-      Low: housekeepingTasks.filter(t => t.priority === "Low").length
+      High: housekeepingTasks.filter((t) => t.priority === "High").length,
+      Medium: housekeepingTasks.filter((t) => t.priority === "Medium").length,
+      Low: housekeepingTasks.filter((t) => t.priority === "Low").length,
     };
 
     /* =====================================================
        6️⃣ ATTENDANCE METRICS
     ===================================================== */
     const totalDays = attendanceRecords.length;
-    const presentDays = attendanceRecords.filter(r => r.status === "Present").length;
+    const presentDays = attendanceRecords.filter(
+      (r) => r.status === "Present"
+    ).length;
 
     const attendanceRate =
-      totalDays > 0
-        ? ((presentDays / totalDays) * 100).toFixed(2)
-        : "0.00";
+      totalDays > 0 ? ((presentDays / totalDays) * 100).toFixed(2) : "0.00";
 
     let totalMinutes = 0;
     let daysWithCheckout = 0;
 
-    attendanceRecords.forEach(r => {
+    attendanceRecords.forEach((r) => {
       if (r.checkOut) {
         const checkIn = new Date(r.checkIn);
         const checkOut = new Date(r.checkOut);
@@ -1954,10 +1982,10 @@ export const generateStaffHousekeepingReportService = async (
     ===================================================== */
     const attendanceByMonth = {};
 
-    attendanceRecords.forEach(r => {
+    attendanceRecords.forEach((r) => {
       const month = new Date(r.checkIn).toLocaleString("en-IN", {
         month: "long",
-        year: "numeric"
+        year: "numeric",
       });
 
       if (!attendanceByMonth[month]) {
@@ -1968,7 +1996,7 @@ export const generateStaffHousekeepingReportService = async (
       if (r.status === "Present") attendanceByMonth[month].present++;
     });
 
-    Object.keys(attendanceByMonth).forEach(m => {
+    Object.keys(attendanceByMonth).forEach((m) => {
       const d = attendanceByMonth[m];
       d.rate = d.total > 0 ? ((d.present / d.total) * 100).toFixed(2) : "0.00";
     });
@@ -1987,7 +2015,7 @@ export const generateStaffHousekeepingReportService = async (
         profileImage: staff.profileImage,
         status: staff.status,
         joinDate: staff.joinDate,
-        roleId: staff.roleId
+        roleId: staff.roleId,
       },
       reportDate: new Date(),
       dateRange: { startDate, endDate },
@@ -1997,17 +2025,17 @@ export const generateStaffHousekeepingReportService = async (
         pending: pendingTasks,
         inProgress: inProgressTasks,
         completionRate: taskCompletionRate,
-        byPriority: tasksByPriority
+        byPriority: tasksByPriority,
       },
       attendanceMetrics: {
         totalDays,
         presentDays,
         attendanceRate,
         avgWorkingHours,
-        byMonth: attendanceByMonth
+        byMonth: attendanceByMonth,
       },
       recentTasks: housekeepingTasks.slice(0, 10),
-      recentAttendance: attendanceRecords.slice(0, 10)
+      recentAttendance: attendanceRecords.slice(0, 10),
     };
   } catch (error) {
     console.error("STAFF HOUSEKEEPING REPORT ERROR:", error);
