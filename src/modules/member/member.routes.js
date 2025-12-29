@@ -1,5 +1,3 @@
-
-
 import { Router } from "express";
 import {
   createMember,
@@ -14,8 +12,7 @@ import {
   memberDetail,
   renewMembershipPlan,
   updateMember,
-  updateMemberRenewalStatus
-  
+  updateMemberRenewalStatus,
 } from "./member.controller.js";
 // import { verifyToken } from "../../middlewares/auth.js";
 
@@ -28,8 +25,7 @@ router.post(
   createMember
 );
 
-router.put("/renew/:memberId", renewMembershipPlan);  
-
+router.put("/renew/:memberId", renewMembershipPlan);
 
 /** List Members by Branch */
 router.get(
@@ -47,10 +43,7 @@ router.get(
   memberDetail
 );
 
-router.put(
-  "/admin/renewal/:memberId/status",
-  updateMemberRenewalStatus
-);
+router.put("/admin/renewal/:memberId/status", updateMemberRenewalStatus);
 
 /** Update Member */
 router.put(
@@ -68,7 +61,10 @@ router.delete(
 
 router.get("/admin/:adminId", getMembersByAdminId);
 router.get("/admin/:adminId/plan", getMembersByAdminAndPlanController);
-router.get("/group-plan/:adminId/admin/:planId", getMembersByAdminAndGroupPlanController);
+router.get(
+  "/group-plan/:adminId/admin/:planId",
+  getMembersByAdminAndGroupPlanController
+);
 router.get(
   "/member-plan/general/:adminId/admin/:planId",
   getMembersByAdminAndGeneralMemberPlanController
@@ -77,5 +73,3 @@ router.get(
 router.get("/pt-bookings/:branchId", listPTBookings);
 
 export default router;
-
-

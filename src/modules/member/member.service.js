@@ -691,9 +691,31 @@ export const getMembersByAdminIdService = async (adminId) => {
       m.interestedIn,
       m.amountPaid,
       m.dateOfBirth,
-      m.status,
 
-      u.profileImage      -- ✅ FROM USER TABLE
+      -- ✅ STATUS depends on remainingDays
+      CASE
+        WHEN 
+          (
+            CASE
+              WHEN m.membershipTo IS NULL THEN 0
+              WHEN DATE(m.membershipFrom) > CURDATE() THEN 0
+              WHEN DATEDIFF(m.membershipTo, CURDATE()) < 0 THEN 0
+              ELSE DATEDIFF(m.membershipTo, CURDATE())
+            END
+          ) = 0
+        THEN 'Inactive'
+        ELSE 'Active'
+      END AS status,
+
+      u.profileImage,
+
+      -- ✅ REMAINING DAYS (FIXED)
+      CASE
+        WHEN m.membershipTo IS NULL THEN 0
+        WHEN DATE(m.membershipFrom) > CURDATE() THEN 0
+        WHEN DATEDIFF(m.membershipTo, CURDATE()) < 0 THEN 0
+        ELSE DATEDIFF(m.membershipTo, CURDATE())
+      END AS remainingDays
 
     FROM member m
     JOIN user u ON u.id = m.userId
@@ -705,6 +727,10 @@ export const getMembersByAdminIdService = async (adminId) => {
 
   return rows;
 };
+
+
+
+
 
 
 const calculateMembershipDates = (lastMembershipTo, validityDays = 30) => {
