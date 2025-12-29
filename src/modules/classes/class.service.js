@@ -354,14 +354,21 @@ export const memberBookingsService = async (memberId) => {
 /**************************************
  * SCHEDULE CRUD
  **************************************/
-export const getAllScheduledClassesService = async () => {
+export const getAllScheduledClassesService = async (adminId) => {
   const [rows] = await pool.query(
-    `SELECT cs.*, u.fullName AS trainerName, b.name AS branchName,
-            (SELECT COUNT(*) FROM booking bk WHERE bk.scheduleId = cs.id) AS membersCount
-     FROM classschedule cs
-     LEFT JOIN user u ON cs.trainerId = u.id
-     LEFT JOIN branch b ON cs.branchId = b.id
-     ORDER BY cs.id DESC`
+    `
+    SELECT 
+      cs.*,
+      u.fullName AS trainerName,
+      b.name AS branchName,
+      (SELECT COUNT(*) FROM booking bk WHERE bk.scheduleId = cs.id) AS membersCount
+    FROM classschedule cs
+    LEFT JOIN user u ON cs.trainerId = u.id
+    LEFT JOIN branch b ON cs.branchId = b.id
+    WHERE u.adminId = ?        -- ✅ ADMIN FILTER
+    ORDER BY cs.id DESC
+    `,
+    [adminId]
   );
 
   return rows.map((item) => ({
@@ -376,6 +383,7 @@ export const getAllScheduledClassesService = async () => {
     membersCount: item.membersCount,
   }));
 };
+
 
 export const getScheduleByIdService = async (id) => {
   const [rows] = await pool.query(

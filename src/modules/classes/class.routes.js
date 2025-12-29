@@ -25,7 +25,7 @@ router.get("/trainers", getTrainers);
 router.put("/scheduled/update/:id", updateSchedule);
 router.delete("/scheduled/delete/:id", deleteSchedule);
 
-router.get("/scheduled/all", getAllScheduledClasses);
+router.get("/scheduled/all/:adminId", getAllScheduledClasses);
 router.get("/scheduled/aan /:id", getScheduleById);
 router.get('/trainers/personal-general', getPersonalAndGeneralTrainers);
 

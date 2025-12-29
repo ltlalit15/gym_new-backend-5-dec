@@ -16,6 +16,10 @@ export const registerUser = async (data,payload) => {
   const phone = data.phone?.trim() || null;
   const roleId = data.roleId;
   const branchId = data.branchId || null;
+  const gstNumber = data.gstNumber || null;
+  const tax = data.tax || null;
+  const gymAddress = data.gymAddress || null;
+
 
   const gymName = data.gymName || null;
   const address = data.address || null;
@@ -54,9 +58,9 @@ export const registerUser = async (data,payload) => {
   const sql = `
     INSERT INTO user (
       fullName, email, password, phone, roleId, branchId, 
-      gymName, address, planName, price, duration, description, status, adminId, profileImage
+      gymName, address, planName, price, duration, description, status, adminId, profileImage, gstNumber, tax, gymAddress
     ) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const [result] = await pool.query(sql, [
@@ -75,6 +79,9 @@ export const registerUser = async (data,payload) => {
     status,
     adminId, 
     payload.profileImage || null,
+    gstNumber,
+    tax,
+    gymAddress
   ]);
 
   // Return full user object
@@ -94,6 +101,9 @@ export const registerUser = async (data,payload) => {
     status,
     adminId,
     profileImage: payload.profileImage || null,
+    gstNumber,
+    tax,
+    gymAddress
   };
 };
 
@@ -366,7 +376,10 @@ export const modifyUser = async (id, data = {}, files) => { // Default to empty 
     description: existingUser.description,
     status: existingUser.status,
     password: existingUser.password, // Retain current password if not provided
-    profileImage: existingUser.profileImage // Retain current profile image if not provided
+    profileImage: existingUser.profileImage,
+    gstNumber: existingUser.gstNumber,
+    tax: existingUser.tax,
+    gymAddress: existingUser.gymAddress // Retain current profile image if not provided
   };
 
   // Update fields if provided in the data or files (check if data exists before updating)
@@ -426,6 +439,22 @@ export const modifyUser = async (id, data = {}, files) => { // Default to empty 
     updatedData.profileImage = await uploadToCloudinary(files.profileImage, "users/profile");
     updatedFields.push('profileImage');
   }
+
+  if (data?.gstNumber) {
+  updatedData.gstNumber = data.gstNumber;
+  updatedFields.push('gstNumber');
+}
+
+if (data?.tax !== undefined) {
+  updatedData.tax = data.tax;
+  updatedFields.push('tax');
+}
+
+if (data?.gymAddress) {
+  updatedData.gymAddress = data.gymAddress;
+  updatedFields.push('gymAddress');
+}
+
 
   // Dynamically create the SQL query based on updated fields
   const setClause = updatedFields.map(field => `${field} = ?`).join(", ");

@@ -211,7 +211,9 @@ export const memberBookings = async (req, res, next) => {
 
 export const getAllScheduledClasses = async (req, res) => {
   try {
-    const schedules = await getAllScheduledClassesService();
+    const { adminId } = req.params;
+
+    const schedules = await getAllScheduledClassesService(adminId);
 
     return res.status(200).json({
       success: true,
@@ -221,13 +223,13 @@ export const getAllScheduledClasses = async (req, res) => {
 
   } catch (error) {
     console.error("Get All Scheduled Classes Error:", error);
-
     return res.status(500).json({
       success: false,
       message: error.message || "Something went wrong",
     });
   }
 };
+
 
 
 

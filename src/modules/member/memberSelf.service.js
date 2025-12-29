@@ -19,6 +19,9 @@ export const getMemberProfileService = async (userId) => {
         u.status AS userStatus,
         u.dateOfBirth,  -- Correct column name here
         u.profileImage,
+        u.gstNumber,
+        u.tax,
+        u.gymAddress,
 
         m.id AS memberId,
         m.gender,
@@ -72,6 +75,9 @@ export const getMemberProfileService = async (userId) => {
     last_name: m.last_name,
     email: m.email,
     phone: m.phone,
+    gstNumber: m.gstNumber,
+    tax: m.tax, 
+    gymAddress: m.gymAddress,
     address_street: m.address_street,
     address_city: m.address_city,
     address_state: m.address_state,
@@ -245,7 +251,10 @@ export const updateMemberPersonalService = async (userId, data) => {
     address_state,
     address_zip,
     gender,
-    profileImage // ✅ NEW
+    profileImage,
+    gstNumber,
+    tax,
+    gymAddress
   } = data;
 
   const [[userRow]] = await pool.query(
@@ -265,6 +274,10 @@ export const updateMemberPersonalService = async (userId, data) => {
   const updatedEmail = email || userRow.email;
   const updatedPhone = phone || userRow.phone || "0000000000";
   const updatedDob = dateOfBirth ? dateOfBirth : userRow.dateOfBirth;
+  const updatedGstNumber = gstNumber ?? userRow.gstNumber;
+  const updatedTax = tax ?? userRow.tax;
+  const updatedGymAddress = gymAddress ?? userRow.gymAddress;
+
 
   const addressParts = [
     address_street || null,
@@ -302,7 +315,10 @@ export const updateMemberPersonalService = async (userId, data) => {
       address_zip = ?,
       address = ?,
       gender = ?,
-      profileImage = ?   -- ✅ NEW
+      profileImage = ?,   -- ✅ NEW
+      gstNumber = ?,
+      tax = ?,
+      gymAddress = ?
     WHERE id = ?
     `,
     [
@@ -316,8 +332,12 @@ export const updateMemberPersonalService = async (userId, data) => {
       address_zip,
       address,
       gender,
-      updatedProfileImage, // ✅
+      updatedProfileImage,
+      updatedGstNumber,
+      updatedTax,
+      updatedGymAddress,
       userId,
+      
     ]
   );
 
