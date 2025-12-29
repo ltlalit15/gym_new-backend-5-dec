@@ -32,11 +32,30 @@ export const createShiftService = async (data) => {
   ]);
   return rows[0];
 };
+export const getAllShiftsService = async (adminId) => {
+  const [rows] = await pool.query(
+    `
+    SELECT 
+      s.*,
+      st.userId,
+      st.gender,
+      st.branchId
+    FROM shifts s
+    INNER JOIN staff st 
+      ON st.id = s.staffIds
+    WHERE st.adminId = ?
+    ORDER BY s.id DESC
+    `,
+    [adminId]
+  );
 
-export const getAllShiftsService = async () => {
-  const [rows] = await pool.query(`SELECT * FROM shifts ORDER BY id DESC`);
   return rows;
 };
+
+
+
+
+
 
 export const getShiftByShiftIdService = async (shiftId) => {
   const [rows] = await pool.query(
