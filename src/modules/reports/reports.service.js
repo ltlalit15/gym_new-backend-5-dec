@@ -1047,157 +1047,157 @@ export const getMemberAttendanceReportService = async (adminId) => {
   };
 };
 
-export const generateManagerReportService = async (adminId) => {
-  try {
-    const [branches] = await pool.query(
-      `SELECT id FROM branch WHERE adminId = ?`,
-      [adminId]
-    );
+// export const generateManagerReportService = async (adminId) => {
+//   try {
+//     const [branches] = await pool.query(
+//       `SELECT id FROM branch WHERE adminId = ?`,
+//       [adminId]
+//     );
 
-    if (branches.length === 0) {
-      return {
-        memberOverview: {},
-        revenueSummary: {},
-        sessionsSummary: {},
-        classSummary: {},
-        inventorySummary: {},
-        alertTaskSummary: {},
-      };
-    }
+//     if (branches.length === 0) {
+//       return {
+//         memberOverview: {},
+//         revenueSummary: {},
+//         sessionsSummary: {},
+//         classSummary: {},
+//         inventorySummary: {},
+//         alertTaskSummary: {},
+//       };
+//     }
 
-    const branchIds = branches.map((b) => b.id);
-    const ph = branchIds.map(() => "?").join(",");
+//     const branchIds = branches.map((b) => b.id);
+//     const ph = branchIds.map(() => "?").join(",");
 
-    const [
-      memberOverviewData,
-      revenueSummaryData,
-      sessionsSummaryData,
-      classSummaryData,
-      inventorySummaryData,
-      alertTaskSummaryData,
-    ] = await Promise.all([
-      // MEMBER OVERVIEW
-      pool.query(
-        `SELECT
-            COUNT(*) AS totalMembers,
-            SUM(CASE WHEN status = 'ACTIVE' THEN 1 ELSE 0 END) AS activeMembers,
-            SUM(CASE WHEN DATE(joinDate) = CURDATE() THEN 1 ELSE 0 END) AS newMembersToday,
-            SUM(CASE WHEN membershipTo BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
-                     THEN 1 ELSE 0 END) AS expiringSoon,
-            (
-              SELECT COUNT(*) 
-              FROM memberattendance 
-              WHERE DATE(checkIn) = CURDATE()
-                AND branchId IN (${ph})
-            ) AS todayCheckins
-         FROM member
-         WHERE branchId IN (${ph})`,
-        [...branchIds, ...branchIds]
-      ),
+//     const [
+//       memberOverviewData,
+//       revenueSummaryData,
+//       sessionsSummaryData,
+//       classSummaryData,
+//       inventorySummaryData,
+//       alertTaskSummaryData,
+//     ] = await Promise.all([
+//       // MEMBER OVERVIEW
+//       pool.query(
+//         `SELECT
+//             COUNT(*) AS totalMembers,
+//             SUM(CASE WHEN status = 'ACTIVE' THEN 1 ELSE 0 END) AS activeMembers,
+//             SUM(CASE WHEN DATE(joinDate) = CURDATE() THEN 1 ELSE 0 END) AS newMembersToday,
+//             SUM(CASE WHEN membershipTo BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+//                      THEN 1 ELSE 0 END) AS expiringSoon,
+//             (
+//               SELECT COUNT(*)
+//               FROM memberattendance
+//               WHERE DATE(checkIn) = CURDATE()
+//                 AND branchId IN (${ph})
+//             ) AS todayCheckins
+//          FROM member
+//          WHERE branchId IN (${ph})`,
+//         [...branchIds, ...branchIds]
+//       ),
 
-      // REVENUE SUMMARY
-      pool.query(
-        `SELECT 
-            IFNULL(SUM(amount), 0) AS monthlyRevenue,
-            IFNULL(SUM(CASE WHEN DATE(paymentDate) = CURDATE() THEN amount ELSE 0 END), 0) AS todayRevenue,
-            IFNULL(SUM(gstAmount), 0) AS gstTotal
-         FROM payment
-         WHERE memberId IN (
-            SELECT id FROM member WHERE branchId IN (${ph})
-         )`,
-        branchIds
-      ),
+//       // REVENUE SUMMARY
+//       pool.query(
+//         `SELECT
+//             IFNULL(SUM(amount), 0) AS monthlyRevenue,
+//             IFNULL(SUM(CASE WHEN DATE(paymentDate) = CURDATE() THEN amount ELSE 0 END), 0) AS todayRevenue,
+//             IFNULL(SUM(gstAmount), 0) AS gstTotal
+//          FROM payment
+//          WHERE memberId IN (
+//             SELECT id FROM member WHERE branchId IN (${ph})
+//          )`,
+//         branchIds
+//       ),
 
-      // SESSIONS SUMMARY
-      pool.query(
-        `SELECT
-            COUNT(*) AS totalSessions,
-            IFNULL(SUM(CASE WHEN bookingStatus = 'Completed' THEN 1 ELSE 0 END), 0) AS completedSessions,
-            IFNULL(SUM(CASE WHEN bookingStatus = 'Cancelled' THEN 1 ELSE 0 END), 0) AS cancelledSessions,
-            (
-              SELECT u.fullName
-              FROM unified_bookings ub
-              LEFT JOIN user u ON ub.trainerId = u.id
-              WHERE ub.branchId IN (${ph})
-                AND ub.bookingStatus = 'Completed'
-              GROUP BY ub.trainerId
-              ORDER BY COUNT(*) DESC
-              LIMIT 1
-            ) AS topTrainer
-         FROM unified_bookings
-         WHERE branchId IN (${ph})`,
-        [...branchIds, ...branchIds]
-      ),
+//       // SESSIONS SUMMARY
+//       pool.query(
+//         `SELECT
+//             COUNT(*) AS totalSessions,
+//             IFNULL(SUM(CASE WHEN bookingStatus = 'Completed' THEN 1 ELSE 0 END), 0) AS completedSessions,
+//             IFNULL(SUM(CASE WHEN bookingStatus = 'Cancelled' THEN 1 ELSE 0 END), 0) AS cancelledSessions,
+//             (
+//               SELECT u.fullName
+//               FROM unified_bookings ub
+//               LEFT JOIN user u ON ub.trainerId = u.id
+//               WHERE ub.branchId IN (${ph})
+//                 AND ub.bookingStatus = 'Completed'
+//               GROUP BY ub.trainerId
+//               ORDER BY COUNT(*) DESC
+//               LIMIT 1
+//             ) AS topTrainer
+//          FROM unified_bookings
+//          WHERE branchId IN (${ph})`,
+//         [...branchIds, ...branchIds]
+//       ),
 
-      // CLASS SUMMARY
-      pool.query(
-        `SELECT
-            (
-              SELECT COUNT(*) 
-              FROM classschedule 
-              WHERE DATE(date) = CURDATE()
-                AND branchId IN (${ph})
-            ) AS todayClasses,
+//       // CLASS SUMMARY
+//       pool.query(
+//         `SELECT
+//             (
+//               SELECT COUNT(*)
+//               FROM classschedule
+//               WHERE DATE(date) = CURDATE()
+//                 AND branchId IN (${ph})
+//             ) AS todayClasses,
 
-            (
-              SELECT COUNT(*) 
-              FROM group_class_bookings 
-              WHERE DATE(date) = CURDATE()
-                AND branchId IN (${ph})
-            ) AS todayClassAttendance,
+//             (
+//               SELECT COUNT(*)
+//               FROM group_class_bookings
+//               WHERE DATE(date) = CURDATE()
+//                 AND branchId IN (${ph})
+//             ) AS todayClassAttendance,
 
-            (
-              SELECT className 
-              FROM classschedule 
-              WHERE branchId IN (${ph})
-              GROUP BY className
-              ORDER BY COUNT(*) DESC
-              LIMIT 1
-            ) AS popularClass`,
-        [...branchIds, ...branchIds, ...branchIds]
-      ),
+//             (
+//               SELECT className
+//               FROM classschedule
+//               WHERE branchId IN (${ph})
+//               GROUP BY className
+//               ORDER BY COUNT(*) DESC
+//               LIMIT 1
+//             ) AS popularClass`,
+//         [...branchIds, ...branchIds, ...branchIds]
+//       ),
 
-      // INVENTORY SUMMARY
-      pool.query(
-        `SELECT
-            COUNT(*) AS totalProducts,
-            IFNULL(SUM(CASE WHEN currentStock < 5 THEN 1 ELSE 0 END), 0) AS lowStockItems
-         FROM product
-         WHERE branchId IN (${ph})`,
-        branchIds
-      ),
+//       // INVENTORY SUMMARY
+//       pool.query(
+//         `SELECT
+//             COUNT(*) AS totalProducts,
+//             IFNULL(SUM(CASE WHEN currentStock < 5 THEN 1 ELSE 0 END), 0) AS lowStockItems
+//          FROM product
+//          WHERE branchId IN (${ph})`,
+//         branchIds
+//       ),
 
-      // ALERTS + TASKS
-      pool.query(
-        `SELECT
-            (
-              SELECT COUNT(*) 
-              FROM tasks 
-              WHERE status != 'Completed'
-                AND branchId IN (${ph})
-            ) AS pendingTasks,
+//       // ALERTS + TASKS
+//       pool.query(
+//         `SELECT
+//             (
+//               SELECT COUNT(*)
+//               FROM tasks
+//               WHERE status != 'Completed'
+//                 AND branchId IN (${ph})
+//             ) AS pendingTasks,
 
-            (
-              SELECT COUNT(*) 
-              FROM alert 
-              WHERE branchId IN (${ph})
-            ) AS totalAlerts`,
-        [...branchIds, ...branchIds]
-      ),
-    ]);
+//             (
+//               SELECT COUNT(*)
+//               FROM alert
+//               WHERE branchId IN (${ph})
+//             ) AS totalAlerts`,
+//         [...branchIds, ...branchIds]
+//       ),
+//     ]);
 
-    return {
-      memberOverview: memberOverviewData[0][0],
-      revenueSummary: revenueSummaryData[0][0],
-      sessionsSummary: sessionsSummaryData[0][0],
-      classSummary: classSummaryData[0][0],
-      inventorySummary: inventorySummaryData[0][0],
-      alertTaskSummary: alertTaskSummaryData[0][0],
-    };
-  } catch (error) {
-    throw new Error(`Manager Report Error: ${error.message}`);
-  }
-};
+//     return {
+//       memberOverview: memberOverviewData[0][0],
+//       revenueSummary: revenueSummaryData[0][0],
+//       sessionsSummary: sessionsSummaryData[0][0],
+//       classSummary: classSummaryData[0][0],
+//       inventorySummary: inventorySummaryData[0][0],
+//       alertTaskSummary: alertTaskSummaryData[0][0],
+//     };
+//   } catch (error) {
+//     throw new Error(`Manager Report Error: ${error.message}`);
+//   }
+// };
 
 // export const generatePersonalTrainerReportByStaffService = async (adminId, staffId) => {
 
@@ -1431,6 +1431,154 @@ export const generateManagerReportService = async (adminId) => {
 //     throw new Error(`Error generating personal trainer report by staff: ${error.message}`);
 //   }
 // };
+
+export const generateManagerReportService = async (adminId) => {
+  try {
+    const [branches] = await pool.query(
+      `SELECT id FROM branch WHERE adminId = ?`,
+      [adminId]
+    );
+
+    if (branches.length === 0) {
+      return {
+        memberOverview: {},
+        revenueSummary: {},
+        sessionsSummary: {},
+        classSummary: {},
+        inventorySummary: {},
+        alertTaskSummary: {},
+      };
+    }
+
+    const [
+      memberOverviewData,
+      revenueSummaryData,
+      sessionsSummaryData,
+      classSummaryData,
+      inventorySummaryData,
+      alertTaskSummaryData,
+    ] = await Promise.all([
+      // MEMBER OVERVIEW
+      pool.query(
+        `SELECT
+            COUNT(*) AS totalMembers,
+            SUM(CASE WHEN status = 'ACTIVE' THEN 1 ELSE 0 END) AS activeMembers,
+            SUM(CASE WHEN DATE(joinDate) = CURDATE() THEN 1 ELSE 0 END) AS newMembersToday,
+            SUM(CASE WHEN membershipTo BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+                     THEN 1 ELSE 0 END) AS expiringSoon,
+            (
+              SELECT COUNT(*) 
+              FROM memberattendance 
+              WHERE DATE(checkIn) = CURDATE()
+                AND memberId IN (SELECT userId FROM member WHERE adminId = ?)
+            ) AS todayCheckins
+         FROM member
+         WHERE adminId = ?`,
+        [adminId, adminId]
+      ),
+
+      // REVENUE SUMMARY
+      pool.query(
+        `SELECT 
+            IFNULL(SUM(amount), 0) AS monthlyRevenue,
+            IFNULL(SUM(CASE WHEN DATE(paymentDate) = CURDATE() THEN amount ELSE 0 END), 0) AS todayRevenue,
+            IFNULL(SUM(gstAmount), 0) AS gstTotal
+         FROM payment
+         WHERE memberId IN (SELECT id FROM member WHERE adminId = ?)`,
+        [adminId]
+      ),
+
+      // SESSIONS SUMMARY
+      pool.query(
+        `SELECT
+            COUNT(*) AS totalSessions,
+            IFNULL(SUM(CASE WHEN bookingStatus = 'Completed' THEN 1 ELSE 0 END), 0) AS completedSessions,
+            IFNULL(SUM(CASE WHEN bookingStatus = 'Cancelled' THEN 1 ELSE 0 END), 0) AS cancelledSessions,
+            (
+              SELECT u.fullName
+              FROM unified_bookings ub
+              LEFT JOIN user u ON ub.trainerId = u.id
+              WHERE ub.bookingStatus = 'Completed'
+                AND ub.memberId IN (SELECT id FROM member WHERE adminId = ?)
+              GROUP BY ub.trainerId
+              ORDER BY COUNT(*) DESC
+              LIMIT 1
+            ) AS topTrainer
+         FROM unified_bookings
+         WHERE memberId IN (SELECT id FROM member WHERE adminId = ?);`,
+        [adminId, adminId]
+      ),
+
+      // CLASS SUMMARY
+      pool.query(
+        `SELECT
+            (
+              SELECT COUNT(*) 
+              FROM classschedule 
+              WHERE DATE(date) = CURDATE()
+                AND branchId IN (SELECT id FROM branch WHERE adminId = ?)
+            ) AS todayClasses,
+
+            (
+              SELECT COUNT(*) 
+              FROM group_class_bookings 
+              WHERE DATE(date) = CURDATE()
+                AND memberId IN (SELECT id FROM member WHERE adminId = ?)
+            ) AS todayClassAttendance,
+
+            (
+              SELECT className 
+              FROM classschedule 
+              WHERE branchId IN (SELECT id FROM branch WHERE adminId = ?)
+              GROUP BY className
+              ORDER BY COUNT(*) DESC
+              LIMIT 1
+            ) AS popularClass`,
+        [adminId, adminId, adminId]
+      ),
+
+      // INVENTORY SUMMARY
+      pool.query(
+        `SELECT
+            COUNT(*) AS totalProducts,
+            IFNULL(SUM(CASE WHEN currentStock < 5 THEN 1 ELSE 0 END), 0) AS lowStockItems
+         FROM product
+         WHERE branchId IN (SELECT id FROM branch WHERE adminId = ?)`,
+        [adminId]
+      ),
+
+      // ALERTS + TASKS
+      pool.query(
+        `SELECT
+            (
+              SELECT COUNT(*) 
+              FROM tasks 
+              WHERE status != 'Completed'
+                AND branchId IN (SELECT id FROM branch WHERE adminId = ?)
+            ) AS pendingTasks,
+
+            (
+              SELECT COUNT(*) 
+              FROM alert 
+              WHERE branchId IN (SELECT id FROM branch WHERE adminId = ?)
+            ) AS totalAlerts`,
+        [adminId, adminId]
+      ),
+    ]);
+
+    return {
+      memberOverview: memberOverviewData[0][0],
+      revenueSummary: revenueSummaryData[0][0],
+      sessionsSummary: sessionsSummaryData[0][0],
+      classSummary: classSummaryData[0][0],
+      inventorySummary: inventorySummaryData[0][0],
+      alertTaskSummary: alertTaskSummaryData[0][0],
+    };
+  } catch (error) {
+    throw new Error(`Manager Report Error: ${error.message}`);
+  }
+};
+
 export const generatePersonalTrainerReportByStaffService = async (
   adminId,
   staffId,
