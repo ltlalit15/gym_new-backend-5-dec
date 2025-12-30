@@ -59,7 +59,7 @@ export const createMemberService = async (data) => {
 
     endDate = new Date(startDate);
     const days = Number(plan.validityDays ?? plan.duration ?? 0);
-    endDate.setDate(endDate.getDate() + days);  
+    endDate.setDate(endDate.getDate() + days);
   }
 
   // ---------------------------------------------------
@@ -70,7 +70,8 @@ export const createMemberService = async (data) => {
       (adminId,fullName, email, password, phone, roleId, branchId, address, 
        description, duration, gymName, planName, price,dateOfBirth ,profileImage,status)
      VALUES (?,?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL,? ,?,'Active')`,
-    [adminId,
+    [
+      adminId,
       fullName,
       email,
       hashedPassword,
@@ -125,7 +126,7 @@ export const createMemberService = async (data) => {
     membershipTo: endDate,
     status: "Active",
     dateOfBirth,
-    profileImage
+    profileImage,
   };
 };
 
@@ -330,10 +331,10 @@ export const memberDetailService = async (id) => {
   // 🔒 Remove sensitive fields
   delete member.password;
 
-   let attended = 0;
-  
-   const total = member.planSessions || 0;
-   if (member.membershipFrom && member.membershipTo) {
+  let attended = 0;
+
+  const total = member.planSessions || 0;
+  if (member.membershipFrom && member.membershipTo) {
     const [[attendance]] = await pool.query(
       `
       SELECT COUNT(*) AS attended
@@ -342,7 +343,7 @@ export const memberDetailService = async (id) => {
         AND checkIn BETWEEN ? AND ?
       `,
       [
-        member.userId,            // 🔑 matching rule
+        member.userId, // 🔑 matching rule
         member.membershipFrom,
         member.membershipTo,
       ]
@@ -350,21 +351,19 @@ export const memberDetailService = async (id) => {
 
     attended = attendance.attended || 0;
   }
-const isCompleted = total > 0 && attended >= total;
+  const isCompleted = total > 0 && attended >= total;
   const remaining = isCompleted ? 0 : Math.max(total - attended, 0);
   member.plan = member.planName || "Unknown";
   member.trainerType = member.trainerType || "Not Assigned";
- member.sessionDetails = {
+  member.sessionDetails = {
     attended,
     remaining,
     total,
     sessionState: isCompleted ? "No Session" : "Active",
   };
 
-
   return member;
 };
-
 
 /**************************************
  * UPDATE MEMBER
@@ -489,10 +488,9 @@ export const updateMemberService = async (id, data) => {
   /* --------------------------------
      1️⃣ FETCH EXISTING MEMBER
   -------------------------------- */
-  const [[existing]] = await pool.query(
-    "SELECT * FROM member WHERE id = ?",
-    [id]
-  );
+  const [[existing]] = await pool.query("SELECT * FROM member WHERE id = ?", [
+    id,
+  ]);
 
   if (!existing) {
     throw { status: 404, message: "Member not found" };
@@ -635,7 +633,6 @@ export const updateMemberService = async (id, data) => {
   return memberDetailService(id);
 };
 
-
 /**************************************
  * DELETE (SOFT DELETE)
  **************************************/
@@ -728,15 +725,8 @@ export const getMembersByAdminIdService = async (adminId) => {
   return rows;
 };
 
-
-
-
-
-
 const calculateMembershipDates = (lastMembershipTo, validityDays = 30) => {
-  const start = lastMembershipTo
-    ? new Date(lastMembershipTo)
-    : new Date();
+  const start = lastMembershipTo ? new Date(lastMembershipTo) : new Date();
 
   // next day after previous expiry
   start.setDate(start.getDate() + 1);
@@ -813,7 +803,7 @@ export const getRenewalPreviewService = async (adminId) => {
       plan: {
         planId: m.planId,
         planName: m.planName,
-        planType: m.planType,          // ✅ ADDED
+        planType: m.planType, // ✅ ADDED
         price: m.price,
         validityDays: m.validityDays,
       },
@@ -843,7 +833,6 @@ export const getRenewalPreviewService = async (adminId) => {
     members,
   };
 };
-
 
 export const updateMemberRenewalStatusService = async (
   memberId,
@@ -898,10 +887,6 @@ export const updateMemberRenewalStatusService = async (
   return updated;
 };
 
-
-
-
-
 export const listPTBookingsService = async (branchId) => {
   const [rows] = await pool.query(
     `
@@ -950,30 +935,26 @@ export const getMembersByAdminAndPlan = async (adminId) => {
       WHERE m.adminId = ? AND (mp.type = 'MEMBER' OR mp.type = 'GROUP')`;
 
     const [members] = await pool.query(query, [adminId]);
-    
 
     // Filter out members whose trainerType is not 'general' if the type is 'MEMBER'
     const filteredMembers = members.filter((member) => {
-  // MEMBER plan → only allow GENERAL trainer
-  if (member.type === "MEMBER") {
-    return member.trainerType === "general";
-  }
+      // MEMBER plan → only allow GENERAL trainer
+      if (member.type === "MEMBER") {
+        return member.trainerType === "general";
+      }
 
-  // GROUP (or any other type) → allow
-  return true;
-});
-
+      // GROUP (or any other type) → allow
+      return true;
+    });
     return filteredMembers;
   } catch (error) {
     throw { status: 500, message: "Error fetching members", error };
   }
 };
 
-
-
-export const getMembersByAdminAndGroupPlanService = async (adminId,planId) => {
-try {
-  const planQuery = `
+export const getMembersByAdminAndGroupPlanService = async (adminId, planId) => {
+  try {
+    const planQuery = `
       SELECT 
         mp.id,
         mp.name,
@@ -986,7 +967,7 @@ try {
       WHERE 
         mp.id = ?
     `;
-    
+
     const [planResult] = await pool.query(planQuery, [planId]);
 
     // If no plan is found with the given ID, throw an error
@@ -1030,44 +1011,48 @@ try {
       ORDER BY 
         m.fullName
     `;
-    
+
     // CHANGED: Pass both planId and adminId to the query
     const [members] = await pool.query(membersQuery, [planId, adminId]);
-    
+
     // Calculate statistics (this logic remains the same)
     const currentDate = new Date();
     let activeCount = 0;
     let expiredCount = 0;
     let completedCount = 0;
-    
-    members.forEach(member => {
+
+    members.forEach((member) => {
       if (member.membershipTo && new Date(member.membershipTo) >= currentDate) {
         activeCount++;
-      } else if (member.membershipTo && new Date(member.membershipTo) < currentDate) {
+      } else if (
+        member.membershipTo &&
+        new Date(member.membershipTo) < currentDate
+      ) {
         expiredCount++;
         completedCount++;
       }
     });
-    
+
     const statistics = {
       active: activeCount,
       expired: expiredCount,
-      completed: completedCount
+      completed: completedCount,
     };
-    
+
     return {
       members,
       statistics,
-      plan
+      plan,
     };
   } catch (error) {
     throw error;
   }
 };
 
-
-
-export const getMembersByAdminAndGeneralMemberPlanService = async (adminId, planId) => {
+export const getMembersByAdminAndGeneralMemberPlanService = async (
+  adminId,
+  planId
+) => {
   try {
     /* =========================
        FETCH PLAN (VALIDATION)
@@ -1145,10 +1130,13 @@ export const getMembersByAdminAndGeneralMemberPlanService = async (adminId, plan
     let expired = 0;
     let completed = 0;
 
-    members.forEach(member => {
+    members.forEach((member) => {
       if (member.membershipTo && new Date(member.membershipTo) >= currentDate) {
         active++;
-      } else if (member.membershipTo && new Date(member.membershipTo) < currentDate) {
+      } else if (
+        member.membershipTo &&
+        new Date(member.membershipTo) < currentDate
+      ) {
         expired++;
         completed++;
       }
@@ -1160,8 +1148,8 @@ export const getMembersByAdminAndGeneralMemberPlanService = async (adminId, plan
       statistics: {
         active,
         expired,
-        completed
-      }
+        completed,
+      },
     };
   } catch (error) {
     throw error;
