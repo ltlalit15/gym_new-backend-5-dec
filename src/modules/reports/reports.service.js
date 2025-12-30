@@ -1442,9 +1442,10 @@ export const generateManagerReportService = async (adminId) => {
         `SELECT
             (
               SELECT COUNT(*) 
-              FROM classschedule 
-              WHERE DATE(date) = CURDATE()
-                AND branchId IN (SELECT id FROM branch WHERE adminId = ?)
+              FROM classschedule cs
+              INNER JOIN user u ON cs.trainerId=u.id 
+              WHERE DATE(cs.date) = CURDATE()
+                AND u.adminId = ?
             ) AS todayClasses,
 
             (
@@ -1456,9 +1457,10 @@ export const generateManagerReportService = async (adminId) => {
 
             (
               SELECT className 
-              FROM classschedule 
-              WHERE branchId IN (SELECT id FROM branch WHERE adminId = ?)
-              GROUP BY className
+              FROM classschedule cs
+              INNER JOIN user u ON cs.trainerId=u.id
+              WHERE u.adminId = ?
+              GROUP BY cs.className
               ORDER BY COUNT(*) DESC
               LIMIT 1
             ) AS popularClass`,
