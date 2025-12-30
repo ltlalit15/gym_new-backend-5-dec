@@ -181,7 +181,16 @@ export const updateStaff = async (req, res, next) => {
 
 export const getAllStaff = async (req, res, next) => {
   try {
-    const staff = await getAllStaffService();
+    const adminId = Number(req.params.adminId);
+
+    if (!adminId) {
+      return res.status(400).json({
+        success: false,
+        message: "adminId is required",
+      });
+    }
+
+    const staff = await getAllStaffService(adminId);
 
     res.json({
       success: true,
@@ -191,6 +200,7 @@ export const getAllStaff = async (req, res, next) => {
     next(err);
   }
 };
+
 
 
 export const deleteStaff = async (req, res, next) => {

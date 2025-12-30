@@ -22,7 +22,7 @@ router.post(
 );
 
 
-router.get("/all",getAllStaff);
+router.get("/all/:adminId", getAllStaff);
 /**
  * 👉 List Staff by Branch
  * 🛑 Prevent Admin accessing other branches

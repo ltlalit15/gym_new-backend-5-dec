@@ -66,7 +66,7 @@ export const createSalaryService = async (data) => {
 //   return rows;
 // };
 
-export const getAllSalariesService = async () => {
+export const getAllSalariesService = async (adminId) => {
   const sql = `
     SELECT 
       s.*,
@@ -76,14 +76,16 @@ export const getAllSalariesService = async () => {
       st.gender,
       st.joinDate
     FROM salary s
-    LEFT JOIN user u ON s.staffId = u.id
-    LEFT JOIN staff st ON st.userId = u.id
+    LEFT JOIN staff st ON s.staffId = st.id
+    LEFT JOIN user u ON st.userId = u.id
+    WHERE st.adminId = ?
     ORDER BY s.id DESC
   `;
 
-  const [rows] = await pool.query(sql);
+  const [rows] = await pool.query(sql, [adminId]);
   return rows;
 };
+
 
 export const getSalaryByIdService = async (identifier) => {
   const sqlBySalaryId = `

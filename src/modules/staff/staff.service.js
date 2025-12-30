@@ -351,7 +351,7 @@ const[rows]=await pool.query("SELECT * FROM staff WHERE id=?",[staffId]);
 
 
 
-export const getAllStaffService = async () => {
+export const getAllStaffService = async (adminId) => {
   const sql = `
     SELECT 
       s.id AS staffId,
@@ -370,12 +370,14 @@ export const getAllStaffService = async () => {
       u.status
     FROM staff s
     JOIN user u ON u.id = s.userId
+    WHERE s.adminId = ?
     ORDER BY s.id DESC
   `;
 
-  const [rows] = await pool.query(sql);
+  const [rows] = await pool.query(sql, [adminId]);
   return rows;
 };
+
 
 export const getTrainerByIdService = async (trainerId) => {
   const sql = `

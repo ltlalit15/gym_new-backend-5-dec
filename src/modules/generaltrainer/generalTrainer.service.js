@@ -399,11 +399,11 @@ export const getClassPerformanceReportService = async (adminId) => {
 
   try {
     /* ------------------------------------------------
-       1️⃣ TOTAL ACTIVE STUDENTS (ADMIN-WISE)
+       1️⃣ TOTAL ACTIVE STUDENTS
     ------------------------------------------------ */
     const [totalStudentsResult] = await pool.query(
       `
-      SELECT COUNT(*) as count
+      SELECT COUNT(*) AS count
       FROM member
       WHERE adminId = ?
         AND status = 'ACTIVE'
@@ -414,13 +414,13 @@ export const getClassPerformanceReportService = async (adminId) => {
     const totalStudents = totalStudentsResult[0].count;
 
     /* ------------------------------------------------
-       2️⃣ PRESENT STUDENTS TODAY (ADMIN-WISE)
+       2️⃣ PRESENT STUDENTS TODAY (🔥 FIXED)
     ------------------------------------------------ */
     const [presentStudentsResult] = await pool.query(
       `
       SELECT COUNT(DISTINCT ma.memberId) AS count
       FROM memberattendance ma
-      JOIN member m ON ma.memberId = m.id
+      JOIN member m ON ma.memberId = m.userId
       WHERE 
         m.adminId = ?
         AND DATE(ma.checkIn) = CURDATE()
@@ -440,7 +440,7 @@ export const getClassPerformanceReportService = async (adminId) => {
         : 0;
 
     /* ------------------------------------------------
-       4️⃣ CLASS PERFORMANCE (ADMIN → BRANCH → CLASS)
+       4️⃣ CLASS PERFORMANCE (LAST 7 DAYS)
     ------------------------------------------------ */
     const [studentAttendanceByClass] = await pool.query(
       `
@@ -454,7 +454,7 @@ export const getClassPerformanceReportService = async (adminId) => {
       LEFT JOIN booking b ON cs.id = b.scheduleId
       WHERE
         br.adminId = ?
-        AND cs.date BETWEEN DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND CURDATE()
+        AND DATE(cs.date) BETWEEN DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND CURDATE()
       GROUP BY cs.id, cs.className, cs.date, cs.capacity
       ORDER BY cs.date DESC
       LIMIT 10
@@ -495,7 +495,6 @@ export const getClassPerformanceReportService = async (adminId) => {
     throw { status: 500, message: "Failed to fetch class performance report" };
   }
 };
-
 
 
 const processAttendanceRecord = (record) => {
