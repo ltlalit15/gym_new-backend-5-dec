@@ -1484,13 +1484,14 @@ export const generateManagerReportService = async (adminId) => {
               SELECT COUNT(*) 
               FROM tasks 
               WHERE status != 'Completed'
-                AND branchId IN (SELECT id FROM branch WHERE adminId = ?)
+                AND createdById = ?
             ) AS pendingTasks,
 
             (
               SELECT COUNT(*) 
-              FROM alert 
-              WHERE branchId IN (SELECT id FROM branch WHERE adminId = ?)
+              FROM alert a
+              INNER JOIN staff s ON a.staffId=s.id
+              WHERE s.adminId = ?
             ) AS totalAlerts`,
         [adminId, adminId]
       ),
