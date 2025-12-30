@@ -113,31 +113,6 @@ export const generateMemberReportService = async (adminId) => {
 
 export const generateGeneralTrainerReportService = async (adminId) => {
   try {
-    // 1️⃣ Get all branches owned by this admin
-    const [branches] = await pool.query(
-      `SELECT id FROM branch WHERE adminId = ?`,
-      [adminId]
-    );
-
-    if (branches.length === 0) {
-      return {
-        stats: {
-          totalBookings: 0,
-          totalRevenue: 0,
-          avgTicket: 0,
-          completed: 0,
-          cancelled: 0,
-          booked: 0,
-        },
-        bookingsByDay: [],
-        bookingStatus: [],
-        transactions: [],
-      };
-    }
-
-    // Extract branch IDs
-    const branchIds = branches.map((b) => b.id);
-
     // 2️⃣ Get member userIds related to this admin
     const [members] = await pool.query(
       `SELECT userId FROM member WHERE adminId = ?`,
@@ -327,30 +302,6 @@ export const generateGeneralTrainerReportService = async (adminId) => {
 
 export const generatePersonalTrainerReportService = async (adminId) => {
   try {
-    // 1️⃣ Get all branches for this admin
-    const [branches] = await pool.query(
-      `SELECT id FROM branch WHERE adminId = ?`,
-      [adminId]
-    );
-
-    if (branches.length === 0) {
-      return {
-        stats: {
-          totalBookings: 0,
-          confirmed: 0,
-          cancelled: 0,
-          booked: 0,
-        },
-        bookingsByDay: [],
-        bookingStatus: [],
-        transactions: [],
-      };
-    }
-
-    // Extract branch IDs
-    const branchIds = branches.map((b) => b.id);
-    const placeholders = branchIds.map(() => "?").join(",");
-
     const [members] = await pool.query(
       `SELECT id FROM member WHERE adminId = ?`,
       [adminId]
@@ -1427,22 +1378,6 @@ export const getMemberAttendanceReportService = async (adminId) => {
 
 export const generateManagerReportService = async (adminId) => {
   try {
-    const [branches] = await pool.query(
-      `SELECT id FROM branch WHERE adminId = ?`,
-      [adminId]
-    );
-
-    if (branches.length === 0) {
-      return {
-        memberOverview: {},
-        revenueSummary: {},
-        sessionsSummary: {},
-        classSummary: {},
-        inventorySummary: {},
-        alertTaskSummary: {},
-      };
-    }
-
     const [
       memberOverviewData,
       revenueSummaryData,
