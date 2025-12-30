@@ -6,13 +6,14 @@ export const generateMemberReportService = async (adminId) => {
     // Get booking statistics from bookingrequest table
     const [bookingStats] = await pool.query(
       `SELECT 
-        COUNT(*) as totalBookings,
-        SUM(price) as totalRevenue,
-        AVG(price) as avgTicket,
-        SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as confirmed,
-        SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as cancelled,
-        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as booked
-      FROM booking_requests
+        COUNT(*) AS totalBookings,
+        SUM(ub.price) AS totalRevenue,
+        AVG(ub.price) AS avgTicket,
+        SUM(CASE WHEN ub.bookingStatus = 'Completed' THEN 1 ELSE 0 END) as completed,
+        SUM(CASE WHEN ub.bookingStatus = 'Cancelled' THEN 1 ELSE 0 END) as cancelled,
+        SUM(CASE WHEN ub.bookingStatus = 'Booked' THEN 1 ELSE 0 END) as booked
+      FROM unified_bookings ub
+      INNER JOIN member m ON ub.memberId=m.id
       WHERE adminId = ?`,
       [adminId]
     );
@@ -20,12 +21,13 @@ export const generateMemberReportService = async (adminId) => {
     // Get bookings by day from bookingrequest table
     const [bookingsByDay] = await pool.query(
       `SELECT 
-        DATE(createdAt) as date,
-        COUNT(*) as count,
-        SUM(price) as revenue
-      FROM booking_requests
-      WHERE adminId = ?
-      GROUP BY DATE(createdAt)
+        DATE(ub.createdAt) AS date,
+        COUNT(*) AS count,
+        SUM(ub.price) AS revenue
+      FROM unified_bookings ub
+      INNER JOIN member m ON ub.memberId=m.id
+      WHERE m.adminId = ?
+      GROUP BY DATE(ub.createdAt)
       ORDER BY date ASC`,
       [adminId]
     );
@@ -33,11 +35,12 @@ export const generateMemberReportService = async (adminId) => {
     // Get booking status distribution from bookingrequest table
     const [bookingStatus] = await pool.query(
       `SELECT 
-        status,
-        COUNT(*) as count
-      FROM booking_requests
-      WHERE adminId = ?
-      GROUP BY status`,
+        ub.bookingStatus,
+        COUNT(*) AS count
+      FROM unified_bookings ub
+      INNER JOIN member m ON ub.memberId = m.id
+      WHERE m.adminId = ?
+      GROUP BY ub.bookingStatus`,
       [adminId]
     );
 
@@ -82,7 +85,7 @@ export const generateMemberReportService = async (adminId) => {
       totalBookings: bookingStats[0].totalBookings || 0,
       totalRevenue: bookingStats[0].totalRevenue || 0,
       avgTicket: bookingStats[0].avgTicket || 0,
-      confirmed: bookingStats[0].confirmed || 0,
+      completed: bookingStats[0].completed || 0,
       cancelled: bookingStats[0].cancelled || 0,
       booked: bookingStats[0].booked || 0,
     };
