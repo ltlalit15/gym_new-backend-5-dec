@@ -1289,6 +1289,48 @@ export const createUnifiedBooking = async (req, res) => {
       });
     }
 
+
+    /* =========================
+   🔒 SESSION LIMIT CHECK
+========================= */
+
+// 1️⃣ Get member plan & allowed sessions
+const [[planData]] = await pool.query(
+  `
+  SELECT mp.sessions
+  FROM member m
+  JOIN memberplan mp ON mp.id = m.planId
+  WHERE m.id = ?
+  `,
+  [memberId]
+);
+
+if (!planData) {
+  return res.status(400).json({
+    success: false,
+    message: "Member plan not found"
+  });
+}
+
+// 2️⃣ Count already used sessions
+const [[usage]] = await pool.query(
+  `
+  SELECT COUNT(*) AS usedSessions
+  FROM unified_bookings
+  WHERE memberId = ?
+    AND bookingStatus != 'CANCELLED'
+  `,
+  [memberId]
+);
+
+// 3️⃣ Block if limit exceeded
+if (usage.usedSessions >= planData.sessions) {
+  return res.status(400).json({
+    success: false,
+    message: "Plan session limit exceeded"
+  });
+}
+
     /* =========================
        4️⃣ 🔥 TRAINER AVAILABILITY CHECK
     ========================= */
