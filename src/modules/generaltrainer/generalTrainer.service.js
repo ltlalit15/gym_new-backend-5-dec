@@ -1,8 +1,8 @@
 import { pool } from "../../config/db.js";
 
 const LATE_CHECKIN_HOUR = 9;
-export const getGroupTrainingPlansWithMembersService = async (branchId) => {
-  if (!branchId) throw { status: 400, message: "Branch ID is required" };
+export const getGroupTrainingPlansWithMembersService = async (adminId) => {
+  if (!adminId) throw { status: 400, message: "Admin ID is required" };
 
   // Get all group training plans for this branch
   const [groupPlans] = await pool.query(
@@ -13,8 +13,8 @@ export const getGroupTrainingPlansWithMembersService = async (branchId) => {
   const plansWithMembers = await Promise.all(
     groupPlans.map(async (plan) => {
       // Find members who have purchased this plan and belong to this branch
-     const [membersWithBookings] = await pool.query(
-  `
+      const [membersWithBookings] = await pool.query(
+        `
   SELECT m.*, p.paymentDate, p.invoiceNo
   FROM member m
   LEFT JOIN (
@@ -29,11 +29,10 @@ export const getGroupTrainingPlansWithMembersService = async (branchId) => {
       ON p1.memberId = p2.memberId AND p1.paymentDate = p2.latestPayment
       WHERE p1.planId = ?
   ) p ON m.id = p.memberId
-  WHERE m.planId = ? AND m.branchId = ?
+  WHERE m.planId = ? AND m.adminId = ?
 `,
-  [plan.id, plan.id, plan.id, branchId]
-);
-
+        [plan.id, plan.id, plan.id, adminId]
+      );
 
       // Get booking counts for each member (with any trainer in this branch)
       const memberIds = membersWithBookings.map((m) => m.id);
@@ -46,10 +45,10 @@ export const getGroupTrainingPlansWithMembersService = async (branchId) => {
           FROM booking b
           JOIN classschedule cs ON b.scheduleId = cs.id
           JOIN user u ON cs.trainerId = u.id
-          WHERE b.memberId IN (${memberIds.join(",")}) AND u.branchId = ?
+          WHERE b.memberId IN (${memberIds.join(",")}) AND u.adminId = ?
           GROUP BY b.memberId
         `,
-          [branchId]
+          [adminId]
         );
 
         bookingResults.forEach((result) => {
@@ -390,8 +389,6 @@ export const getMemberBookingDetailsService = async (branchId, memberId) => {
 //   };
 // };
 
-
-
 export const getClassPerformanceReportService = async (adminId) => {
   if (!adminId) {
     throw { status: 400, message: "Admin ID is required" };
@@ -495,8 +492,6 @@ export const getClassPerformanceReportService = async (adminId) => {
     throw { status: 500, message: "Failed to fetch class performance report" };
   }
 };
-
-
 
 const processAttendanceRecord = (record) => {
   return {
@@ -704,9 +699,6 @@ export const deleteAttendanceRecordService = async (id) => {
   return { message: "Attendance record deleted successfully" };
 };
 
-
-
-
 // export const getDashboardDataService = async (branchId) => {
 //   if (!branchId) throw { status: 400, message: "Branch ID is required" };
 
@@ -714,7 +706,7 @@ export const deleteAttendanceRecordService = async (id) => {
 //     // Get attendance data for the past 7 days
 //     const [attendanceData] = await pool.query(
 //       `
-//       SELECT 
+//       SELECT
 //         DATE(checkIn) as date,
 //         COUNT(*) as count
 //       FROM memberattendance
@@ -745,7 +737,7 @@ export const deleteAttendanceRecordService = async (id) => {
 //     // Get class distribution by type
 //     const [classData] = await pool.query(
 //       `
-//       SELECT 
+//       SELECT
 //         ct.name as className,
 //         COUNT(cs.id) as count
 //       FROM classschedule cs
@@ -764,7 +756,7 @@ export const deleteAttendanceRecordService = async (id) => {
 //     // Get today's classes
 //     const [todayClasses] = await pool.query(
 //       `
-//       SELECT 
+//       SELECT
 //         cs.id,
 //         cs.startTime,
 //         cs.endTime,
@@ -831,11 +823,11 @@ export const deleteAttendanceRecordService = async (id) => {
 //     // Get classes for this week
 //     const [weekClasses] = await pool.query(
 //       `
-//       SELECT 
+//       SELECT
 //         COUNT(*) as total,
 //         SUM(CASE WHEN DATE(cs.date) < CURRENT_DATE THEN 1 ELSE 0 END) as completed
 //       FROM classschedule cs
-//       WHERE cs.branchId = ? 
+//       WHERE cs.branchId = ?
 //         AND cs.date >= DATE_SUB(CURRENT_DATE(), INTERVAL WEEKDAY(CURRENT_DATE()) DAY)
 //         AND cs.date < DATE_ADD(DATE_SUB(CURRENT_DATE(), INTERVAL WEEKDAY(CURRENT_DATE()) DAY), INTERVAL 7 DAY)
 //     `,
@@ -850,7 +842,7 @@ export const deleteAttendanceRecordService = async (id) => {
 //     // Get detailed daily class schedule for today
 //     const [dailySchedule] = await pool.query(
 //       `
-//       SELECT 
+//       SELECT
 //         cs.id,
 //         cs.startTime,
 //         cs.endTime,
@@ -858,7 +850,7 @@ export const deleteAttendanceRecordService = async (id) => {
 //         u.fullName as trainerName,
 //         cs.capacity,
 //         COUNT(b.id) as bookedCount,
-//         CASE 
+//         CASE
 //           WHEN cs.endTime < TIME(NOW()) THEN 'Completed'
 //           WHEN cs.startTime <= TIME(NOW()) AND cs.endTime >= TIME(NOW()) THEN 'In Progress'
 //           ELSE 'Scheduled'
@@ -906,9 +898,6 @@ export const deleteAttendanceRecordService = async (id) => {
 //     throw { status: 500, message: "Failed to fetch dashboard data" };
 //   }
 // };
-
-
-
 
 export const getDashboardDataService = async (adminId) => {
   if (!adminId) throw { status: 400, message: "adminId is required" };
@@ -1142,8 +1131,6 @@ export const getDashboardDataService = async (adminId) => {
   }
 };
 
-
-
 export const getAllMembersByBranchService = async (branchId) => {
   if (!branchId) throw { status: 400, message: "Branch ID is required" };
 
@@ -1201,6 +1188,6 @@ export const getAllMembersByBranchService = async (branchId) => {
     return formattedMembers;
   } catch (error) {
     console.error("Error fetching members by branch:", error);
-    throw { status: 500, message: "Failed to fetch members" };
-  }
+    throw { status: 500, message: "Failed to fetch members" };
+  }
 };

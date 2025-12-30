@@ -17,7 +17,7 @@ const router = Router();
 router.get("/dashboard", getDashboardData);
 // Get all group training plans with members for a specific branch
 // Route: GET /api/branch/:branchId/group-plans
-router.get("/:branchId/group-plans", getAllGroupTrainingPlans);
+router.get("/:adminId/group-plans", getAllGroupTrainingPlans);
 
 // Get members for a specific plan
 // Route: GET /api/branch/:branchId/group-plans/:planId/members
