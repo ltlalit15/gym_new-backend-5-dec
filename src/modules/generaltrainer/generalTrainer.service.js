@@ -417,7 +417,8 @@ export const getClassPerformanceReportService = async (adminId) => {
       `
       SELECT COUNT(DISTINCT ma.memberId) AS count
       FROM memberattendance ma
-      JOIN member m ON ma.memberId = m.userId
+      JOIN member m ON ma.memberId = m.id
+
       WHERE 
         m.adminId = ?
         AND DATE(ma.checkIn) = CURDATE()
@@ -439,25 +440,23 @@ export const getClassPerformanceReportService = async (adminId) => {
     /* ------------------------------------------------
        4️⃣ CLASS PERFORMANCE (LAST 7 DAYS)
     ------------------------------------------------ */
-    const [studentAttendanceByClass] = await pool.query(
-      `
-      SELECT
-        cs.className,
-        cs.date,
-        cs.capacity,
-        COUNT(DISTINCT b.memberId) AS bookedCount
-      FROM classschedule cs
-      JOIN branch br ON cs.branchId = br.id
-      LEFT JOIN booking b ON cs.id = b.scheduleId
-      WHERE
-        br.adminId = ?
-        AND DATE(cs.date) BETWEEN DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND CURDATE()
-      GROUP BY cs.id, cs.className, cs.date, cs.capacity
-      ORDER BY cs.date DESC
-      LIMIT 10
-      `,
-      [adminId]
-    );
+   const [studentAttendanceByClass] = await pool.query(
+  `
+  SELECT
+    cs.className,
+    cs.date,
+    cs.capacity,
+    COUNT(DISTINCT b.memberId) AS bookedCount
+  FROM classschedule cs
+  LEFT JOIN booking b ON cs.id = b.scheduleId
+  WHERE
+    DATE(cs.date) BETWEEN DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND CURDATE()
+  GROUP BY cs.id, cs.className, cs.date, cs.capacity
+  ORDER BY cs.date DESC
+  LIMIT 10
+  `
+);
+
 
     /* ------------------------------------------------
        5️⃣ FORMAT RESPONSE
@@ -470,7 +469,7 @@ export const getClassPerformanceReportService = async (adminId) => {
 
       return {
         className: item.className,
-        date: item.date.toISOString().split("T")[0],
+        date: new Date(item.date).toISOString().split("T")[0],
         attendance: `${item.bookedCount}/${item.capacity}`,
         attendancePercentage,
       };
@@ -489,7 +488,11 @@ export const getClassPerformanceReportService = async (adminId) => {
     };
   } catch (error) {
     console.error("Error fetching class performance report:", error);
-    throw { status: 500, message: "Failed to fetch class performance report" };
+    throw {
+  status: 500,
+  message: error.message || "Failed to fetch class performance report",
+};
+
   }
 };
 

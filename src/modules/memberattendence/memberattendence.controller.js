@@ -1,11 +1,11 @@
 import { pool } from "../../config/db.js";
 
 /* -----------------------------------------------------
-   1️⃣  MEMBER CHECK-IN  (Manual + QR + Manual Times)
+   1️⃣  MEMBER/ADMIN CHECK-IN  (Manual + QR + Manual Times)
 ------------------------------------------------------ */
 export const memberCheckIn = async (req, res, next) => {
   try {
-    const { memberId, branchId, mode, notes, checkIn } = req.body;
+    const { memberId, branchId, mode, notes, checkIn, userRole, qrAdminId } = req.body;
 
     if (!memberId) {
       return res.status(400).json({
@@ -26,6 +26,119 @@ export const memberCheckIn = async (req, res, next) => {
     // ❌ CheckOut always NULL at check-in
     const finalCheckOut = null;
 
+    // Check if user is a member or admin
+    let isMember = false;
+    let isAdmin = false;
+    let userBranchId = branchId;
+    let memberAdminId = null;
+
+    // ✅ QR code adminId is required
+    if (!qrAdminId) {
+      return res.status(400).json({
+        success: false,
+        message: "QR code adminId is required. Please scan a valid admin QR code.",
+      });
+    }
+
+    // First, check if member exists
+    const [memberRecords] = await pool.query(
+      "SELECT * FROM member WHERE id = ?",
+      [memberId]
+    );
+
+    if (memberRecords.length > 0) {
+      isMember = true;
+      memberAdminId = memberRecords[0].adminId;
+      // Always use member's branchId from database (most reliable)
+      userBranchId = memberRecords[0].branchId || branchId;
+      
+      // ✅ Validate adminId match - QR code's adminId must match member's adminId
+      if (!memberAdminId) {
+        return res.status(400).json({
+          success: false,
+          message: "Member adminId not found. Member must be added by an admin.",
+        });
+      }
+      
+      const qrAdminIdInt = parseInt(qrAdminId);
+      const memberAdminIdInt = parseInt(memberAdminId);
+      
+      if (qrAdminIdInt !== memberAdminIdInt) {
+        return res.status(400).json({
+          success: false,
+          message: "This QR code belongs to a different admin. You can only scan your admin's QR code.",
+        });
+      }
+    } else {
+      // Not a member, check if staff/user exists
+      const [userRecords] = await pool.query(
+        `SELECT u.*, r.name as roleName FROM user u 
+         LEFT JOIN role r ON u.roleId = r.id 
+         WHERE u.id = ?`,
+        [memberId]
+      );
+
+      if (userRecords.length > 0) {
+        const user = userRecords[0];
+        const roleName = user.roleName?.toUpperCase() || '';
+        
+        // ❌ Block admin check-in - Admin cannot check-in themselves
+        if (roleName === 'ADMIN' || roleName === 'SUPERADMIN') {
+          return res.status(403).json({
+            success: false,
+            message: "Admin cannot check-in. Only staff (members, receptionists, trainers) can check-in using admin's QR code.",
+          });
+        }
+        
+        // For staff (receptionist, trainer, etc.), check their adminId
+        // Staff members have adminId in user table
+        let staffAdminId = user.adminId;
+        
+        // If adminId not in user table, check staff table
+        if (!staffAdminId) {
+          const [staffRecords] = await pool.query(
+            "SELECT adminId FROM staff WHERE userId = ?",
+            [memberId]
+          );
+          if (staffRecords.length > 0 && staffRecords[0].adminId) {
+            staffAdminId = staffRecords[0].adminId;
+          }
+        }
+        
+        // ✅ Validate adminId match for staff
+        if (!staffAdminId) {
+          return res.status(400).json({
+            success: false,
+            message: "Staff adminId not found. Staff must be assigned to an admin.",
+          });
+        }
+        
+        const qrAdminIdInt = parseInt(qrAdminId);
+        const staffAdminIdInt = parseInt(staffAdminId);
+        
+        if (qrAdminIdInt !== staffAdminIdInt) {
+          return res.status(400).json({
+            success: false,
+            message: "This QR code belongs to a different admin. You can only scan your admin's QR code.",
+          });
+        }
+        
+        // Use user's branchId if not provided
+        if (!userBranchId && user.branchId) {
+          userBranchId = user.branchId;
+        }
+        // If still no branchId, use 1 as default
+        if (!userBranchId) {
+          userBranchId = 1;
+        }
+      } else {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+    }
+
     // 🔁 Prevent multiple open check-ins same day
     const [existing] = await pool.query(
       `
@@ -40,7 +153,7 @@ export const memberCheckIn = async (req, res, next) => {
     if (existing.length > 0) {
       return res.status(400).json({
         success: false,
-        message: "Member already checked in",
+        message: isMember ? "Member already checked in" : "Already checked in",
       });
     }
 
@@ -53,7 +166,7 @@ export const memberCheckIn = async (req, res, next) => {
       `,
       [
         memberId,
-        branchId || null,
+        userBranchId || null,
         finalCheckIn,
         finalCheckOut,
         mode || "QR",
@@ -64,7 +177,7 @@ export const memberCheckIn = async (req, res, next) => {
 
     res.json({
       success: true,
-      message: "Member checked in successfully",
+      message: isMember ? "Member checked in successfully" : "Checked in successfully",
     });
   } catch (err) {
     next(err);
