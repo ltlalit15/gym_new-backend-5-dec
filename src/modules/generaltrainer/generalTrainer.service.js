@@ -439,26 +439,46 @@ export const getClassPerformanceReportService = async (adminId) => {
     /* ------------------------------------------------
        4️⃣ CLASS PERFORMANCE (LAST 7 DAYS)
     ------------------------------------------------ */
+    // const [studentAttendanceByClass] = await pool.query(
+    //   `
+    //   SELECT
+    //     cs.className,
+    //     cs.date,
+    //     cs.capacity,
+    //     COUNT(DISTINCT b.memberId) AS bookedCount
+    //   FROM classschedule cs
+    //   JOIN branch br ON cs.branchId = br.id
+    //   LEFT JOIN booking b ON cs.id = b.scheduleId
+    //   WHERE
+    //     br.adminId = ?
+    //     AND DATE(cs.date) BETWEEN DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND CURDATE()
+    //   GROUP BY cs.id, cs.className, cs.date, cs.capacity
+    //   ORDER BY cs.date DESC
+    //   LIMIT 10
+    //   `,
+    //   [adminId]
+    // );
+
     const [studentAttendanceByClass] = await pool.query(
       `
-      SELECT
-        cs.className,
-        cs.date,
-        cs.capacity,
-        COUNT(DISTINCT b.memberId) AS bookedCount
-      FROM classschedule cs
-      JOIN branch br ON cs.branchId = br.id
-      LEFT JOIN booking b ON cs.id = b.scheduleId
-      WHERE
-        br.adminId = ?
-        AND DATE(cs.date) BETWEEN DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND CURDATE()
-      GROUP BY cs.id, cs.className, cs.date, cs.capacity
-      ORDER BY cs.date DESC
-      LIMIT 10
-      `,
+  SELECT
+    cs.id AS scheduleId,
+    cs.className,
+    cs.date,
+    cs.capacity,
+    COUNT(DISTINCT b.memberId) AS bookedCount
+  FROM classschedule cs
+  LEFT JOIN booking b ON cs.id = b.scheduleId
+  WHERE
+    cs.adminId = ?
+    AND DATE(cs.date) BETWEEN DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND CURDATE()
+  GROUP BY
+    cs.id, cs.className, cs.date, cs.capacity
+  ORDER BY cs.date DESC
+  LIMIT 10
+  `,
       [adminId]
     );
-
     /* ------------------------------------------------
        5️⃣ FORMAT RESPONSE
     ------------------------------------------------ */
