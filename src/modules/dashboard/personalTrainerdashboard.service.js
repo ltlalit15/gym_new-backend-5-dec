@@ -137,9 +137,8 @@ export const getPersonalTrainingPlansByAdminService = async (adminId) => {
 export const getPersonalTrainingCustomersByAdminService = async (adminId, planId) => {
   try {
     /* =========================
-       FETCH PLAN (VALIDATION)
+       1️⃣ FETCH PLAN
     ========================= */
-
     const planQuery = `
       SELECT 
         mp.id,
@@ -158,8 +157,8 @@ export const getPersonalTrainingCustomersByAdminService = async (adminId, planId
 
     const [planResult] = await pool.query(planQuery, [planId]);
 
-    if (planResult.length === 0) {
-      const error = new Error("Membership plan for trainertype personal not found.");
+    if (!planResult.length) {
+      const error = new Error("Membership plan for personal training not found");
       error.statusCode = 404;
       throw error;
     }
@@ -167,7 +166,7 @@ export const getPersonalTrainingCustomersByAdminService = async (adminId, planId
     const plan = planResult[0];
 
     /* =========================
-       FETCH MEMBERS
+       2️⃣ FETCH MEMBERS
     ========================= */
     const membersQuery = `
       SELECT 
@@ -186,51 +185,86 @@ export const getPersonalTrainingCustomersByAdminService = async (adminId, planId
         m.amountPaid,
         m.dateOfBirth,
         m.status,
-        m.planId,
-        mp.name AS planName,
-        mp.sessions,
-        mp.validityDays,
-        mp.price,
-        mp.type AS planType,
-        mp.trainerType
+        m.planId
       FROM member m
-      JOIN memberplan mp ON m.planId = mp.id
       WHERE 
         m.adminId = ?
-        AND mp.id = ?
-        AND mp.type = 'MEMBER'
-        AND mp.trainerType = 'personal'
+        AND m.planId = ?
       ORDER BY m.fullName
     `;
 
     const [members] = await pool.query(membersQuery, [adminId, planId]);
 
     /* =========================
-       STATISTICS
+       3️⃣ PT + CLASS CALCULATION
     ========================= */
-    const currentDate = new Date();
+    for (const member of members) {
+
+      /* 🔥 PT SESSIONS (unified_bookings) */
+      const [[ptRow]] = await pool.query(
+        `
+        SELECT COUNT(*) AS usedSessions
+        FROM unified_bookings
+        WHERE memberId = ?
+          AND bookingType = 'PT'
+          AND bookingStatus = 'Completed'
+        `,
+        [member.id]
+      );
+
+      const usedSessions = ptRow?.usedSessions || 0;
+      const totalSessions = plan.sessions;
+      const remainingSessions = Math.max(totalSessions - usedSessions, 0);
+
+      member.sessionInfo = {
+        totalSessions,
+        usedSessions,
+        remainingSessions,
+        renewRequired: remainingSessions === 0
+      };
+
+      /* 🔥 CLASS BOOKINGS (booking table) */
+      const [[classRow]] = await pool.query(
+        `
+        SELECT COUNT(*) AS classBookings
+        FROM booking
+        WHERE memberId = ?
+        `,
+        [member.id]
+      );
+
+      member.classInfo = {
+        totalClassesBooked: classRow?.classBookings || 0
+      };
+    }
+
+    /* =========================
+       4️⃣ STATISTICS
+    ========================= */
     let active = 0;
-    let expired = 0;
     let completed = 0;
 
     members.forEach(member => {
-      if (member.membershipTo && new Date(member.membershipTo) >= currentDate) {
+      if (member.sessionInfo.remainingSessions > 0) {
         active++;
-      } else if (member.membershipTo && new Date(member.membershipTo) < currentDate) {
-        expired++;
+      } else {
         completed++;
       }
     });
 
+    /* =========================
+       5️⃣ FINAL RESPONSE
+    ========================= */
     return {
       plan,
       members,
       statistics: {
         active,
-        expired,
-        completed
+        completed,
+        totalMembers: members.length
       }
     };
+
   } catch (error) {
     throw error;
   }
