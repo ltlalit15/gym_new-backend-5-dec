@@ -4,10 +4,9 @@ import { pool } from "../../config/db.js";
  * CLASS TYPES
  **************************************/
 export const createClassTypeService = async (name) => {
-  const [result] = await pool.query(
-    "INSERT INTO classtype (name) VALUES (?)",
-    [name]
-  );
+  const [result] = await pool.query("INSERT INTO classtype (name) VALUES (?)", [
+    name,
+  ]);
 };
 
 export const getTrainersService = async () => {
@@ -28,9 +27,7 @@ export const getTrainersService = async () => {
 };
 
 export const listClassTypesService = async () => {
-  const [rows] = await pool.query(
-    "SELECT * FROM classtype ORDER BY id DESC"
-  );
+  const [rows] = await pool.query("SELECT * FROM classtype ORDER BY id DESC");
   return rows;
 };
 
@@ -39,7 +36,7 @@ export const listClassTypesService = async () => {
  **************************************/
 export const createScheduleService = async (data) => {
   const {
-    branchId = null,          // ✅ NOT REQUIRED NOW
+    adminId,
     className,
     trainerId,
     date,
@@ -53,6 +50,7 @@ export const createScheduleService = async (data) => {
   } = data;
 
   /* BASIC VALIDATIONS */
+  if (!adminId) throw { status: 400, message: "Admin is required" };
   if (!className) throw { status: 400, message: "Class name is required" };
   if (!trainerId) throw { status: 400, message: "Trainer is required" };
   if (!date) throw { status: 400, message: "Date is required" };
@@ -63,10 +61,10 @@ export const createScheduleService = async (data) => {
   /* INSERT */
   const [result] = await pool.query(
     `INSERT INTO classschedule
-      (branchId, className, trainerId, date, day, startTime, endTime, capacity, status, members, price)
+      (adminId, className, trainerId, date, day, startTime, endTime, capacity, status, members, price)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      branchId,                 // ✅ NULL allowed
+      adminId, // ✅ NULL allowed
       className,
       trainerId,
       date,
@@ -82,7 +80,7 @@ export const createScheduleService = async (data) => {
 
   return {
     id: result.insertId,
-    branchId,
+    adminId,
     className,
     trainerId,
     date,
@@ -96,10 +94,6 @@ export const createScheduleService = async (data) => {
   };
 };
 
-
-
-
-
 /**************************************
  * SCHEDULE LIST
  **************************************/
@@ -108,9 +102,9 @@ export const listSchedulesService = async (branchId) => {
     `SELECT cs.*, u.fullName AS trainerName
      FROM classschedule cs
      LEFT JOIN user u ON cs.trainerId = u.id
-     WHERE cs.branchId = ?
+     WHERE cs.adminId = ?
      ORDER BY cs.date ASC`,
-    [branchId]
+    [adminId]
   );
   return rows;
 };
@@ -227,25 +221,130 @@ export const bookClassService = async (memberId, scheduleId) => {
   };
 };
 
+// export const getScheduledClassesWithBookingStatusService = async (userId) => {
+//   /* ================================
+//      1️⃣ map userId → member.id
+//   ================================= */
+//   const [memberRows] = await pool.query(
+//     "SELECT id FROM member WHERE userId = ? AND status = 'ACTIVE'",
+//     [userId]
+//   );
 
-export const getScheduledClassesWithBookingStatusService = async (userId) => {
+//   if (memberRows.length === 0) {
+//     throw { status: 400, message: "Active member not found" };
+//   }
+
+//   const memberId = memberRows[0].id;
+
+//   /* ================================
+//      2️⃣ fetch schedules + booking status
+//      🔥 ONLY_FULL_GROUP_BY SAFE QUERY
+//   ================================= */
+//   const [rows] = await pool.query(
+//     `
+//     SELECT
+//       cs.id,
+//       cs.className,
+//       cs.date,
+//       cs.day,
+//       cs.startTime,
+//       cs.endTime,
+//       cs.status,
+//       cs.capacity,
+
+//       u.fullName AS trainerName,
+//       b.name AS branchName,
+
+//       COUNT(bk2.id) AS membersCount,
+
+//       -- 🔥 FIX: aggregate use kiya
+//       MAX(bk.id) AS bookingId
+
+//     FROM classschedule cs
+
+//     LEFT JOIN user u
+//       ON cs.trainerId = u.id
+
+//     LEFT JOIN branch b
+//       ON cs.branchId = b.id
+
+//     -- member-specific booking
+//     LEFT JOIN booking bk
+//       ON bk.scheduleId = cs.id
+//      AND bk.memberId = ?
+
+//     -- total members booking count
+//     LEFT JOIN booking bk2
+//       ON bk2.scheduleId = cs.id
+
+//     GROUP BY
+//       cs.id,
+//       cs.className,
+//       cs.date,
+//       cs.day,
+//       cs.startTime,
+//       cs.endTime,
+//       cs.status,
+//       cs.capacity,
+//       u.fullName,
+//       b.name
+
+//     ORDER BY cs.id DESC
+//     `,
+//     [memberId]
+//   );
+
+//   /* ================================
+//      3️⃣ response formatting
+//   ================================= */
+//   return rows.map((item) => ({
+//     id: item.id,
+//     className: item.className,
+//     date: item.date,
+//     day: item.day,
+//     time: `${item.startTime} - ${item.endTime}`,
+//     trainer: item.trainerName,
+//     branch: item.branchName,
+//     status: item.status,
+//     capacity: item.capacity,
+//     membersCount: item.membersCount,
+
+//     // ✅ booking status
+//     isBooked: item.bookingId !== null,
+//     bookingId: item.bookingId,
+//   }));
+// };
+
+export const getScheduledClassesWithBookingStatusService = async (
+  memberId,
+  adminId
+) => {
   /* ================================
-     1️⃣ map userId → member.id
+     1️⃣ check member (OPTIONAL)
+     ❌ do NOT block if not found
   ================================= */
-  const [memberRows] = await pool.query(
-    "SELECT id FROM member WHERE userId = ? AND status = 'ACTIVE'",
-    [userId]
-  );
+  let validMemberId = null;
 
-  if (memberRows.length === 0) {
-    throw { status: 400, message: "Active member not found" };
+  if (memberId) {
+    const [memberRows] = await pool.query(
+      `
+      SELECT id
+      FROM member
+      WHERE id = ?
+        AND adminId = ?
+        AND status = 'ACTIVE'
+      `,
+      [memberId, adminId]
+    );
+
+    if (memberRows.length > 0) {
+      validMemberId = memberId;
+    }
   }
 
-  const memberId = memberRows[0].id;
-
   /* ================================
-     2️⃣ fetch schedules + booking status
-     🔥 ONLY_FULL_GROUP_BY SAFE QUERY
+     2️⃣ fetch schedules created by admin
+     + booking status (if member valid)
   ================================= */
   const [rows] = await pool.query(
     `
@@ -260,29 +359,38 @@ export const getScheduledClassesWithBookingStatusService = async (userId) => {
       cs.capacity,
 
       u.fullName AS trainerName,
-      b.name AS branchName,
 
       COUNT(bk2.id) AS membersCount,
 
-      -- 🔥 FIX: aggregate use kiya
-      MAX(bk.id) AS bookingId
+      MAX(bk.id) AS bookingId,
+
+      mu.id AS bookedUserId,
+      mu.fullName AS bookedMemberName,
+      mu.email AS bookedMemberEmail,
+      mu.phone AS bookedMemberPhone
 
     FROM classschedule cs
 
+    -- trainer
     LEFT JOIN user u 
       ON cs.trainerId = u.id
 
-    LEFT JOIN branch b 
-      ON cs.branchId = b.id
-
-    -- member-specific booking
-    LEFT JOIN booking bk 
+    -- booking ONLY if member is valid
+    LEFT JOIN booking bk
       ON bk.scheduleId = cs.id
      AND bk.memberId = ?
 
-    -- total members booking count
-    LEFT JOIN booking bk2 
+    LEFT JOIN member m
+      ON m.id = bk.memberId
+
+    LEFT JOIN user mu
+      ON mu.id = m.userId
+
+    -- total bookings
+    LEFT JOIN booking bk2
       ON bk2.scheduleId = cs.id
+
+    WHERE cs.adminId = ?
 
     GROUP BY 
       cs.id,
@@ -294,15 +402,18 @@ export const getScheduledClassesWithBookingStatusService = async (userId) => {
       cs.status,
       cs.capacity,
       u.fullName,
-      b.name
+      mu.id,
+      mu.fullName,
+      mu.email,
+      mu.phone
 
     ORDER BY cs.id DESC
     `,
-    [memberId]
+    [validMemberId, adminId]
   );
 
   /* ================================
-     3️⃣ response formatting
+     3️⃣ response (classes ALWAYS shown)
   ================================= */
   return rows.map((item) => ({
     id: item.id,
@@ -311,14 +422,21 @@ export const getScheduledClassesWithBookingStatusService = async (userId) => {
     day: item.day,
     time: `${item.startTime} - ${item.endTime}`,
     trainer: item.trainerName,
-    branch: item.branchName,
     status: item.status,
     capacity: item.capacity,
     membersCount: item.membersCount,
 
-    // ✅ booking status
     isBooked: item.bookingId !== null,
     bookingId: item.bookingId,
+
+    bookedMember: item.bookingId
+      ? {
+          id: item.bookedUserId,
+          name: item.bookedMemberName,
+          email: item.bookedMemberEmail,
+          phone: item.bookedMemberPhone,
+        }
+      : null,
   }));
 };
 
@@ -330,10 +448,7 @@ export const cancelBookingService = async (memberId, scheduleId) => {
   const existing = existingRows[0];
   if (!existing) throw { status: 400, message: "No booking found" };
 
-  await pool.query(
-    "DELETE FROM booking WHERE id = ?",
-    [existing.id]
-  );
+  await pool.query("DELETE FROM booking WHERE id = ?", [existing.id]);
 
   return true;
 };
@@ -360,11 +475,9 @@ export const getAllScheduledClassesService = async (adminId) => {
     SELECT 
       cs.*,
       u.fullName AS trainerName,
-      b.name AS branchName,
       (SELECT COUNT(*) FROM booking bk WHERE bk.scheduleId = cs.id) AS membersCount
     FROM classschedule cs
     LEFT JOIN user u ON cs.trainerId = u.id
-    LEFT JOIN branch b ON cs.branchId = b.id
     WHERE u.adminId = ?        -- ✅ ADMIN FILTER
     ORDER BY cs.id DESC
     `,
@@ -375,7 +488,6 @@ export const getAllScheduledClassesService = async (adminId) => {
     id: item.id,
     className: item.className,
     trainer: item.trainerName,
-    branch: item.branchName,
     date: item.date,
     time: `${item.startTime} - ${item.endTime}`,
     day: item.day,
@@ -384,13 +496,11 @@ export const getAllScheduledClassesService = async (adminId) => {
   }));
 };
 
-
 export const getScheduleByIdService = async (id) => {
   const [rows] = await pool.query(
-    `SELECT cs.*, u.fullName AS trainerName, b.name AS branchName
+    `SELECT cs.*, u.fullName AS trainerName
      FROM classschedule cs
      LEFT JOIN user u ON cs.trainerId = u.id
-     LEFT JOIN branch b ON cs.branchId = b.id
      WHERE cs.id = ?`,
     [id]
   );
@@ -446,7 +556,6 @@ export const updateScheduleService = async (id, data) => {
   const values = [];
 
   for (const key of [
-    "branchId",
     "className",
     "trainerId",
     "date",
@@ -456,10 +565,9 @@ export const updateScheduleService = async (id, data) => {
     "capacity",
     "status",
     "members",
-    "price" 
+    "price",
   ]) {
     if (data[key] !== undefined && data[key] !== null) {
-
       let value = data[key];
 
       // Convert members JSON
@@ -471,8 +579,8 @@ export const updateScheduleService = async (id, data) => {
       if (key === "date") {
         value = new Date(value)
           .toISOString()
-          .slice(0, 23)        // keep milliseconds for datetime(3)
-          .replace("T", " ");  // replace T with space
+          .slice(0, 23) // keep milliseconds for datetime(3)
+          .replace("T", " "); // replace T with space
       }
 
       fields.push(`${key} = ?`);
@@ -495,7 +603,7 @@ export const updateScheduleService = async (id, data) => {
 // service: getPersonalAndGeneralTrainersService
 // export const getPersonalAndGeneralTrainersService = async () => {
 //   const [rows] = await pool.query(
-//     `SELECT 
+//     `SELECT
 //        u.id,
 //        u.fullName,
 //        u.email,
@@ -514,7 +622,7 @@ export const updateScheduleService = async (id, data) => {
 //   if (!aid) throw { status: 400, message: "adminId is required" };
 
 //   const [rows] = await pool.query(
-//     `SELECT 
+//     `SELECT
 //        u.id,
 //        u.fullName,
 //        u.email,
@@ -575,18 +683,10 @@ export const deleteScheduleService = async (id) => {
   if (!existing) throw { status: 404, message: "Class schedule not found" };
 
   // Delete bookings first
-  await pool.query(
-    "DELETE FROM booking WHERE scheduleId = ?",
-    [id]
-  );
+  await pool.query("DELETE FROM booking WHERE scheduleId = ?", [id]);
 
   // Delete schedule
-  await pool.query(
-    "DELETE FROM classschedule WHERE id = ?",
-    [id]
-  );
+  await pool.query("DELETE FROM classschedule WHERE id = ?", [id]);
 
   return true;
 };
-
-

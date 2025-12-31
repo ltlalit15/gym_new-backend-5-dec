@@ -10,9 +10,9 @@ import {
   getScheduleByIdService,
   updateScheduleService,
   deleteScheduleService,
-   getTrainersService,
-    getPersonalAndGeneralTrainersService,
-    getScheduledClassesWithBookingStatusService
+  getTrainersService,
+  getPersonalAndGeneralTrainersService,
+  getScheduledClassesWithBookingStatusService,
 } from "./class.service.js";
 
 export const createClassType = async (req, res, next) => {
@@ -33,7 +33,6 @@ export const getTrainers = async (req, res, next) => {
   }
 };
 
-
 export const listClassTypes = async (req, res, next) => {
   try {
     const r = await listClassTypesService();
@@ -52,8 +51,6 @@ export const listClassTypes = async (req, res, next) => {
 //   }
 // };
 
-
-
 export const createSchedule = async (req, res) => {
   try {
     const schedule = await createScheduleService(req.body);
@@ -63,7 +60,6 @@ export const createSchedule = async (req, res) => {
       message: "Class schedule created successfully!",
       data: schedule,
     });
-
   } catch (error) {
     console.error("Create Schedule Error:", error);
 
@@ -73,7 +69,6 @@ export const createSchedule = async (req, res) => {
     });
   }
 };
-
 
 export const listSchedules = async (req, res, next) => {
   try {
@@ -88,7 +83,6 @@ export const listSchedules = async (req, res, next) => {
 export const bookClass = async (req, res, next) => {
   try {
     const { memberId, scheduleId } = req.body;
-  
 
     if (!memberId || !scheduleId) {
       return res.status(400).json({
@@ -121,12 +115,11 @@ export const bookClass = async (req, res, next) => {
         trainerName: schedule.trainerName,
         trainerExpertise: schedule.trainerExpertise, // agar field banayi hai
         price: schedule.price,
-        
+
         durationMinutes: schedule.durationMinutes,
         branchName: schedule.branchName,
       },
     });
-
   } catch (error) {
     console.error("Book Class Error:", error);
     return res.status(error.status || 500).json({
@@ -136,18 +129,50 @@ export const bookClass = async (req, res, next) => {
   }
 };
 
+// export const getScheduledClassesWithBookingStatus = async (req, res) => {
+//   try {
+//     const { memberId } = req.params; // frontend se userId aa raha hai
+
+//     if (!memberId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "memberId is required",
+//       });
+//     }
+
+//     const data = await getScheduledClassesWithBookingStatusService(memberId);
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Scheduled classes fetched successfully",
+//       data,
+//     });
+//   } catch (error) {
+//     console.error("Get Classes With Booking Status Error:", error);
+
+//     return res.status(error.status || 500).json({
+//       success: false,
+//       message: error.message || "Something went wrong",
+//     });
+//   }
+// };
+
 export const getScheduledClassesWithBookingStatus = async (req, res) => {
   try {
-    const { memberId } = req.params; // frontend se userId aa raha hai
+    const { memberId } = req.params;
+    const { adminId } = req.query;
 
-    if (!memberId) {
+    if (!memberId || !adminId) {
       return res.status(400).json({
         success: false,
-        message: "memberId is required",
+        message: "memberId and adminId are required",
       });
     }
 
-    const data = await getScheduledClassesWithBookingStatusService(memberId);
+    const data = await getScheduledClassesWithBookingStatusService(
+      memberId,
+      adminId
+    );
 
     return res.status(200).json({
       success: true,
@@ -163,8 +188,6 @@ export const getScheduledClassesWithBookingStatus = async (req, res) => {
     });
   }
 };
-
-
 
 export const cancelBooking = async (req, res, next) => {
   try {
@@ -186,8 +209,6 @@ export const memberBookings = async (req, res, next) => {
   }
 };
 
-
-
 // export const getAllScheduledClasses = async (req, res) => {
 //   try {
 //     const schedules = await getAllScheduledClassesService();
@@ -208,7 +229,6 @@ export const memberBookings = async (req, res, next) => {
 //   }
 // };
 
-
 export const getAllScheduledClasses = async (req, res) => {
   try {
     const { adminId } = req.params;
@@ -220,7 +240,6 @@ export const getAllScheduledClasses = async (req, res) => {
       message: "Scheduled classes fetched successfully",
       data: schedules,
     });
-
   } catch (error) {
     console.error("Get All Scheduled Classes Error:", error);
     return res.status(500).json({
@@ -229,10 +248,6 @@ export const getAllScheduledClasses = async (req, res) => {
     });
   }
 };
-
-
-
-
 
 export const getScheduleById = async (req, res) => {
   try {
@@ -245,7 +260,6 @@ export const getScheduleById = async (req, res) => {
       message: "Class schedule fetched successfully",
       data: schedule,
     });
-
   } catch (error) {
     console.error("Get Schedule By ID Error:", error);
 
@@ -255,8 +269,6 @@ export const getScheduleById = async (req, res) => {
     });
   }
 };
-
-
 
 export const updateSchedule = async (req, res) => {
   try {
@@ -269,7 +281,6 @@ export const updateSchedule = async (req, res) => {
       message: "Class schedule updated successfully",
       data: updatedSchedule,
     });
-
   } catch (error) {
     console.error("Update Schedule Error:", error);
 
@@ -280,21 +291,19 @@ export const updateSchedule = async (req, res) => {
   }
 };
 
-
 export const getPersonalAndGeneralTrainers = async (req, res, next) => {
   try {
     const { adminId } = req.query;
     const trainers = await getPersonalAndGeneralTrainersService(adminId);
     return res.status(200).json({
       success: true,
-      trainers
+      trainers,
     });
   } catch (err) {
     console.error("Get Personal/General Trainers Error:", err);
     next(err);
   }
 };
-
 
 export const deleteSchedule = async (req, res) => {
   try {
@@ -306,7 +315,6 @@ export const deleteSchedule = async (req, res) => {
       success: true,
       message: "Scheduled class deleted successfully!",
     });
-
   } catch (error) {
     console.error("Delete Schedule Error:", error);
 
@@ -316,6 +324,3 @@ export const deleteSchedule = async (req, res) => {
     });
   }
 };
-
-
-
