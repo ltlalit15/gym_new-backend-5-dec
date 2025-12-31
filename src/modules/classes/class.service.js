@@ -487,6 +487,8 @@ export const getAllScheduledClassesService = async (adminId) => {
   return rows.map((item) => ({
     id: item.id,
     className: item.className,
+    trainerId: item.trainerId,   
+    trainerName: item.trainerName,      
     trainer: item.trainerName,
     date: item.date,
     time: `${item.startTime} - ${item.endTime}`,

@@ -137,7 +137,7 @@ export const getPersonalTrainingPlansByAdminService = async (adminId) => {
 export const getPersonalTrainingCustomersByAdminService = async (adminId, planId) => {
   try {
     /* =========================
-       1️⃣ FETCH PLAN
+       1️⃣ FETCH PLAN (VALIDATION)
     ========================= */
     const planQuery = `
       SELECT 
@@ -196,14 +196,15 @@ export const getPersonalTrainingCustomersByAdminService = async (adminId, planId
     const [members] = await pool.query(membersQuery, [adminId, planId]);
 
     /* =========================
-       3️⃣ PT + CLASS CALCULATION
+       3️⃣ SESSION CALCULATION
+       (PT + CLASS BOTH)
     ========================= */
     for (const member of members) {
 
-      /* 🔥 PT SESSIONS (unified_bookings) */
+      /* 🔹 PT SESSIONS (Completed only) */
       const [[ptRow]] = await pool.query(
         `
-        SELECT COUNT(*) AS usedSessions
+        SELECT COUNT(*) AS ptUsedSessions
         FROM unified_bookings
         WHERE memberId = ?
           AND bookingType = 'PT'
@@ -212,18 +213,9 @@ export const getPersonalTrainingCustomersByAdminService = async (adminId, planId
         [member.id]
       );
 
-      const usedSessions = ptRow?.usedSessions || 0;
-      const totalSessions = plan.sessions;
-      const remainingSessions = Math.max(totalSessions - usedSessions, 0);
+      const ptUsedSessions = ptRow?.ptUsedSessions || 0;
 
-      member.sessionInfo = {
-        totalSessions,
-        usedSessions,
-        remainingSessions,
-        renewRequired: remainingSessions === 0
-      };
-
-      /* 🔥 CLASS BOOKINGS (booking table) */
+      /* 🔹 CLASS BOOKINGS (consume sessions) */
       const [[classRow]] = await pool.query(
         `
         SELECT COUNT(*) AS classBookings
@@ -233,8 +225,22 @@ export const getPersonalTrainingCustomersByAdminService = async (adminId, planId
         [member.id]
       );
 
+      const classBookings = classRow?.classBookings || 0;
+
+      /* 🔹 FINAL SESSION LOGIC */
+      const totalSessions = plan.sessions;
+      const usedSessions = ptUsedSessions + classBookings;
+      const remainingSessions = Math.max(totalSessions - usedSessions, 0);
+
+      member.sessionInfo = {
+        totalSessions,
+        usedSessions,
+        remainingSessions,
+        renewRequired: remainingSessions === 0
+      };
+
       member.classInfo = {
-        totalClassesBooked: classRow?.classBookings || 0
+        totalClassesBooked: classBookings
       };
     }
 
@@ -269,3 +275,4 @@ export const getPersonalTrainingCustomersByAdminService = async (adminId, planId
     throw error;
   }
 };
+
