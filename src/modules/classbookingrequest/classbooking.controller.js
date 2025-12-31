@@ -1289,48 +1289,6 @@ export const createUnifiedBooking = async (req, res) => {
       });
     }
 
-
-    /* =========================
-   🔒 SESSION LIMIT CHECK
-========================= */
-
-// 1️⃣ Get member plan & allowed sessions
-const [[planData]] = await pool.query(
-  `
-  SELECT mp.sessions
-  FROM member m
-  JOIN memberplan mp ON mp.id = m.planId
-  WHERE m.id = ?
-  `,
-  [memberId]
-);
-
-if (!planData) {
-  return res.status(400).json({
-    success: false,
-    message: "Member plan not found"
-  });
-}
-
-// 2️⃣ Count already used sessions
-const [[usage]] = await pool.query(
-  `
-  SELECT COUNT(*) AS usedSessions
-  FROM unified_bookings
-  WHERE memberId = ?
-    AND bookingStatus != 'CANCELLED'
-  `,
-  [memberId]
-);
-
-// 3️⃣ Block if limit exceeded
-if (usage.usedSessions >= planData.sessions) {
-  return res.status(400).json({
-    success: false,
-    message: "Plan session limit exceeded"
-  });
-}
-
     /* =========================
        4️⃣ 🔥 TRAINER AVAILABILITY CHECK
     ========================= */
@@ -2222,22 +2180,13 @@ export const getPTBookingsByAdminId = async (req, res) => {
   try {
     const { adminId } = req.params;
 
-    // 1️⃣ Check admin exist & get his branch
-    const [adminData] = await pool.query(
-      `SELECT branchId FROM user WHERE id = ? LIMIT 1`,
-      [adminId]
-    );
-
-    if (adminData.length === 0) {
-      return res.status(404).json({
+    if (!adminId) {
+      return res.status(400).json({
         success: false,
-        message: "Admin not found"
+        message: "adminId is required"
       });
     }
 
-    const branchId = adminData[0].branchId;
-
-    // 2️⃣ Get ONLY PT bookings + session name
     const [bookings] = await pool.query(
       `
       SELECT 
@@ -2249,11 +2198,16 @@ export const getPTBookingsByAdminId = async (req, res) => {
       LEFT JOIN member m ON m.id = ub.memberId
       LEFT JOIN user t ON t.id = ub.trainerId
       LEFT JOIN session s ON s.id = ub.sessionId
-      WHERE ub.branchId = ?
-      AND ub.bookingType = 'PT'
+      WHERE ub.bookingType = 'PT'
+        AND (
+          s.adminId = ?
+          OR ub.trainerId IN (
+            SELECT id FROM user WHERE adminId = ?
+          )
+        )
       ORDER BY ub.date DESC
       `,
-      [branchId]
+      [adminId, adminId]
     );
 
     return res.json({
@@ -2263,11 +2217,12 @@ export const getPTBookingsByAdminId = async (req, res) => {
     });
 
   } catch (error) {
-    console.log("Error fetching PT bookings:", error);
-    res.status(500).json({
+    console.error("Error fetching PT bookings:", error);
+    return res.status(500).json({
       success: false,
       message: "Internal server error"
     });
   }
 };
+
 
