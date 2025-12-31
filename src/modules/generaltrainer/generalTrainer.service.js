@@ -440,7 +440,6 @@ export const getClassPerformanceReportService = async (adminId) => {
     /* ------------------------------------------------
        4️⃣ CLASS PERFORMANCE (LAST 7 DAYS)
     ------------------------------------------------ */
-<<<<<<< HEAD
     // const [studentAttendanceByClass] = await pool.query(
     //   `
     //   SELECT
@@ -465,11 +464,6 @@ export const getClassPerformanceReportService = async (adminId) => {
       `
   SELECT
     cs.id AS scheduleId,
-=======
-   const [studentAttendanceByClass] = await pool.query(
-  `
-  SELECT
->>>>>>> bf7098eb851d4d560d12e46aa84f42e2670853bc
     cs.className,
     cs.date,
     cs.capacity,
@@ -477,7 +471,6 @@ export const getClassPerformanceReportService = async (adminId) => {
   FROM classschedule cs
   LEFT JOIN booking b ON cs.id = b.scheduleId
   WHERE
-<<<<<<< HEAD
     cs.adminId = ?
     AND DATE(cs.date) BETWEEN DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND CURDATE()
   GROUP BY
@@ -487,16 +480,6 @@ export const getClassPerformanceReportService = async (adminId) => {
   `,
       [adminId]
     );
-=======
-    DATE(cs.date) BETWEEN DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND CURDATE()
-  GROUP BY cs.id, cs.className, cs.date, cs.capacity
-  ORDER BY cs.date DESC
-  LIMIT 10
-  `
-);
-
-
->>>>>>> bf7098eb851d4d560d12e46aa84f42e2670853bc
     /* ------------------------------------------------
        5️⃣ FORMAT RESPONSE
     ------------------------------------------------ */
@@ -528,10 +511,9 @@ export const getClassPerformanceReportService = async (adminId) => {
   } catch (error) {
     console.error("Error fetching class performance report:", error);
     throw {
-  status: 500,
-  message: error.message || "Failed to fetch class performance report",
-};
-
+      status: 500,
+      message: error.message || "Failed to fetch class performance report",
+    };
   }
 };
 
