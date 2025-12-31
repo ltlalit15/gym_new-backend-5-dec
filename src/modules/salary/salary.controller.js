@@ -23,7 +23,17 @@ export const createSalary = async (req, res) => {
 // ====== GET ALL ======
 export const getAllSalaries = async (req, res) => {
   try {
-    const data = await getAllSalariesService();
+    const adminId = Number(req.params.adminId);
+
+    if (!adminId) {
+      return res.status(400).json({
+        success: false,
+        message: "adminId is required"
+      });
+    }
+
+    const data = await getAllSalariesService(adminId);
+
     return res.json({ success: true, data });
   } catch (error) {
     console.error("Get All Salaries Error:", error);
@@ -33,6 +43,7 @@ export const getAllSalaries = async (req, res) => {
     });
   }
 };
+
 
 
 // ====== GET BY ID ======

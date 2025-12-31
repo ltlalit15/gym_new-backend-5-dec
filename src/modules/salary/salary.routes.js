@@ -33,7 +33,7 @@ const router = express.Router();
 router.post("/create", createSalary);
 
 // GET ALL
-router.get("/", getAllSalaries);
+router.get("/:adminId", getAllSalaries);
 
 // GET BY STAFF (specific -> keep before :salaryId)
 router.get("/staff/:staffId", getSalaryByStaffId);
