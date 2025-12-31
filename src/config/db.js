@@ -1,3 +1,4 @@
+
 // import mysql from "mysql2";
 // import dotenv from "dotenv";
 // dotenv.config();
@@ -26,7 +27,6 @@
 //   .catch((err) => {
 //     console.error("❌ MySQL connection failed:", err.message);
 //   });
-
 // live database
 import mysql from "mysql2";
 import dotenv from "dotenv";
