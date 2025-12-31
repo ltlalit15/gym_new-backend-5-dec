@@ -467,14 +467,35 @@ export const getClassPerformanceReportService = async (adminId) => {
     cs.className,
     cs.date,
     cs.capacity,
+
+    cs.trainerId,
+    u.fullName AS trainerName,
+    r.name AS trainerRole,
+
     COUNT(DISTINCT b.memberId) AS bookedCount
   FROM classschedule cs
-  LEFT JOIN booking b ON cs.id = b.scheduleId
+  LEFT JOIN booking b 
+    ON cs.id = b.scheduleId
+
+  LEFT JOIN user u 
+    ON cs.trainerId = u.id
+
+  LEFT JOIN role r 
+    ON u.roleId = r.id
+
   WHERE
     cs.adminId = ?
     AND DATE(cs.date) BETWEEN DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND CURDATE()
+
   GROUP BY
-    cs.id, cs.className, cs.date, cs.capacity
+    cs.id,
+    cs.className,
+    cs.date,
+    cs.capacity,
+    cs.trainerId,
+    u.fullName,
+    r.name
+
   ORDER BY cs.date DESC
   LIMIT 10
   `,
@@ -492,6 +513,9 @@ export const getClassPerformanceReportService = async (adminId) => {
       return {
         className: item.className,
         date: new Date(item.date).toISOString().split("T")[0],
+        trainerId: item.trainerId,
+        trainerName: item.trainerName,
+        trainerRole: item.trainerRole,
         attendance: `${item.bookedCount}/${item.capacity}`,
         attendancePercentage,
       };
