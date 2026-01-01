@@ -30,12 +30,12 @@ export const getAdminDashboardService = async (adminId) => {
   // 3) Earnings overview (last 7 days) – from member.amountPaid
   const [earningRows] = await pool.query(
     `SELECT DATE(mp.createdAt) AS date,
-            SUM(mp.price) AS totalEarnings
+            SUM(m.amountPaid) AS totalEarnings
      FROM memberplan mp
      JOIN member m ON m.planId = mp.id
      WHERE m.adminId = ?
        AND (mp.type = 'PERSONAL' OR mp.trainerType = 'personal')
-       AND mp.createdAt >= CURDATE() - INTERVAL 6 DAY
+       AND mp.createdAt >= CURDATE() - INTERVAL 3 MONTH
      GROUP BY DATE(mp.createdAt)
      ORDER BY date`,
     [adminId]
@@ -47,28 +47,28 @@ export const getAdminDashboardService = async (adminId) => {
   }));
 
   // 4) Sessions overview (optional) – needs "session" table
+  // 4) Sessions overview – from session table (ADMIN based)
   let sessionsOverview = { completed: 0, upcoming: 0, cancelled: 0 };
 
   try {
     const [sessionRows] = await pool.query(
-      `SELECT s.status, COUNT(*) AS count
-       FROM session s
-       JOIN member m ON s.memberId = m.id
-       JOIN memberplan mp ON m.planId = mp.id
-       WHERE m.adminId = ?
-         AND (mp.type = 'PERSONAL' OR mp.trainerType = 'personal')
-       GROUP BY s.status`,
+      `SELECT LOWER(s.status) AS status, COUNT(*) AS count
+     FROM session s
+     WHERE s.adminId = ?
+     GROUP BY LOWER(s.status)`,
       [adminId]
     );
 
     sessionRows.forEach((row) => {
-      const s = (row.status || "").toLowerCase();
-      if (s === "completed") sessionsOverview.completed = row.count;
-      if (s === "upcoming") sessionsOverview.upcoming = row.count;
-      if (s === "cancelled") sessionsOverview.cancelled = row.count;
+      if (row.status === "complete" || row.status === "completed") {
+        sessionsOverview.completed = row.count;
+      } else if (row.status === "upcoming") {
+        sessionsOverview.upcoming = row.count;
+      } else if (row.status === "cancelled") {
+        sessionsOverview.cancelled = row.count;
+      }
     });
   } catch (e) {
-    // agar session table abhi nahi hai to error ignore kar dena
     sessionsOverview = null;
   }
 
@@ -102,31 +102,7 @@ export const getAdminDashboardService = async (adminId) => {
     recentActivities,
   };
 };
-// export const getPersonalTrainingPlansByAdminService = async (adminId) => {
-//   const [rows] = await pool.query(
-//     `
-//     SELECT
-//       p.id,
-//       p.name,
-//       p.sessions,
-//       p.validityDays,
-//       p.price,
-//       p.type,
-//       COUNT(m.id) AS customersCount
-//     FROM memberplan p
-//     LEFT JOIN member m
-//       ON m.planId = p.id
-//       AND m.status = 'ACTIVE'
-//       AND m.adminId = ?        -- yahi se "by admin" wala count aa raha hai
-//     GROUP BY p.id
-//     HAVING p.sessions IS NOT NULL AND p.sessions > 0   -- sirf training plans
-//     ORDER BY p.id DESC
-//     `,
-//     [adminId]
-//   );
-
-//   return rows;
-// };
+// ...existing code...
 
 export const getPersonalTrainingPlansByAdminService = async (adminId) => {
   const [rows] = await pool.query(
