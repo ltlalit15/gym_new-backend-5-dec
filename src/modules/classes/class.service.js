@@ -343,8 +343,8 @@ export const getScheduledClassesWithBookingStatusService = async (
   }
 
   /* ================================
-     2️⃣ fetch schedules created by admin
-     + booking status (if member valid)
+     2️⃣ fetch schedules by admin
+     ❌ branch completely removed
   ================================= */
   const [rows] = await pool.query(
     `
@@ -361,7 +361,6 @@ export const getScheduledClassesWithBookingStatusService = async (
       u.fullName AS trainerName,
 
       COUNT(bk2.id) AS membersCount,
-
       MAX(bk.id) AS bookingId,
 
       mu.id AS bookedUserId,
@@ -371,12 +370,15 @@ export const getScheduledClassesWithBookingStatusService = async (
 
     FROM classschedule cs
 
-    -- trainer (to get adminId)
+    -- trainer (admin filter)
     LEFT JOIN user u 
       ON cs.trainerId = u.id
 
+<<<<<<< HEAD
+=======
     
 
+>>>>>>> 8d62f3bb3b5c515f5d4a817794ca39211899977b
     -- booking ONLY if member is valid
     LEFT JOIN booking bk
       ON bk.scheduleId = cs.id
@@ -388,11 +390,15 @@ export const getScheduledClassesWithBookingStatusService = async (
     LEFT JOIN user mu
       ON mu.id = m.userId
 
-    -- total bookings
+    -- total bookings count
     LEFT JOIN booking bk2
       ON bk2.scheduleId = cs.id
 
+<<<<<<< HEAD
+    WHERE u.adminId = ?
+=======
     WHERE (u.adminId = ?)
+>>>>>>> 8d62f3bb3b5c515f5d4a817794ca39211899977b
 
     GROUP BY 
       cs.id,
@@ -411,11 +417,11 @@ export const getScheduledClassesWithBookingStatusService = async (
 
     ORDER BY cs.id DESC
     `,
-    [validMemberId, adminId, adminId]
+    [validMemberId, adminId]
   );
 
   /* ================================
-     3️⃣ response (classes ALWAYS shown)
+     3️⃣ response
   ================================= */
   return rows.map((item) => ({
     id: item.id,
@@ -441,6 +447,7 @@ export const getScheduledClassesWithBookingStatusService = async (
       : null,
   }));
 };
+
 
 export const cancelBookingService = async (memberId, scheduleId) => {
   const [existingRows] = await pool.query(

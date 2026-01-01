@@ -1,22 +1,49 @@
 // src/modules/dashboard/dashboard.service.js
 import { pool } from "../../config/db.js";
 
+
 export const getAdminDashboardService = async (adminId, trainerId) => {
-  /* 1️⃣ TOTAL ACTIVE MEMBERS */
+
+  /* ===============================
+     0️⃣ VALIDATE TRAINER (user table)
+  =============================== */
+  const [[trainer]] = await pool.query(
+    `
+    SELECT id
+    FROM user
+    WHERE id = ?
+      AND adminId = ?
+      AND roleId = 5
+    `,
+    [trainerId, adminId]
+  );
+
+  if (!trainer) {
+    throw {
+      status: 400,
+      message: "Invalid trainerId (roleId must be 5)",
+    };
+  }
+
+  /* ===============================
+     1️⃣ TOTAL ACTIVE MEMBERS
+  =============================== */
   const [[totalRow]] = await pool.query(
     `
     SELECT COUNT(*) AS totalMembers
     FROM member m
     JOIN memberplan mp ON m.planId = mp.id
     WHERE m.adminId = ?
-      AND m.trainerId = ?
+      AND mp.trainerId = ?
       AND m.status = 'Active'
       AND (mp.type = 'PERSONAL' OR mp.trainerType = 'personal')
     `,
     [adminId, trainerId]
   );
 
-  /* 2️⃣ TODAY CHECK-INS */
+  /* ===============================
+     2️⃣ TODAY CHECK-INS
+  =============================== */
   const [[checkRow]] = await pool.query(
     `
     SELECT COUNT(*) AS todaysCheckIns
@@ -24,14 +51,16 @@ export const getAdminDashboardService = async (adminId, trainerId) => {
     JOIN member m ON ma.memberId = m.userId
     JOIN memberplan mp ON m.planId = mp.id
     WHERE m.adminId = ?
-      AND m.trainerId = ?
+      AND mp.trainerId = ?
       AND DATE(ma.checkIn) = CURDATE()
       AND (mp.type = 'PERSONAL' OR mp.trainerType = 'personal')
     `,
     [adminId, trainerId]
   );
 
-  /* 3️⃣ EARNINGS (LAST 3 MONTHS) */
+  /* ===============================
+     3️⃣ EARNINGS (LAST 3 MONTHS)
+  =============================== */
   const [earningRows] = await pool.query(
     `
     SELECT DATE(mp.createdAt) AS date,
@@ -39,7 +68,7 @@ export const getAdminDashboardService = async (adminId, trainerId) => {
     FROM memberplan mp
     JOIN member m ON m.planId = mp.id
     WHERE m.adminId = ?
-      AND m.trainerId = ?
+      AND mp.trainerId = ?
       AND (mp.type = 'PERSONAL' OR mp.trainerType = 'personal')
       AND mp.createdAt >= CURDATE() - INTERVAL 3 MONTH
     GROUP BY DATE(mp.createdAt)
@@ -48,34 +77,34 @@ export const getAdminDashboardService = async (adminId, trainerId) => {
     [adminId, trainerId]
   );
 
-  /* 4️⃣ SESSIONS OVERVIEW */
+  /* ===============================
+     4️⃣ SESSIONS OVERVIEW
+  =============================== */
   let sessionsOverview = { completed: 0, upcoming: 0, cancelled: 0 };
 
-  try {
-    const [sessionRows] = await pool.query(
-      `
-      SELECT LOWER(status) AS status, COUNT(*) AS count
-      FROM session
-      WHERE adminId = ?
-        AND trainerId = ?
-      GROUP BY LOWER(status)
-      `,
-      [adminId, trainerId]
-    );
+  const [sessionRows] = await pool.query(
+    `
+    SELECT LOWER(status) AS status, COUNT(*) AS count
+    FROM session
+    WHERE adminId = ?
+      AND trainerId = ?
+    GROUP BY LOWER(status)
+    `,
+    [adminId, trainerId]
+  );
 
-    sessionRows.forEach((row) => {
-      if (["complete", "completed"].includes(row.status))
-        sessionsOverview.completed = row.count;
-      else if (row.status === "upcoming")
-        sessionsOverview.upcoming = row.count;
-      else if (row.status === "cancelled")
-        sessionsOverview.cancelled = row.count;
-    });
-  } catch (e) {
-    sessionsOverview = null;
-  }
+  sessionRows.forEach((row) => {
+    if (["complete", "completed"].includes(row.status))
+      sessionsOverview.completed = row.count;
+    else if (row.status === "upcoming")
+      sessionsOverview.upcoming = row.count;
+    else if (row.status === "cancelled")
+      sessionsOverview.cancelled = row.count;
+  });
 
-  /* 5️⃣ RECENT ACTIVITIES */
+  /* ===============================
+     5️⃣ RECENT ACTIVITIES
+  =============================== */
   const [activityRows] = await pool.query(
     `
     SELECT ma.id, m.fullName, ma.checkIn, ma.status, ma.mode, ma.notes
@@ -83,7 +112,7 @@ export const getAdminDashboardService = async (adminId, trainerId) => {
     JOIN member m ON ma.memberId = m.userId
     JOIN memberplan mp ON m.planId = mp.id
     WHERE m.adminId = ?
-      AND m.trainerId = ?
+      AND mp.trainerId = ?
       AND (mp.type = 'PERSONAL' OR mp.trainerType = 'personal')
     ORDER BY ma.checkIn DESC
     LIMIT 5
@@ -109,6 +138,8 @@ export const getAdminDashboardService = async (adminId, trainerId) => {
     })),
   };
 };
+
+
 
 // export const getPersonalTrainingPlansByAdminService = async (adminId) => {
 //   const [rows] = await pool.query(
@@ -137,15 +168,23 @@ export const getAdminDashboardService = async (adminId, trainerId) => {
 // };
 
 
-export const getPersonalTrainingPlansByAdminService = async (adminId) => {
+export const getPersonalTrainingPlansByAdminService = async (
+  adminId,
+  trainerId
+) => {
   const [rows] = await pool.query(
     `
-    SELECT * FROM memberplan  WHERE adminId = ? `,
-    [adminId]
+    SELECT *
+    FROM memberplan
+    WHERE adminId = ?
+      AND trainerId = ?
+    `,
+    [adminId, trainerId]
   );
 
   return rows;
 };
+
 
 export const getPersonalTrainingCustomersByAdminService = async (adminId, planId) => {
   try {

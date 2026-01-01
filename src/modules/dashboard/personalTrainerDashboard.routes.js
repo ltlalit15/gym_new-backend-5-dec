@@ -15,7 +15,7 @@ router.get(
 
 
 router.get(
-  "/admin/:adminId/plans",
+  "/admin/:adminId/trainer/:trainerId/plans",
   // verifyToken(["Admin", "Superadmin"]),
   getPersonalTrainingPlansByAdmin
 );
