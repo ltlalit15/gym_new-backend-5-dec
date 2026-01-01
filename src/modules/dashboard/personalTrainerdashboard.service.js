@@ -5,8 +5,11 @@ export const getAdminDashboardService = async (adminId) => {
   // 1) Total active members for this admin
   const [[totalRow]] = await pool.query(
     `SELECT COUNT(*) AS totalMembers
-     FROM member
-     WHERE adminId = ? AND status = 'Active'`,
+     FROM member m
+     JOIN memberplan mp ON m.planId = mp.id
+     WHERE m.adminId = ?
+       AND m.status = 'Active'
+       AND (mp.type = 'PERSONAL' OR mp.trainerType = 'personal')`,
     [adminId]
   );
   const totalMembers = totalRow.totalMembers || 0;
@@ -15,29 +18,32 @@ export const getAdminDashboardService = async (adminId) => {
   const [[checkRow]] = await pool.query(
     `SELECT COUNT(*) AS todaysCheckIns
      FROM memberattendance ma
-     JOIN member m ON ma.memberId = m.id
+     JOIN member m ON ma.memberId = m.userId
+     JOIN memberplan mp ON m.planId = mp.id
      WHERE m.adminId = ?
-       AND DATE(ma.checkIn) = CURDATE()`,
+       AND DATE(ma.checkIn) = CURDATE()
+       AND (mp.type = 'PERSONAL' OR mp.trainerType = 'personal')`,
     [adminId]
   );
   const todaysCheckIns = checkRow.todaysCheckIns || 0;
 
   // 3) Earnings overview (last 7 days) – from member.amountPaid
   const [earningRows] = await pool.query(
-    `SELECT 
-        DATE(membershipFrom) AS date,
-        SUM(amountPaid)      AS totalEarnings
-     FROM member
-     WHERE adminId = ?
-       AND membershipFrom >= CURDATE() - INTERVAL 6 DAY
-     GROUP BY DATE(membershipFrom)
+    `SELECT DATE(mp.createdAt) AS date,
+            SUM(mp.price) AS totalEarnings
+     FROM memberplan mp
+     JOIN member m ON m.planId = mp.id
+     WHERE m.adminId = ?
+       AND (mp.type = 'PERSONAL' OR mp.trainerType = 'personal')
+       AND mp.createdAt >= CURDATE() - INTERVAL 6 DAY
+     GROUP BY DATE(mp.createdAt)
      ORDER BY date`,
     [adminId]
   );
 
   const earningsOverview = earningRows.map((r) => ({
-    date: r.date,                      // e.g. "2025-12-01"
-    total: Number(r.totalEarnings || 0)
+    date: r.date, // e.g. "2025-12-01"
+    total: Number(r.totalEarnings || 0),
   }));
 
   // 4) Sessions overview (optional) – needs "session" table
@@ -45,10 +51,13 @@ export const getAdminDashboardService = async (adminId) => {
 
   try {
     const [sessionRows] = await pool.query(
-      `SELECT status, COUNT(*) AS count
-       FROM session
-       WHERE adminId = ?
-       GROUP BY status`,
+      `SELECT s.status, COUNT(*) AS count
+       FROM session s
+       JOIN member m ON s.memberId = m.id
+       JOIN memberplan mp ON m.planId = mp.id
+       WHERE m.adminId = ?
+         AND (mp.type = 'PERSONAL' OR mp.trainerType = 'personal')
+       GROUP BY s.status`,
       [adminId]
     );
 
@@ -65,16 +74,12 @@ export const getAdminDashboardService = async (adminId) => {
 
   // 5) Recent activities – last 5 check-ins
   const [activityRows] = await pool.query(
-    `SELECT 
-        ma.id,
-        m.fullName,
-        ma.checkIn,
-        ma.status,
-        ma.mode,
-        ma.notes
+    `SELECT ma.id, m.fullName, ma.checkIn, ma.status, ma.mode, ma.notes
      FROM memberattendance ma
-     JOIN member m ON ma.memberId = m.id
+     JOIN member m ON ma.memberId = m.userId
+     JOIN memberplan mp ON m.planId = mp.id
      WHERE m.adminId = ?
+       AND (mp.type = 'PERSONAL' OR mp.trainerType = 'personal')
      ORDER BY ma.checkIn DESC
      LIMIT 5`,
     [adminId]
@@ -123,7 +128,6 @@ export const getAdminDashboardService = async (adminId) => {
 //   return rows;
 // };
 
-
 export const getPersonalTrainingPlansByAdminService = async (adminId) => {
   const [rows] = await pool.query(
     `
@@ -134,7 +138,10 @@ export const getPersonalTrainingPlansByAdminService = async (adminId) => {
   return rows;
 };
 
-export const getPersonalTrainingCustomersByAdminService = async (adminId, planId) => {
+export const getPersonalTrainingCustomersByAdminService = async (
+  adminId,
+  planId
+) => {
   try {
     /* =========================
        1️⃣ FETCH PLAN (VALIDATION)
@@ -158,7 +165,9 @@ export const getPersonalTrainingCustomersByAdminService = async (adminId, planId
     const [planResult] = await pool.query(planQuery, [planId]);
 
     if (!planResult.length) {
-      const error = new Error("Membership plan for personal training not found");
+      const error = new Error(
+        "Membership plan for personal training not found"
+      );
       error.statusCode = 404;
       throw error;
     }
@@ -200,7 +209,6 @@ export const getPersonalTrainingCustomersByAdminService = async (adminId, planId
        (PT + CLASS BOTH)
     ========================= */
     for (const member of members) {
-
       /* 🔹 PT SESSIONS (Completed only) */
       const [[ptRow]] = await pool.query(
         `
@@ -236,11 +244,11 @@ export const getPersonalTrainingCustomersByAdminService = async (adminId, planId
         totalSessions,
         usedSessions,
         remainingSessions,
-        renewRequired: remainingSessions === 0
+        renewRequired: remainingSessions === 0,
       };
 
       member.classInfo = {
-        totalClassesBooked: classBookings
+        totalClassesBooked: classBookings,
       };
     }
 
@@ -250,7 +258,7 @@ export const getPersonalTrainingCustomersByAdminService = async (adminId, planId
     let active = 0;
     let completed = 0;
 
-    members.forEach(member => {
+    members.forEach((member) => {
       if (member.sessionInfo.remainingSessions > 0) {
         active++;
       } else {
@@ -267,12 +275,10 @@ export const getPersonalTrainingCustomersByAdminService = async (adminId, planId
       statistics: {
         active,
         completed,
-        totalMembers: members.length
-      }
+        totalMembers: members.length,
+      },
     };
-
   } catch (error) {
     throw error;
   }
 };
-
