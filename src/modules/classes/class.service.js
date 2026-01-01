@@ -374,6 +374,11 @@ export const getScheduledClassesWithBookingStatusService = async (
     LEFT JOIN user u 
       ON cs.trainerId = u.id
 
+<<<<<<< HEAD
+=======
+    
+
+>>>>>>> 8d62f3bb3b5c515f5d4a817794ca39211899977b
     -- booking ONLY if member is valid
     LEFT JOIN booking bk
       ON bk.scheduleId = cs.id
@@ -389,7 +394,11 @@ export const getScheduledClassesWithBookingStatusService = async (
     LEFT JOIN booking bk2
       ON bk2.scheduleId = cs.id
 
+<<<<<<< HEAD
     WHERE u.adminId = ?
+=======
+    WHERE (u.adminId = ?)
+>>>>>>> 8d62f3bb3b5c515f5d4a817794ca39211899977b
 
     GROUP BY 
       cs.id,
@@ -487,8 +496,8 @@ export const getAllScheduledClassesService = async (adminId) => {
   return rows.map((item) => ({
     id: item.id,
     className: item.className,
-    trainerId: item.trainerId,   
-    trainerName: item.trainerName,      
+    trainerId: item.trainerId,
+    trainerName: item.trainerName,
     trainer: item.trainerName,
     date: item.date,
     time: `${item.startTime} - ${item.endTime}`,
