@@ -374,11 +374,6 @@ export const getScheduledClassesWithBookingStatusService = async (
     LEFT JOIN user u 
       ON cs.trainerId = u.id
 
-<<<<<<< HEAD
-=======
-    
-
->>>>>>> 8d62f3bb3b5c515f5d4a817794ca39211899977b
     -- booking ONLY if member is valid
     LEFT JOIN booking bk
       ON bk.scheduleId = cs.id
@@ -394,11 +389,7 @@ export const getScheduledClassesWithBookingStatusService = async (
     LEFT JOIN booking bk2
       ON bk2.scheduleId = cs.id
 
-<<<<<<< HEAD
     WHERE u.adminId = ?
-=======
-    WHERE (u.adminId = ?)
->>>>>>> 8d62f3bb3b5c515f5d4a817794ca39211899977b
 
     GROUP BY 
       cs.id,
@@ -447,7 +438,6 @@ export const getScheduledClassesWithBookingStatusService = async (
       : null,
   }));
 };
-
 
 export const cancelBookingService = async (memberId, scheduleId) => {
   const [existingRows] = await pool.query(
