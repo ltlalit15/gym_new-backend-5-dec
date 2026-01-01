@@ -1,108 +1,141 @@
 // src/modules/dashboard/dashboard.service.js
 import { pool } from "../../config/db.js";
 
-export const getAdminDashboardService = async (adminId) => {
-  // 1) Total active members for this admin
+export const getAdminDashboardService = async (adminId, trainerId) => {
+  /* 1️⃣ TOTAL ACTIVE MEMBERS */
   const [[totalRow]] = await pool.query(
-    `SELECT COUNT(*) AS totalMembers
-     FROM member m
-     JOIN memberplan mp ON m.planId = mp.id
-     WHERE m.adminId = ?
-       AND m.status = 'Active'
-       AND (mp.type = 'PERSONAL' OR mp.trainerType = 'personal')`,
-    [adminId]
+    `
+    SELECT COUNT(*) AS totalMembers
+    FROM member m
+    JOIN memberplan mp ON m.planId = mp.id
+    WHERE m.adminId = ?
+      AND m.trainerId = ?
+      AND m.status = 'Active'
+      AND (mp.type = 'PERSONAL' OR mp.trainerType = 'personal')
+    `,
+    [adminId, trainerId]
   );
-  const totalMembers = totalRow.totalMembers || 0;
 
-  // 2) Today's check-ins from memberattendance
+  /* 2️⃣ TODAY CHECK-INS */
   const [[checkRow]] = await pool.query(
-    `SELECT COUNT(*) AS todaysCheckIns
-     FROM memberattendance ma
-     JOIN member m ON ma.memberId = m.userId
-     JOIN memberplan mp ON m.planId = mp.id
-     WHERE m.adminId = ?
-       AND DATE(ma.checkIn) = CURDATE()
-       AND (mp.type = 'PERSONAL' OR mp.trainerType = 'personal')`,
-    [adminId]
+    `
+    SELECT COUNT(*) AS todaysCheckIns
+    FROM memberattendance ma
+    JOIN member m ON ma.memberId = m.userId
+    JOIN memberplan mp ON m.planId = mp.id
+    WHERE m.adminId = ?
+      AND m.trainerId = ?
+      AND DATE(ma.checkIn) = CURDATE()
+      AND (mp.type = 'PERSONAL' OR mp.trainerType = 'personal')
+    `,
+    [adminId, trainerId]
   );
-  const todaysCheckIns = checkRow.todaysCheckIns || 0;
 
-  // 3) Earnings overview (last 7 days) – from member.amountPaid
+  /* 3️⃣ EARNINGS (LAST 3 MONTHS) */
   const [earningRows] = await pool.query(
-    `SELECT DATE(mp.createdAt) AS date,
-            SUM(m.amountPaid) AS totalEarnings
-     FROM memberplan mp
-     JOIN member m ON m.planId = mp.id
-     WHERE m.adminId = ?
-       AND (mp.type = 'PERSONAL' OR mp.trainerType = 'personal')
-       AND mp.createdAt >= CURDATE() - INTERVAL 3 MONTH
-     GROUP BY DATE(mp.createdAt)
-     ORDER BY date`,
-    [adminId]
+    `
+    SELECT DATE(mp.createdAt) AS date,
+           SUM(m.amountPaid) AS totalEarnings
+    FROM memberplan mp
+    JOIN member m ON m.planId = mp.id
+    WHERE m.adminId = ?
+      AND m.trainerId = ?
+      AND (mp.type = 'PERSONAL' OR mp.trainerType = 'personal')
+      AND mp.createdAt >= CURDATE() - INTERVAL 3 MONTH
+    GROUP BY DATE(mp.createdAt)
+    ORDER BY date
+    `,
+    [adminId, trainerId]
   );
 
-  const earningsOverview = earningRows.map((r) => ({
-    date: r.date, // e.g. "2025-12-01"
-    total: Number(r.totalEarnings || 0),
-  }));
-
-  // 4) Sessions overview (optional) – needs "session" table
-  // 4) Sessions overview – from session table (ADMIN based)
+  /* 4️⃣ SESSIONS OVERVIEW */
   let sessionsOverview = { completed: 0, upcoming: 0, cancelled: 0 };
 
   try {
     const [sessionRows] = await pool.query(
-      `SELECT LOWER(s.status) AS status, COUNT(*) AS count
-     FROM session s
-     WHERE s.adminId = ?
-     GROUP BY LOWER(s.status)`,
-      [adminId]
+      `
+      SELECT LOWER(status) AS status, COUNT(*) AS count
+      FROM session
+      WHERE adminId = ?
+        AND trainerId = ?
+      GROUP BY LOWER(status)
+      `,
+      [adminId, trainerId]
     );
 
     sessionRows.forEach((row) => {
-      if (row.status === "complete" || row.status === "completed") {
+      if (["complete", "completed"].includes(row.status))
         sessionsOverview.completed = row.count;
-      } else if (row.status === "upcoming") {
+      else if (row.status === "upcoming")
         sessionsOverview.upcoming = row.count;
-      } else if (row.status === "cancelled") {
+      else if (row.status === "cancelled")
         sessionsOverview.cancelled = row.count;
-      }
     });
   } catch (e) {
     sessionsOverview = null;
   }
 
-  // 5) Recent activities – last 5 check-ins
+  /* 5️⃣ RECENT ACTIVITIES */
   const [activityRows] = await pool.query(
-    `SELECT ma.id, m.fullName, ma.checkIn, ma.status, ma.mode, ma.notes
-     FROM memberattendance ma
-     JOIN member m ON ma.memberId = m.userId
-     JOIN memberplan mp ON m.planId = mp.id
-     WHERE m.adminId = ?
-       AND (mp.type = 'PERSONAL' OR mp.trainerType = 'personal')
-     ORDER BY ma.checkIn DESC
-     LIMIT 5`,
-    [adminId]
+    `
+    SELECT ma.id, m.fullName, ma.checkIn, ma.status, ma.mode, ma.notes
+    FROM memberattendance ma
+    JOIN member m ON ma.memberId = m.userId
+    JOIN memberplan mp ON m.planId = mp.id
+    WHERE m.adminId = ?
+      AND m.trainerId = ?
+      AND (mp.type = 'PERSONAL' OR mp.trainerType = 'personal')
+    ORDER BY ma.checkIn DESC
+    LIMIT 5
+    `,
+    [adminId, trainerId]
   );
 
-  const recentActivities = activityRows.map((row) => ({
-    id: row.id,
-    memberName: row.fullName,
-    time: row.checkIn,
-    status: row.status,
-    mode: row.mode,
-    notes: row.notes,
-  }));
-
   return {
-    totalMembers,
-    todaysCheckIns,
-    earningsOverview,
+    totalMembers: totalRow.totalMembers || 0,
+    todaysCheckIns: checkRow.todaysCheckIns || 0,
+    earningsOverview: earningRows.map((r) => ({
+      date: r.date,
+      total: Number(r.totalEarnings || 0),
+    })),
     sessionsOverview,
-    recentActivities,
+    recentActivities: activityRows.map((row) => ({
+      id: row.id,
+      memberName: row.fullName,
+      time: row.checkIn,
+      status: row.status,
+      mode: row.mode,
+      notes: row.notes,
+    })),
   };
 };
-// ...existing code...
+
+// export const getPersonalTrainingPlansByAdminService = async (adminId) => {
+//   const [rows] = await pool.query(
+//     `
+//     SELECT
+//       p.id,
+//       p.name,
+//       p.sessions,
+//       p.validityDays,
+//       p.price,
+//       p.type,
+//       COUNT(m.id) AS customersCount
+//     FROM memberplan p
+//     LEFT JOIN member m
+//       ON m.planId = p.id
+//       AND m.status = 'ACTIVE'
+//       AND m.adminId = ?        -- yahi se "by admin" wala count aa raha hai
+//     GROUP BY p.id
+//     HAVING p.sessions IS NOT NULL AND p.sessions > 0   -- sirf training plans
+//     ORDER BY p.id DESC
+//     `,
+//     [adminId]
+//   );
+
+//   return rows;
+// };
+
 
 export const getPersonalTrainingPlansByAdminService = async (adminId) => {
   const [rows] = await pool.query(
@@ -114,10 +147,7 @@ export const getPersonalTrainingPlansByAdminService = async (adminId) => {
   return rows;
 };
 
-export const getPersonalTrainingCustomersByAdminService = async (
-  adminId,
-  planId
-) => {
+export const getPersonalTrainingCustomersByAdminService = async (adminId, planId) => {
   try {
     /* =========================
        1️⃣ FETCH PLAN (VALIDATION)
@@ -141,9 +171,7 @@ export const getPersonalTrainingCustomersByAdminService = async (
     const [planResult] = await pool.query(planQuery, [planId]);
 
     if (!planResult.length) {
-      const error = new Error(
-        "Membership plan for personal training not found"
-      );
+      const error = new Error("Membership plan for personal training not found");
       error.statusCode = 404;
       throw error;
     }
@@ -185,6 +213,7 @@ export const getPersonalTrainingCustomersByAdminService = async (
        (PT + CLASS BOTH)
     ========================= */
     for (const member of members) {
+
       /* 🔹 PT SESSIONS (Completed only) */
       const [[ptRow]] = await pool.query(
         `
@@ -220,11 +249,11 @@ export const getPersonalTrainingCustomersByAdminService = async (
         totalSessions,
         usedSessions,
         remainingSessions,
-        renewRequired: remainingSessions === 0,
+        renewRequired: remainingSessions === 0
       };
 
       member.classInfo = {
-        totalClassesBooked: classBookings,
+        totalClassesBooked: classBookings
       };
     }
 
@@ -234,7 +263,7 @@ export const getPersonalTrainingCustomersByAdminService = async (
     let active = 0;
     let completed = 0;
 
-    members.forEach((member) => {
+    members.forEach(member => {
       if (member.sessionInfo.remainingSessions > 0) {
         active++;
       } else {
@@ -251,10 +280,12 @@ export const getPersonalTrainingCustomersByAdminService = async (
       statistics: {
         active,
         completed,
-        totalMembers: members.length,
-      },
+        totalMembers: members.length
+      }
     };
+
   } catch (error) {
     throw error;
   }
 };
+

@@ -69,8 +69,39 @@ export const getMemberProfileService = async (userId) => {
   m.address_state = addr[2]?.trim() || "";
   m.address_zip = addr[3]?.trim() || "";
 
+  // ✅ Fetch all assigned plans from member_plan_assignment
+  const [assignedPlans] = await pool.query(
+    `SELECT 
+      mpa.id AS assignmentId,
+      mpa.planId,
+      mpa.membershipFrom,
+      mpa.membershipTo,
+      mpa.paymentMode,
+      mpa.amountPaid,
+      mpa.status,
+      mpa.assignedAt,
+      mp.name AS planName,
+      mp.sessions,
+      mp.validityDays,
+      mp.price,
+      mp.type AS planType,
+      mp.trainerType,
+      DATEDIFF(mpa.membershipTo, CURDATE()) AS remainingDays,
+      CASE
+        WHEN mpa.membershipTo < CURDATE() THEN 'Expired'
+        WHEN mpa.membershipTo >= CURDATE() THEN 'Active'
+        ELSE mpa.status
+      END AS computedStatus
+    FROM member_plan_assignment mpa
+    JOIN memberplan mp ON mpa.planId = mp.id
+    WHERE mpa.memberId = ?
+    ORDER BY mpa.membershipFrom DESC`,
+    [m.memberId]
+  );
+
   return {
     userId: m.userId,
+    memberId: m.memberId, // ✅ Return memberId in profile response
     fullName: m.fullName,
     first_name: m.first_name,
     last_name: m.last_name,
@@ -89,13 +120,14 @@ export const getMemberProfileService = async (userId) => {
     date_of_birth: m.date_of_birth,
     plan_start_date: m.plan_start_date,
     plan_end_date: m.plan_end_date,
-    membership_plan: m.membership_plan,
+    membership_plan: m.membership_plan, // Keep for backward compatibility
     membership_fee: m.membership_fee,
     plan_duration: m.plan_duration,
     membership_status: m.memberStatus,
     paymentMode: m.paymentMode,
     interestedIn: m.interestedIn,
-    amountPaid: m.amountPaid
+    amountPaid: m.amountPaid,
+    assignedPlans: assignedPlans || [] // ✅ Multiple plans array
   };
 };
 

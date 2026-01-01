@@ -8,7 +8,11 @@ import { getPersonalTrainerDashboard,
 const router = Router();
 
 // Personal Trainer Dashboard
-router.get("/trainer/:adminId", getPersonalTrainerDashboard);
+router.get(
+  "/trainer/:adminId/:trainerId",
+  getPersonalTrainerDashboard
+);
+
 
 router.get(
   "/admin/:adminId/plans",

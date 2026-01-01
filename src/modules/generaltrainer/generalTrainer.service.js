@@ -961,8 +961,7 @@ export const getDashboardDataService = async (adminId) => {
         DATE(ma.checkIn) AS date,
         COUNT(*) AS count
       FROM memberattendance ma
-      JOIN member m ON ma.memberId = m.id
-      JOIN user u ON m.userId = u.id
+      JOIN user u ON ma.memberId = u.id
       WHERE u.adminId = ?
         AND ma.checkIn >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
       GROUP BY DATE(ma.checkIn)
@@ -997,7 +996,7 @@ export const getDashboardDataService = async (adminId) => {
       SELECT cs.className, COUNT(cs.id) AS count
       FROM classschedule cs
       JOIN user u ON cs.trainerId = u.id
-      WHERE cs.adminId = ?
+      WHERE u.adminId = ?
         AND cs.date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
       GROUP BY cs.className
       `,
@@ -1025,7 +1024,7 @@ export const getDashboardDataService = async (adminId) => {
       FROM classschedule cs
       JOIN user u ON cs.trainerId = u.id
       LEFT JOIN booking b ON cs.id = b.scheduleId
-     WHERE cs.adminId = ?
+      WHERE u.adminId = ?
         AND DATE(cs.date) = CURRENT_DATE
       GROUP BY cs.id
       ORDER BY cs.startTime
@@ -1100,7 +1099,7 @@ export const getDashboardDataService = async (adminId) => {
         ) AS completed
       FROM classschedule cs
       JOIN user u ON cs.trainerId = u.id
-      WHERE cs.adminId = ?
+      WHERE u.adminId = ?
         AND cs.date >= DATE_SUB(CURRENT_DATE(), INTERVAL WEEKDAY(CURRENT_DATE()) DAY)
         AND cs.date < DATE_ADD(
               DATE_SUB(CURRENT_DATE(), INTERVAL WEEKDAY(CURRENT_DATE()) DAY),

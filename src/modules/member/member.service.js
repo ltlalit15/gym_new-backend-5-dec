@@ -12,6 +12,7 @@ export const createMemberService = async (data) => {
     password,
     phone,
     planId,
+    planIds, // NEW: Support multiple plans
     membershipFrom,
     dateOfBirth,
     paymentMode,
@@ -46,7 +47,10 @@ export const createMemberService = async (data) => {
   const startDate = membershipFrom ? new Date(membershipFrom) : new Date();
   let endDate = null;
 
-  // Membership End Date (Based on Plan Duration)
+  // Backward compatibility: Handle single planId
+  let firstPlanId = planId;
+
+  // Membership End Date (Based on Plan Duration) - for backward compatibility
   if (planId) {
     const [planRows] = await pool.query(
       "SELECT * FROM memberplan WHERE id = ?",
@@ -76,7 +80,7 @@ export const createMemberService = async (data) => {
       email,
       hashedPassword,
       phone || null,
-      4, // roleId = 3 = MEMBER
+      4, // roleId = 4 = MEMBER
       branchId || null,
       address || null,
       dateOfBirth ? new Date(dateOfBirth) : null,
@@ -101,7 +105,7 @@ export const createMemberService = async (data) => {
       email,
       hashedPassword,
       phone || null,
-      planId || null,
+      firstPlanId || null,
       startDate,
       endDate,
       dateOfBirth ? new Date(dateOfBirth) : null,
@@ -115,10 +119,90 @@ export const createMemberService = async (data) => {
     ]
   );
 
+  const memberId = memberRes.insertId;
+
+  // ---------------------------------------------------
+  // 3️⃣ NEW: INSERT MULTIPLE PLANS INTO member_plan_assignment
+  // ---------------------------------------------------
+  
+  // Ensure planIds is an array of numbers
+  let plansToAssign = [];
+  
+  if (planIds && Array.isArray(planIds) && planIds.length > 0) {
+    // Already an array, convert to numbers
+    plansToAssign = planIds.map(id => Number(id)).filter(id => !isNaN(id) && id > 0);
+  } else if (planId) {
+    // Fallback to single planId
+    plansToAssign = [Number(planId)].filter(id => !isNaN(id) && id > 0);
+  }
+
+  console.log('📋 Plans to assign:', plansToAssign);
+  console.log('📋 planIds received:', planIds, 'Type:', typeof planIds);
+  console.log('📋 planId received:', planId);
+
+  const assignedPlans = [];
+
+  if (plansToAssign.length > 0) {
+    const amountPerPlan = amountPaid ? Number(amountPaid) / plansToAssign.length : null;
+    
+    for (const planIdNum of plansToAssign) {
+      const [planRows] = await pool.query(
+        "SELECT id, validityDays, price, name FROM memberplan WHERE id = ?",
+        [planIdNum]
+      );
+
+      if (planRows.length === 0) {
+        console.warn(`⚠️ Plan ${planIdNum} not found in memberplan table, skipping`);
+        continue;
+      }
+
+      const plan = planRows[0];
+      const planStartDate = new Date(startDate);
+      const planEndDate = new Date(planStartDate);
+      planEndDate.setDate(planEndDate.getDate() + Number(plan.validityDays || 30));
+
+      console.log(`✅ Inserting plan ${planIdNum} (${plan.name}) for member ${memberId}`);
+
+      try {
+        const [assignResult] = await pool.query(
+          `INSERT INTO member_plan_assignment 
+            (memberId, planId, membershipFrom, membershipTo, paymentMode, amountPaid, status, assignedBy, assignedAt)
+           VALUES (?, ?, ?, ?, ?, ?, 'Active', ?, NOW())`,
+          [
+            memberId,
+            planIdNum,
+            planStartDate,
+            planEndDate,
+            paymentMode || null,
+            amountPerPlan || plan.price,
+            adminId || null,
+          ]
+        );
+
+        assignedPlans.push({
+          assignmentId: assignResult.insertId,
+          planId: planIdNum,
+          planName: plan.name,
+          membershipFrom: planStartDate,
+          membershipTo: planEndDate,
+        });
+
+        console.log(`✅ Successfully inserted plan ${planIdNum}, assignment ID: ${assignResult.insertId}`);
+      } catch (insertError) {
+        console.error(`❌ Error inserting plan ${planIdNum}:`, insertError.message);
+        // Continue with other plans even if one fails
+      }
+    }
+  } else {
+    console.warn('⚠️ No plans to assign');
+  }
+
+  console.log(`✅ Total plans assigned: ${assignedPlans.length} out of ${plansToAssign.length} requested`);
+
   return {
     message: "Member created successfully",
     userId,
-    memberId: memberRes.insertId,
+    memberId,
     fullName,
     email,
     branchId,
@@ -127,6 +211,7 @@ export const createMemberService = async (data) => {
     status: "Active",
     dateOfBirth,
     profileImage,
+    assignedPlans, // NEW: Return assigned plans
   };
 };
 
@@ -362,6 +447,40 @@ export const memberDetailService = async (id) => {
     sessionState: isCompleted ? "No Session" : "Active",
   };
 
+  // ---------------------------------------------------
+  // NEW: Fetch all assigned plans from member_plan_assignment
+  // ---------------------------------------------------
+  const [assignedPlans] = await pool.query(
+    `SELECT 
+      mpa.id AS assignmentId,
+      mpa.planId,
+      mpa.membershipFrom,
+      mpa.membershipTo,
+      mpa.paymentMode,
+      mpa.amountPaid,
+      mpa.status,
+      mpa.assignedAt,
+      mp.name AS planName,
+      mp.sessions,
+      mp.validityDays,
+      mp.price,
+      mp.type AS planType,
+      mp.trainerType,
+      DATEDIFF(mpa.membershipTo, CURDATE()) AS remainingDays,
+      CASE
+        WHEN mpa.membershipTo < CURDATE() THEN 'Expired'
+        WHEN mpa.membershipTo >= CURDATE() THEN 'Active'
+        ELSE mpa.status
+      END AS computedStatus
+    FROM member_plan_assignment mpa
+    JOIN memberplan mp ON mpa.planId = mp.id
+    WHERE mpa.memberId = ?
+    ORDER BY mpa.membershipFrom DESC`,
+    [id]
+  );
+
+  member.assignedPlans = assignedPlans;
+
   return member;
 };
 
@@ -505,6 +624,7 @@ export const updateMemberService = async (id, data) => {
     phone = existing.phone,
     password,
     planId = existing.planId,
+    planIds, // NEW: Support multiple plans in edit
     membershipFrom = existing.membershipFrom,
     dateOfBirth = existing.dateOfBirth,
     paymentMode = existing.paymentMode,
@@ -529,9 +649,10 @@ export const updateMemberService = async (id, data) => {
   /* --------------------------------
      4️⃣ MEMBERSHIP DATES
   -------------------------------- */
+  // ✅ Use provided membershipFrom or current date for new plans
   const startDate = membershipFrom
     ? new Date(membershipFrom)
-    : existing.membershipFrom;
+    : (existing.membershipFrom ? new Date(existing.membershipFrom) : new Date());
 
   let endDate = existing.membershipTo;
 
@@ -628,6 +749,77 @@ export const updateMemberService = async (id, data) => {
   );
 
   /* --------------------------------
+     7️⃣ UPDATE MULTIPLE PLANS (if planIds provided)
+  -------------------------------- */
+  if (planIds && (Array.isArray(planIds) || typeof planIds === 'string')) {
+    // Parse planIds if string
+    let parsedPlanIds = planIds;
+    if (typeof planIds === 'string') {
+      try {
+        let parsed = planIds.trim();
+        if (parsed.startsWith('[') && parsed.endsWith(']')) {
+          parsedPlanIds = JSON.parse(parsed);
+        } else if (parsed.includes(',')) {
+          parsedPlanIds = parsed.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+        } else {
+          parsedPlanIds = [parseInt(parsed)].filter(id => !isNaN(id));
+        }
+      } catch (e) {
+        console.error('Error parsing planIds in update:', e);
+        parsedPlanIds = [];
+      }
+    }
+
+    if (Array.isArray(parsedPlanIds) && parsedPlanIds.length > 0) {
+      const plansToAssign = parsedPlanIds.map(id => Number(id)).filter(id => !isNaN(id) && id > 0);
+      
+      // ✅ Use provided startDate, or today's date (not old membershipFrom)
+      const startDateForPlans = startDate || new Date();
+      const amountPerPlan = amountPaid ? Number(amountPaid) / plansToAssign.length : null;
+      
+      console.log('📅 Start date for new plans:', startDateForPlans);
+
+      for (const planIdNum of plansToAssign) {
+        const [planRows] = await pool.query(
+          "SELECT id, validityDays, price FROM memberplan WHERE id = ?",
+          [planIdNum]
+        );
+
+        if (planRows.length === 0) continue;
+
+        const plan = planRows[0];
+        const planStartDate = new Date(startDateForPlans);
+        const planEndDate = new Date(planStartDate);
+        planEndDate.setDate(planEndDate.getDate() + Number(plan.validityDays || 30));
+
+        // Check if assignment already exists
+        const [existingAssign] = await pool.query(
+          "SELECT id FROM member_plan_assignment WHERE memberId = ? AND planId = ?",
+          [id, planIdNum]
+        );
+
+        if (existingAssign.length === 0) {
+          // Insert new assignment
+          await pool.query(
+            `INSERT INTO member_plan_assignment 
+              (memberId, planId, membershipFrom, membershipTo, paymentMode, amountPaid, status, assignedBy, assignedAt)
+             VALUES (?, ?, ?, ?, ?, ?, 'Active', ?, NOW())`,
+            [
+              id,
+              planIdNum,
+              planStartDate,
+              planEndDate,
+              paymentMode || null,
+              amountPerPlan || plan.price,
+              adminId || null,
+            ]
+          );
+        }
+      }
+    }
+  }
+
+  /* --------------------------------
      8️⃣ RETURN UPDATED MEMBER DETAIL
   -------------------------------- */
   return memberDetailService(id);
@@ -688,31 +880,7 @@ export const getMembersByAdminIdService = async (adminId) => {
       m.interestedIn,
       m.amountPaid,
       m.dateOfBirth,
-
-      -- ✅ STATUS depends on remainingDays
-      CASE
-        WHEN 
-          (
-            CASE
-              WHEN m.membershipTo IS NULL THEN 0
-              WHEN DATE(m.membershipFrom) > CURDATE() THEN 0
-              WHEN DATEDIFF(m.membershipTo, CURDATE()) < 0 THEN 0
-              ELSE DATEDIFF(m.membershipTo, CURDATE())
-            END
-          ) = 0
-        THEN 'Inactive'
-        ELSE 'Active'
-      END AS status,
-
-      u.profileImage,
-
-      -- ✅ REMAINING DAYS (FIXED)
-      CASE
-        WHEN m.membershipTo IS NULL THEN 0
-        WHEN DATE(m.membershipFrom) > CURDATE() THEN 0
-        WHEN DATEDIFF(m.membershipTo, CURDATE()) < 0 THEN 0
-        ELSE DATEDIFF(m.membershipTo, CURDATE())
-      END AS remainingDays
+      u.profileImage
 
     FROM member m
     JOIN user u ON u.id = m.userId
@@ -721,6 +889,51 @@ export const getMembersByAdminIdService = async (adminId) => {
     `,
     [adminId]
   );
+
+  // Fetch multiple plans for each member
+  for (const member of rows) {
+    const [plans] = await pool.query(
+      `SELECT 
+        mpa.id as assignmentId,
+        mpa.planId,
+        mpa.membershipFrom,
+        mpa.membershipTo,
+        mpa.status as assignmentStatus,
+        mpa.amountPaid,
+        mpa.paymentMode,
+        mp.name as planName,
+        mp.sessions,
+        mp.validityDays,
+        mp.price,
+        mp.type as planType,
+        DATEDIFF(mpa.membershipTo, CURDATE()) as remainingDays,
+        CASE
+          WHEN mpa.membershipTo < CURDATE() THEN 'Expired'
+          WHEN mpa.membershipTo >= CURDATE() THEN 'Active'
+          ELSE 'Inactive'
+        END AS computedStatus
+      FROM member_plan_assignment mpa
+      JOIN memberplan mp ON mpa.planId = mp.id
+      WHERE mpa.memberId = ?
+      ORDER BY mpa.membershipFrom DESC`,
+      [member.id]
+    );
+
+    member.assignedPlans = plans;
+    
+    // Calculate member status based on ALL plans
+    const hasActivePlan = plans.some(p => 
+      p.computedStatus === 'Active' && p.remainingDays > 0
+    );
+    
+    member.status = hasActivePlan ? 'Active' : 'Inactive';
+    
+    // Get maximum remaining days from all active plans
+    const activePlans = plans.filter(p => p.computedStatus === 'Active');
+    member.remainingDays = activePlans.length > 0 
+      ? Math.max(...activePlans.map(p => p.remainingDays))
+      : 0;
+  }
 
   return rows;
 };

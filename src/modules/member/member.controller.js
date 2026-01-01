@@ -23,6 +23,34 @@ export const createMember = async (req, res, next) => {
   try {
     let payload = { ...req.body };
 
+    // ✅ Parse planIds if it's a JSON string (from FormData)
+    if (payload.planIds) {
+      if (typeof payload.planIds === 'string') {
+        try {
+          // Handle both "[22,31,14]" and "22,31,14" formats
+          let parsed = payload.planIds.trim();
+          if (parsed.startsWith('[') && parsed.endsWith(']')) {
+            payload.planIds = JSON.parse(parsed);
+          } else if (parsed.includes(',')) {
+            // Handle comma-separated string "22,31,14"
+            payload.planIds = parsed.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+          } else {
+            // Single number string "22"
+            payload.planIds = [parseInt(parsed)].filter(id => !isNaN(id));
+          }
+        } catch (e) {
+          console.error('Error parsing planIds:', e, 'Raw value:', payload.planIds);
+          payload.planIds = [];
+        }
+      }
+      // If already array, ensure all are numbers
+      if (Array.isArray(payload.planIds)) {
+        payload.planIds = payload.planIds.map(id => Number(id)).filter(id => !isNaN(id) && id > 0);
+      }
+    }
+
+    console.log('📋 Parsed planIds:', payload.planIds);
+
     // ✅ profile image upload (optional)
     if (req.files?.profileImage) {
       const imageUrl = await uploadToCloudinary(
@@ -40,6 +68,7 @@ export const createMember = async (req, res, next) => {
       member: m,
     });
   } catch (err) {
+    console.error('❌ Error creating member:', err);
     next(err);
   }
 };
@@ -98,6 +127,30 @@ export const updateMember = async (req, res, next) => {
     const id = parseInt(req.params.id);
     let data = { ...req.body };
 
+    // ✅ Parse planIds if it's a JSON string (from FormData)
+    if (data.planIds) {
+      if (typeof data.planIds === 'string') {
+        try {
+          let parsed = data.planIds.trim();
+          if (parsed.startsWith('[') && parsed.endsWith(']')) {
+            data.planIds = JSON.parse(parsed);
+          } else if (parsed.includes(',')) {
+            data.planIds = parsed.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+          } else {
+            data.planIds = [parseInt(parsed)].filter(id => !isNaN(id));
+          }
+        } catch (e) {
+          console.error('Error parsing planIds in update:', e);
+          data.planIds = [];
+        }
+      }
+      if (Array.isArray(data.planIds)) {
+        data.planIds = data.planIds.map(id => Number(id)).filter(id => !isNaN(id) && id > 0);
+      }
+    }
+
+    console.log('📋 Update member planIds:', data.planIds);
+
     // ✅ profile image upload (optional)
     if (req.files?.profileImage) {
       const imageUrl = await uploadToCloudinary(
@@ -115,6 +168,7 @@ export const updateMember = async (req, res, next) => {
       member: updated,
     });
   } catch (err) {
+    console.error('❌ Error updating member:', err);
     next(err);
   }
 };

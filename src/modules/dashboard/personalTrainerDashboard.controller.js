@@ -7,14 +7,39 @@ import { getAdminDashboardService,
 export const getPersonalTrainerDashboard = async (req, res, next) => {
   try {
     const adminId = parseInt(req.params.adminId);
+    const trainerUserId = parseInt(req.params.trainerId); // user.id
 
-    if (!adminId) {
-      return res
-        .status(400)
-        .json({ success: false, message: "adminId is required" });
+    if (!adminId || !trainerUserId) {
+      return res.status(400).json({
+        success: false,
+        message: "adminId and trainerId are required",
+      });
     }
 
-    const data = await getAdminDashboardService(adminId);
+    // 🔍 1️⃣ VALIDATE TRAINER FROM USER TABLE (roleId = 5)
+    const [[trainerRow]] = await pool.query(
+      `
+      SELECT id
+      FROM user
+      WHERE id = ?
+        AND roleId = 5
+        AND adminId = ?
+        AND status = 'Active'
+      `,
+      [trainerUserId, adminId]
+    );
+
+    if (!trainerRow) {
+      return res.status(404).json({
+        success: false,
+        message: "Trainer not found or not assigned to this admin",
+      });
+    }
+
+    const trainerId = trainerRow.id; // ✅ confirmed trainer user.id
+
+    // 📊 2️⃣ FETCH DASHBOARD
+    const data = await getAdminDashboardService(adminId, trainerId);
 
     res.json({
       success: true,
@@ -26,6 +51,8 @@ export const getPersonalTrainerDashboard = async (req, res, next) => {
     next(err);
   }
 };
+
+
 
 export const getPersonalTrainingPlansByAdmin = async (req, res, next) => {
   try {

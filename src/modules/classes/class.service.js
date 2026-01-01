@@ -371,9 +371,13 @@ export const getScheduledClassesWithBookingStatusService = async (
 
     FROM classschedule cs
 
-    -- trainer
+    -- trainer (to get adminId)
     LEFT JOIN user u 
       ON cs.trainerId = u.id
+
+    -- branch (to get adminId if branchId exists)
+    LEFT JOIN branch b
+      ON cs.branchId = b.id
 
     -- booking ONLY if member is valid
     LEFT JOIN booking bk
@@ -390,7 +394,7 @@ export const getScheduledClassesWithBookingStatusService = async (
     LEFT JOIN booking bk2
       ON bk2.scheduleId = cs.id
 
-    WHERE cs.adminId = ?
+    WHERE (u.adminId = ? OR b.adminId = ?)
 
     GROUP BY 
       cs.id,
@@ -409,7 +413,7 @@ export const getScheduledClassesWithBookingStatusService = async (
 
     ORDER BY cs.id DESC
     `,
-    [validMemberId, adminId]
+    [validMemberId, adminId, adminId]
   );
 
   /* ================================

@@ -210,7 +210,7 @@ export const loginUser = async ({ email, password }) => {
 
   if (user.roleId === 4) { // MEMBER
     const [memberRows] = await pool.query(
-      `SELECT id, status, membershipTo FROM member WHERE userId = ? LIMIT 1`,
+      `SELECT id, status FROM member WHERE userId = ? LIMIT 1`,
       [user.id]
     );
 
@@ -224,11 +224,20 @@ export const loginUser = async ({ email, password }) => {
     const member = memberRows[0];
     memberId = member.id;
 
-    const currentDate = new Date();
-    const membershipToDate = new Date(member.membershipTo);
+    // ✅ Check if member has at least ONE active plan with valid dates
+    const [activePlans] = await pool.query(
+      `SELECT id, membershipTo 
+       FROM member_plan_assignment 
+       WHERE memberId = ? 
+         AND status = 'Active' 
+         AND membershipTo >= CURDATE()
+       LIMIT 1`,
+      [memberId]
+    );
 
-    // ❌ Membership expired
-    if (membershipToDate < currentDate) {
+    // ❌ No active plans found - all memberships expired
+    if (activePlans.length === 0) {
+      // Update member status to Inactive
       await pool.query(
         `UPDATE member SET status = 'Inactive' WHERE id = ?`,
         [member.id]
@@ -240,13 +249,7 @@ export const loginUser = async ({ email, password }) => {
       };
     }
 
-    // ❌ Membership inactive
-    if (member.status !== "Active") {
-      throw {
-        status: 403,
-        message: "Membership expired or inactive. Please renew your plan.",
-      };
-    }
+    // ✅ At least one active plan exists - member can login
   }
 
   /* ===============================

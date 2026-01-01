@@ -19,6 +19,7 @@ import inventoryRoutes from "../modules/inventory/inventory.routes.js";
 import purchaseRoutes from "../modules/purchase/purchase.routes.js";
 import sessionRoutes from "../modules/session/session.routes.js";
 import MemberPlan from "../modules/memberplan/memberPlan.routes.js";
+import memberPlanAssignmentRoutes from "../modules/memberPlanAssignment/memberPlanAssignment.routes.js";
 import SalaryRoutes from "../modules/salary/salary.routes.js";
 import houseKeepingRoutes from "../modules/houseKeppingtask/housekeepingtask.routes.js";
 import staffAttendanceRoutes from "../modules/staffAttendance/staffAttendance.routes.js";
@@ -32,7 +33,6 @@ import memberDeshboardRoutes from "../modules/member/memberDashboard.routes.js";
 
 import adminStaffAttendanceRoutes from "../modules/adminStaffAttendance/adminStaffAttendance.routes.js";
 import memberSelfRoutes from "../modules/member/memberSelf.routes.js";
-
 import personalTrainerDashboardRoutes from "../modules/dashboard/personalTrainerDashboard.routes.js";
 import reportsRoutes from "../modules/reports/reports.routes.js"
 import adminSettingsRoutes from "../modules/appSettings/appSetting.routes.js"
@@ -64,6 +64,7 @@ router.use("/invoices", invoiceRoutes);
 router.use("/inventory", inventoryRoutes);
 router.use("/purchases", purchaseRoutes);
 router.use("/MemberPlan", MemberPlan);
+router.use("/member-plan-assignments", memberPlanAssignmentRoutes);
 router.use("/sessions", sessionRoutes);
 router.use("/salaries", SalaryRoutes);
 router.use("/housekeepingtask", houseKeepingRoutes);
