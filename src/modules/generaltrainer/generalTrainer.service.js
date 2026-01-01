@@ -417,7 +417,7 @@ export const getClassPerformanceReportService = async (adminId) => {
       `
       SELECT COUNT(DISTINCT ma.memberId) AS count
       FROM memberattendance ma
-      JOIN member m ON ma.memberId = m.id
+      JOIN member m ON ma.memberId = m.userId
 
       WHERE 
         m.adminId = ?
