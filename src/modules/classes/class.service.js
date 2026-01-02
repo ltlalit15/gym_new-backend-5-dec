@@ -439,7 +439,6 @@ export const getScheduledClassesWithBookingStatusService = async (
   }));
 };
 
-
 export const cancelBookingService = async (memberId, scheduleId) => {
   const [existingRows] = await pool.query(
     "SELECT * FROM booking WHERE memberId = ? AND scheduleId = ?",
