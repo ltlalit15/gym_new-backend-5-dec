@@ -947,237 +947,146 @@ export const deleteAttendanceRecordService = async (id) => {
 //   }
 // };
 
-export const getDashboardDataService = async (adminId) => {
-  if (!adminId) throw { status: 400, message: "adminId is required" };
-
+export const getDashboardDataService = async ({ adminId, trainerId }) => {
   try {
     /* =========================
-       WEEKLY ATTENDANCE (7 DAYS)
-       memberattendance → user → adminId
+       1️⃣ VALIDATE TRAINER
     ========================= */
-    const [attendanceData] = await pool.query(
+    const [[trainer]] = await pool.query(
       `
-      SELECT 
-        DATE(ma.checkIn) AS date,
-        COUNT(*) AS count
-      FROM memberattendance ma
-      JOIN user u ON ma.memberId = u.id
-      WHERE u.adminId = ?
-        AND ma.checkIn >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
-      GROUP BY DATE(ma.checkIn)
-      ORDER BY date ASC
+      SELECT id, fullName
+      FROM user
+      WHERE id = ?
+        AND adminId = ?
+        AND roleId = 6
       `,
-      [adminId]
+      [trainerId, adminId]
     );
 
-    const weeklyAttendanceTrend = [];
-    const today = new Date();
-
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split("T")[0];
-
-      const dayData = attendanceData.find((x) => x.date === dateStr);
-
-      weeklyAttendanceTrend.push({
-        day: d.toLocaleDateString("en-US", { weekday: "short" }),
-        date: dateStr,
-        count: dayData ? dayData.count : 0,
-      });
+    if (!trainer) {
+      throw { status: 404, message: "Trainer not found" };
     }
 
     /* =========================
-       CLASS DISTRIBUTION (30 DAYS)
-       classschedule → trainer(user) → adminId
-    ========================= */
-    const [classData] = await pool.query(
-      `
-      SELECT cs.className, COUNT(cs.id) AS count
-      FROM classschedule cs
-      JOIN user u ON cs.trainerId = u.id
-      WHERE u.adminId = ?
-        AND cs.date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
-      GROUP BY cs.className
-      `,
-      [adminId]
-    );
-
-    const classDistribution = classData.map((c) => ({
-      name: c.className,
-      value: c.count,
-    }));
-
-    /* =========================
-       TODAY CLASSES
+       2️⃣ CLASSES TODAY
     ========================= */
     const [todayClasses] = await pool.query(
       `
       SELECT 
         cs.id,
+        cs.className,
         cs.startTime,
         cs.endTime,
-        cs.className,
-        u.fullName AS trainerName,
         cs.capacity,
         COUNT(b.id) AS bookedCount
       FROM classschedule cs
-      JOIN user u ON cs.trainerId = u.id
       LEFT JOIN booking b ON cs.id = b.scheduleId
-      WHERE u.adminId = ?
+      WHERE cs.trainerId = ?
         AND DATE(cs.date) = CURRENT_DATE
       GROUP BY cs.id
-      ORDER BY cs.startTime
       `,
-      [adminId]
+      [trainerId]
     );
 
-    const now = new Date();
-    const currentTime = `${now.getHours().toString().padStart(2, "0")}:${now
-      .getMinutes()
-      .toString()
-      .padStart(2, "0")}`;
-
-    let nextClass = null;
-    for (const cls of todayClasses) {
-      if (cls.startTime > currentTime) {
-        nextClass = { name: cls.className, time: cls.startTime };
-        break;
-      }
-    }
-
-    const classesToday = {
-      total: todayClasses.length,
-      next: nextClass
-        ? `${nextClass.name} at ${nextClass.time}`
-        : "No more classes today",
-    };
-
     /* =========================
-       ACTIVE MEMBERS
-       member → user → adminId
+       3️⃣ MEMBERS TO TRAIN (unique members)
     ========================= */
-    const [[activeMembers]] = await pool.query(
+    const [[membersToTrain]] = await pool.query(
       `
-      SELECT COUNT(*) AS count
-      FROM member m
-      JOIN user u ON m.userId = u.id
-      WHERE u.adminId = ?
-        AND m.status = 'ACTIVE'
+      SELECT COUNT(DISTINCT b.memberId) AS total
+      FROM booking b
+      JOIN classschedule cs ON b.scheduleId = cs.id
+      WHERE cs.trainerId = ?
       `,
-      [adminId]
+      [trainerId]
     );
 
     /* =========================
-       PENDING FEEDBACK (FIXED ✅)
-       alert → member → user → adminId
+       4️⃣ CLASSES THIS WEEK
     ========================= */
-    const [[pendingFeedback]] = await pool.query(
+    const [[classesThisWeek]] = await pool.query(
       `
-      SELECT COUNT(*) AS count
-      FROM alert a
-      JOIN member m ON a.memberId = m.id
-      JOIN user u ON m.userId = u.id
-      WHERE u.adminId = ?
-        AND a.type = 'FEEDBACK_REQUIRED'
+      SELECT COUNT(*) AS total
+      FROM classschedule
+      WHERE trainerId = ?
+        AND WEEK(date) = WEEK(CURRENT_DATE)
       `,
-      [adminId]
+      [trainerId]
     );
 
     /* =========================
-       CLASSES THIS WEEK
+       5️⃣ WEEKLY ATTENDANCE TREND
     ========================= */
-    const [[weekClasses]] = await pool.query(
+const [weeklyAttendance] = await pool.query(
+  `
+  SELECT 
+    DAYNAME(ma.checkIn) AS day,
+    COUNT(*) AS count
+  FROM memberattendance ma
+  JOIN member m ON ma.memberId = m.id
+  JOIN booking b ON b.memberId = m.id
+  JOIN classschedule cs ON b.scheduleId = cs.id
+  WHERE cs.trainerId = ?
+    AND ma.checkIn >= DATE_SUB(CURRENT_DATE, INTERVAL 6 DAY)
+  GROUP BY DAYNAME(ma.checkIn)
+  ORDER BY ma.checkIn
+  `,
+  [trainerId]
+);
+
+
+
+    /* =========================
+       6️⃣ CLASS DISTRIBUTION
+    ========================= */
+    const [classDistribution] = await pool.query(
       `
-      SELECT 
-        COUNT(*) AS total,
-        SUM(
-          CASE 
-            WHEN DATE(cs.date) < CURRENT_DATE THEN 1 
-            ELSE 0 
-          END
-        ) AS completed
-      FROM classschedule cs
-      JOIN user u ON cs.trainerId = u.id
-      WHERE u.adminId = ?
-        AND cs.date >= DATE_SUB(CURRENT_DATE(), INTERVAL WEEKDAY(CURRENT_DATE()) DAY)
-        AND cs.date < DATE_ADD(
-              DATE_SUB(CURRENT_DATE(), INTERVAL WEEKDAY(CURRENT_DATE()) DAY),
-              INTERVAL 7 DAY
-            )
+      SELECT className, COUNT(*) AS count
+      FROM classschedule
+      WHERE trainerId = ?
+      GROUP BY className
       `,
-      [adminId]
+      [trainerId]
     );
 
     /* =========================
-       TODAY DAILY SCHEDULE
+       7️⃣ WEEKLY SCHEDULE
     ========================= */
-    const [dailySchedule] = await pool.query(
+    const [weeklySchedule] = await pool.query(
       `
-      SELECT 
-        cs.id,
-        cs.startTime,
-        cs.endTime,
-        cs.className,
-        u.fullName AS trainerName,
-        cs.capacity,
-        COUNT(b.id) AS bookedCount,
-        CASE 
-          WHEN cs.endTime < TIME(NOW()) THEN 'Completed'
-          WHEN cs.startTime <= TIME(NOW()) 
-           AND cs.endTime >= TIME(NOW()) THEN 'In Progress'
-          ELSE 'Scheduled'
-        END AS status
-      FROM classschedule cs
-      JOIN user u ON cs.trainerId = u.id
-      LEFT JOIN booking b ON cs.id = b.scheduleId
-      WHERE u.adminId = ?
-        AND DATE(cs.date) = CURRENT_DATE
-      GROUP BY cs.id
-      ORDER BY cs.startTime
+      SELECT date, className, startTime, endTime
+      FROM classschedule
+      WHERE trainerId = ?
+        AND date BETWEEN CURRENT_DATE AND DATE_ADD(CURRENT_DATE, INTERVAL 6 DAY)
+      ORDER BY date, startTime
       `,
-      [adminId]
+      [trainerId]
     );
 
-    const dailyClassSchedule = dailySchedule.map((cls) => ({
-      id: cls.id,
-      time: `${cls.startTime} - ${cls.endTime}`,
-      className: cls.className,
-      trainer: cls.trainerName,
-      capacity: cls.capacity,
-      booked: cls.bookedCount,
-      status: cls.status,
-    }));
-
-    /* =========================
-       FINAL RESPONSE
-    ========================= */
     return {
-      weeklyAttendanceTrend,
+      trainer: {
+        id: trainer.id,
+        name: trainer.fullName,
+      },
+      stats: {
+        classesToday: todayClasses.length,
+        membersToTrain: membersToTrain.total || 0,
+        classesThisWeek: classesThisWeek.total || 0,
+      },
+      weeklyAttendance,
       classDistribution,
-      classesToday,
-      membersToTrain: {
-        count: activeMembers.count,
-        label: "Active members",
-      },
-      pendingFeedback: {
-        count: pendingFeedback.count,
-        label: "Requires attention",
-      },
-      classesThisWeek: {
-        total: weekClasses.total || 0,
-        completed: weekClasses.completed || 0,
-      },
-      dailyClassSchedule,
+      todayClasses,
+      weeklySchedule,
     };
-  } catch (error) {
-    console.error("Dashboard error:", error);
-    throw {
-      status: 500,
-      message: error.sqlMessage || error.message || "Dashboard error",
-    };
+  } catch (err) {
+    throw err;
   }
 };
+
+
+
+
+
 
 export const getAllMembersByBranchService = async (branchId) => {
   if (!branchId) throw { status: 400, message: "Branch ID is required" };

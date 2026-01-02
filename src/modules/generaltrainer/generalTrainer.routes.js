@@ -14,7 +14,11 @@ import {
 
 const router = Router();
 
-router.get("/dashboard", getDashboardData);
+router.get(
+  "/dashboard/:adminId/:trainerId",
+  getDashboardData
+);
+
 // Get all group training plans with members for a specific branch
 // Route: GET /api/branch/:branchId/group-plans
 router.get("/:adminId/group-plans", getAllGroupTrainingPlans);

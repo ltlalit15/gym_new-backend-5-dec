@@ -177,22 +177,34 @@ export const deleteAttendanceRecord = async (req, res) => {
 
 export const getDashboardData = async (req, res) => {
   try {
-    const adminId = req.query.adminId || req.params.adminId;
+    const { adminId, trainerId } = req.params;
 
-    if (!adminId) {
-      return res.status(400).json({ message: "adminId is required" });
+    if (!adminId || !trainerId) {
+      return res.status(400).json({
+        success: false,
+        message: "adminId and trainerId are required",
+      });
     }
 
-    const dashboardData = await getDashboardDataService(adminId);
+    const dashboardData = await getDashboardDataService({
+      adminId,
+      trainerId,
+    });
 
-    res.status(200).json(dashboardData);
+    return res.status(200).json({
+      success: true,
+      data: dashboardData,
+    });
   } catch (error) {
     console.error("Error fetching dashboard data:", error);
-    res.status(error.status || 500).json({
+    return res.status(error.status || 500).json({
+      success: false,
       message: error.message || "Failed to fetch dashboard data",
     });
   }
 };
+
+
 
 export const getAllMembersByBranch = async (req, res) => {
   try {
