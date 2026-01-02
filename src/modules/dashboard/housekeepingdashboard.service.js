@@ -1,20 +1,73 @@
 import { pool } from "../../config/db.js";
-import { startOfWeek } from "date-fns";
+import { startOfWeek, endOfWeek } from "date-fns";
+
+
+export const housekeepingDashboardService = async (userId) => {
+  const conn = pool; // ✅ FIX 1
+
+  /* ===============================
+   GET STAFF ID FROM USER ID
+=============================== */
+  const [[staffRow]] = await conn.query(
+    `
+  SELECT s.id
+  FROM staff s
+  WHERE s.userId = ?
+  `,
+    [userId]
+  );
+
+  if (!staffRow) {
+    throw {
+      status: 404,
+      message: "Staff profile not found for this user",
+    };
+  }
+
+  const staffId = staffRow.id;
 
 
 
+  /* ===============================
+     0️⃣ VALIDATE HOUSEKEEPING USER
+  =============================== */
+  const [[userRow]] = await conn.query(
+    `
+    SELECT id, adminId, roleId
+    FROM user
+    WHERE id = ?
+      AND roleId = 8
+    `,
+    [userId]
+  );
 
-export const housekeepingDashboardService = async (adminId) => {
+  if (!userRow) {
+    throw {
+      status: 403,
+      message: "Unauthorized: Not a housekeeping user",
+    };
+  }
+
+  const adminId = userRow.adminId; // ✅ ADMIN ID YAHAN SE AAYEGI
+
+  /* ===============================
+     DATE SETUP
+  =============================== */
+  /* ===============================
+     DATE SETUP
+  =============================== */
   const today = new Date();
+
   const weekStart = startOfWeek(today, { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(today, { weekStartsOn: 1 });
 
   const todayStr = today.toISOString().slice(0, 10);
   const weekStartStr = weekStart.toISOString().slice(0, 10);
+  const weekEndStr = weekEnd.toISOString().slice(0, 10);
 
-  const conn = pool;
 
   /* =====================================================
-     1️⃣ TODAY SHIFTS (ADMIN + ROLE = 8)
+     1️⃣ TODAY SHIFTS
   ===================================================== */
   const [[todayShiftsRow]] = await conn.query(
     `
@@ -32,67 +85,66 @@ export const housekeepingDashboardService = async (adminId) => {
   const todayShifts = Number(todayShiftsRow?.shifts || 0);
 
   /* =====================================================
-     2️⃣ TASKS THIS WEEK (Housekeeper only)
+     2️⃣ TASKS THIS WEEK
   ===================================================== */
   const [[taskCountRow]] = await conn.query(
     `
-    SELECT
-      SUM(CASE WHEN t.status = 'Completed' THEN 1 ELSE 0 END) AS completed,
-      COUNT(*) AS total
-    FROM tasks t
-    JOIN staff s ON t.assignedTo = s.id
-    JOIN user u ON s.userId = u.id
-    WHERE u.adminId = ?
-      AND u.roleId = 8
-      AND t.dueDate BETWEEN ? AND ?
-    `,
-    [adminId, weekStartStr, todayStr]
+  SELECT
+    SUM(CASE WHEN LOWER(status) = 'completed' THEN 1 ELSE 0 END) AS completed,
+    COUNT(*) AS total
+  FROM tasks
+  WHERE assignedTo = ?
+    AND DATE(dueDate) BETWEEN ? AND ?
+  `,
+    [staffId, weekStartStr, weekEndStr]
   );
 
-  const tasksCompleted = Number(taskCountRow?.completed || 0);
-  const tasksTotal = Number(taskCountRow?.total || 0);
+  const tasksCompleted = Number(taskCountRow.completed || 0);
+  const tasksTotal = Number(taskCountRow.total || 0);
+
+
 
   /* =====================================================
      3️⃣ PENDING MAINTENANCE
   ===================================================== */
   const [[pendingMaintenanceRow]] = await conn.query(
     `
-    SELECT COUNT(*) AS pending
-    FROM tasks t
-    JOIN staff s ON t.assignedTo = s.id
-    JOIN user u ON s.userId = u.id
-    WHERE u.adminId = ?
-      AND u.roleId = 8
-      AND t.status = 'Pending'
-    `,
-    [adminId]
+  SELECT COUNT(*) AS pending
+  FROM tasks
+  WHERE assignedTo = ?
+    AND LOWER(status) = 'pending'
+  `,
+    [staffId]
   );
 
-  const pendingMaintenance = Number(pendingMaintenanceRow?.pending || 0);
+  const pendingMaintenance = Number(pendingMaintenanceRow.pending || 0);
 
   /* =====================================================
-     4️⃣ ATTENDANCE (Housekeeper only)
+     4️⃣ ATTENDANCE
   ===================================================== */
   const [[attendanceRow]] = await conn.query(
     `
-    SELECT
-      SUM(CASE WHEN ma.status = 'Present' THEN 1 ELSE 0 END) AS present,
-      COUNT(*) AS total
-    FROM memberattendance ma
-    JOIN staff s ON ma.staffId = s.id
-    JOIN user u ON s.userId = u.id
-    WHERE u.adminId = ?
-      AND u.roleId = 8
-      AND DATE(ma.checkIn) BETWEEN ? AND ?
-    `,
-    [adminId, weekStartStr, todayStr]
+  SELECT
+    SUM(CASE WHEN ma.status = 'Present' THEN 1 ELSE 0 END) AS present,
+    COUNT(*) AS total
+  FROM memberattendance ma
+  JOIN user u ON ma.memberId = u.id
+  WHERE u.adminId = ?
+    AND u.roleId = 8
+    AND u.id = ?              -- 🔥 USER FILTER
+    AND DATE(ma.checkIn) BETWEEN ? AND ?
+  `,
+    [adminId, userId, weekStartStr, todayStr]
   );
+
+
+
 
   const attendancePresent = Number(attendanceRow?.present || 0);
   const attendanceTotal = Number(attendanceRow?.total || 0);
 
   /* =====================================================
-     5️⃣ WEEKLY ROSTER (Housekeeper only)
+     5️⃣ WEEKLY ROSTER
   ===================================================== */
   const [weeklyRosterRows] = await conn.query(
     `
@@ -122,45 +174,53 @@ export const housekeepingDashboardService = async (adminId) => {
   }));
 
   /* =====================================================
-     6️⃣ 7 DAY TASK COMPLETION GRAPH
+     6️⃣ TASK GRAPH (7 DAYS)
   ===================================================== */
   const [taskGraphRows] = await conn.query(
     `
-    SELECT DATE(t.dueDate) AS day, COUNT(*) AS completed
-    FROM tasks t
-    JOIN staff s ON t.assignedTo = s.id
-    JOIN user u ON s.userId = u.id
-    WHERE u.adminId = ?
-      AND u.roleId = 8
-      AND t.status = 'Completed'
-      AND t.dueDate >= DATE_SUB(?, INTERVAL 7 DAY)
-    GROUP BY DATE(t.dueDate)
-    ORDER BY DATE(t.dueDate)
-    `,
-    [adminId, todayStr]
+  SELECT DATE(dueDate) AS day, COUNT(*) AS count
+  FROM tasks
+  WHERE assignedTo = ?
+    AND LOWER(status) = 'completed'
+    AND DATE(dueDate) >= DATE_SUB(?, INTERVAL 6 DAY)
+  GROUP BY DATE(dueDate)
+  ORDER BY DATE(dueDate)
+  `,
+    [staffId, todayStr]
   );
 
-  const taskGraph = taskGraphRows.map((r) => ({
+  const taskGraph = taskGraphRows.map(r => ({
     day: r.day,
-    count: Number(r.completed),
+    count: Number(r.count),
   }));
 
+
+
   /* =====================================================
-     7️⃣ MAINTENANCE STATS (HIGH PRIORITY)
+     7️⃣ MAINTENANCE STATS
   ===================================================== */
+  /* =====================================================
+    7️⃣ MAINTENANCE STATS (COMPLETED / PENDING)
+ ===================================================== */
   const [[maintenanceStatsRow]] = await conn.query(
     `
-    SELECT
-      SUM(CASE WHEN t.priority = 'High' AND t.status = 'Completed' THEN 1 ELSE 0 END) AS completed,
-      SUM(CASE WHEN t.priority = 'High' AND t.status = 'Pending' THEN 1 ELSE 0 END) AS pending
-    FROM tasks t
-    JOIN staff s ON t.assignedTo = s.id
-    JOIN user u ON s.userId = u.id
-    WHERE u.adminId = ?
-      AND u.roleId = 8
-    `,
-    [adminId]
+  SELECT
+    SUM(CASE WHEN LOWER(status) = 'completed' THEN 1 ELSE 0 END) AS completed,
+    SUM(CASE WHEN LOWER(status) = 'pending' THEN 1 ELSE 0 END) AS pending
+  FROM tasks
+  WHERE assignedTo = ?
+  `,
+    [staffId]
   );
+
+  const maintenanceStats = {
+    completed: Number(maintenanceStatsRow.completed || 0),
+    pending: Number(maintenanceStatsRow.pending || 0),
+  };
+
+
+
+
 
   /* =====================================================
      FINAL RESPONSE
@@ -174,14 +234,10 @@ export const housekeepingDashboardService = async (adminId) => {
     attendanceTotal,
     weeklyRoster,
     taskGraph,
+    maintenanceStats,
     maintenanceStats: {
       completed: Number(maintenanceStatsRow?.completed || 0),
       pending: Number(maintenanceStatsRow?.pending || 0),
     },
   };
 };
-
-
- 
-
-

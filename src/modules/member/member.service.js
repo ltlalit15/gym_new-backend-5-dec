@@ -1050,54 +1050,161 @@ export const getRenewalPreviewService = async (adminId) => {
 export const updateMemberRenewalStatusService = async (
   memberId,
   adminId,
-  status
+  status,
+  assignmentId = null,
+  planId = null
 ) => {
-  // 1️⃣ Check member belongs to admin & is inactive
-  const [[member]] = await pool.query(
-    `
-    SELECT id, status 
-    FROM member
-    WHERE id = ?
-      AND adminId = ?
-      AND status = 'Inactive'
-    `,
-    [memberId, adminId]
-  );
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
 
-  if (!member) {
-    throw {
-      status: 404,
-      message: "Inactive renewal not found for this admin",
-    };
+    // 1️⃣ Check member belongs to admin
+    const [[member]] = await connection.query(
+      `
+      SELECT id, status 
+      FROM member
+      WHERE id = ?
+        AND adminId = ?
+      `,
+      [memberId, adminId]
+    );
+
+    if (!member) {
+      await connection.rollback();
+      throw {
+        status: 404,
+        message: "Member not found for this admin",
+      };
+    }
+
+    // 2️⃣ If status is "Active" and we have assignmentId, renew the plan assignment
+    if (status === "Active" && assignmentId) {
+      // Get the renewal request to get payment details
+      const [[renewalRequest]] = await connection.query(
+        `SELECT * FROM membership_renewal_requests 
+         WHERE memberId = ? AND assignmentId = ? AND status = 'pending'
+         ORDER BY createdAt DESC LIMIT 1`,
+        [memberId, assignmentId]
+      );
+
+      if (renewalRequest) {
+        // Get plan details
+        const [[plan]] = await connection.query(
+          `SELECT validityDays FROM memberplan WHERE id = ?`,
+          [renewalRequest.planId || planId]
+        );
+
+        if (plan) {
+          // Calculate new dates
+          const [[assignment]] = await connection.query(
+            `SELECT membershipTo FROM member_plan_assignment WHERE id = ?`,
+            [assignmentId]
+          );
+
+          let startDate = assignment[0]?.membershipTo 
+            ? new Date(assignment[0].membershipTo)
+            : new Date();
+          startDate.setDate(startDate.getDate() + 1); // Next day after expiry
+
+          let endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + Number(plan.validityDays || 30));
+
+          // Update the plan assignment
+          await connection.query(
+            `UPDATE member_plan_assignment 
+             SET membershipFrom = ?,
+                 membershipTo = ?,
+                 paymentMode = ?,
+                 amountPaid = ?,
+                 status = 'Active',
+                 updatedAt = NOW()
+             WHERE id = ?`,
+            [
+              startDate,
+              endDate,
+              renewalRequest.paymentMode || "Cash",
+              renewalRequest.amountPaid || 0,
+              assignmentId
+            ]
+          );
+
+          // Update the renewal request status
+          await connection.query(
+            `UPDATE membership_renewal_requests 
+             SET status = 'approved',
+                 approvedBy = ?,
+                 approvedAt = NOW(),
+                 updatedAt = NOW()
+             WHERE id = ?`,
+            [adminId, renewalRequest.id]
+          );
+        }
+      }
+    } else if (status === "Reject" && assignmentId) {
+      // Reject the renewal request
+      await connection.query(
+        `UPDATE membership_renewal_requests 
+         SET status = 'rejected',
+             rejectedAt = NOW(),
+             updatedAt = NOW()
+         WHERE memberId = ? AND assignmentId = ? AND status = 'pending'`,
+        [memberId, assignmentId]
+      );
+    }
+
+    // 3️⃣ Update member status
+    await connection.query(
+      `
+      UPDATE member
+      SET status = ?
+      WHERE id = ?
+      `,
+      [status, memberId]
+    );
+
+    // 4️⃣ If Active, check if member has any active plans and update status accordingly
+    if (status === "Active") {
+      const [activePlansResult] = await connection.query(
+        `SELECT COUNT(*) as activeCount 
+         FROM member_plan_assignment 
+         WHERE memberId = ? AND status = 'Active' AND membershipTo >= CURDATE()`,
+        [memberId]
+      );
+
+      if (activePlansResult && activePlansResult.length > 0 && activePlansResult[0]?.activeCount > 0) {
+        await connection.query(
+          `UPDATE member SET status = 'Active' WHERE id = ?`,
+          [memberId]
+        );
+      }
+    }
+
+    await connection.commit();
+
+    // 5️⃣ Return updated record
+    const [[updated]] = await connection.query(
+      `
+      SELECT 
+        id,
+        fullName,
+        status,
+        membershipFrom,
+        membershipTo,
+        planId
+      FROM member
+      WHERE id = ?
+      `,
+      [memberId]
+    );
+
+    return updated;
+  } catch (error) {
+    if (connection) await connection.rollback();
+    throw error;
+  } finally {
+    if (connection) connection.release();
   }
-
-  // 2️⃣ Update status
-  await pool.query(
-    `
-    UPDATE member
-    SET status = ?
-    WHERE id = ?
-    `,
-    [status, memberId]
-  );
-
-  // 3️⃣ Return updated record
-  const [[updated]] = await pool.query(
-    `
-    SELECT 
-      id,
-      fullName,
-      status,
-      membershipFrom,
-      membershipTo,
-      planId
-    FROM member
-    WHERE id = ?
-    `,
-    [memberId]
-  );
-
-  return updated;
 };
 
 export const listPTBookingsService = async (branchId) => {

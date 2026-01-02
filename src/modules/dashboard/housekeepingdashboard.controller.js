@@ -5,17 +5,16 @@ import { housekeepingDashboardService } from "./housekeepingdashboard.service.js
 // controller/housekeepingDashboard.controller.js
 export const getHousekeepingDashboard = async (req, res, next) => {
   try {
-    const adminId =
-      req.query.adminId || req.body.adminId || req.params.adminId;
+    const { userId } = req.params;
 
-    if (!adminId) {
+    if (!userId) {
       return res.status(400).json({
         success: false,
-        message: "adminId is required",
+        message: "userId is required",
       });
     }
 
-    const data = await housekeepingDashboardService(Number(adminId));
+    const data = await housekeepingDashboardService(Number(userId));
 
     res.json({
       success: true,

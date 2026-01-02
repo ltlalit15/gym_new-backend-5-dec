@@ -3,6 +3,6 @@ import { getHousekeepingDashboard } from "./housekeepingdashboard.controller.js"
 
 const router = Router();
 
-router.get("/", getHousekeepingDashboard);
+router.get("/:userId", getHousekeepingDashboard);
 
 export default router;

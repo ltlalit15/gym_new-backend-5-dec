@@ -9,8 +9,38 @@ import {
   generateGeneralTrainerReportByStaffService,
   generateStaffHousekeepingReportService,
   generateAdminHousekeepingReportService,
+  generateSalesReportService,
 } from "./reports.service.js";
 // import { generateGeneralTrainerReportService, generateManagerReportService, generateMemberReportService, generatePersonalTrainerReportService ,getReceptionReportService} from "./reports.service.js";
+
+// Generate Sales Report Controller (Total Sales)
+export const generateSalesReportController = async (req, res) => {
+  try {
+    const { adminId } = req.query;
+
+    if (!adminId) {
+      return res.status(400).json({
+        success: false,
+        message: "Admin ID is required",
+      });
+    }
+
+    const reportData = await generateSalesReportService(adminId);
+
+    res.status(200).json({
+      success: true,
+      message: "Sales report generated successfully",
+      data: reportData,
+    });
+  } catch (error) {
+    console.error("Error in generateSalesReportController:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to generate sales report",
+      error: error.message,
+    });
+  }
+};
 
 // Generate Member Report Controller
 export const generateMemberReportController = async (req, res) => {
@@ -43,7 +73,7 @@ export const generateMemberReportController = async (req, res) => {
 
 export const generatePersonalTrainerReportController = async (req, res) => {
   try {
-    const { adminId } = req.query;
+    const { adminId, trainerId } = req.query;
 
     if (!adminId) {
       return res.status(400).json({
@@ -52,7 +82,10 @@ export const generatePersonalTrainerReportController = async (req, res) => {
       });
     }
 
-    const reportData = await generatePersonalTrainerReportService(adminId);
+    const reportData = await generatePersonalTrainerReportService(
+      adminId, 
+      trainerId ? parseInt(trainerId) : null
+    );
 
     res.status(200).json({
       success: true,

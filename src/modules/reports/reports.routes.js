@@ -10,10 +10,14 @@ import {
   generateGeneralTrainerReportByStaffController,
   getAdminHousekeepingReport,
   getStaffHousekeepingReport,
+  generateSalesReportController,
 } from "./reports.controller.js";
 // import { generateGeneralTrainerReportController, generateMemberReportController, generatePersonalTrainerReportController,getManagerReportController,getReceptionReportForAdmin } from "./reports.controller.js";
 
 const router = express.Router();
+
+// Generate sales report (Total Sales - Plans)
+router.get("/sales", generateSalesReportController);
 
 // Generate member report
 router.get("/members", generateMemberReportController);

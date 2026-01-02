@@ -1035,7 +1035,6 @@ const [weeklyAttendance] = await pool.query(
 );
 
 
-
     /* =========================
        6️⃣ CLASS DISTRIBUTION
     ========================= */
@@ -1082,7 +1081,6 @@ const [weeklyAttendance] = await pool.query(
     throw err;
   }
 };
-
 
 
 

@@ -1344,6 +1344,77 @@ export const createUnifiedBooking = async (req, res) => {
       ]
     );
 
+    /* =========================
+       6️⃣ ASSIGN GROUP PLAN TO MEMBER (if GROUP booking)
+    ========================= */
+    if (bookingType === "GROUP" && classId) {
+      try {
+        // Get member details to get adminId
+        const [[member]] = await pool.query(
+          `SELECT id, adminId FROM member WHERE id = ?`,
+          [memberId]
+        );
+
+        if (member) {
+          // Check if plan assignment already exists
+          const [existingAssign] = await pool.query(
+            `SELECT id FROM member_plan_assignment 
+             WHERE memberId = ? AND planId = ?`,
+            [memberId, classId]
+          );
+
+          if (existingAssign.length === 0) {
+            // Get plan details
+            const [[plan]] = await pool.query(
+              `SELECT id, validityDays, price FROM memberplan WHERE id = ?`,
+              [classId]
+            );
+
+            if (plan) {
+              // Calculate membership dates
+              const startDate = new Date(date);
+              const endDate = new Date(startDate);
+              endDate.setDate(endDate.getDate() + Number(plan.validityDays || 30));
+
+              // Insert plan assignment
+              await pool.query(
+                `INSERT INTO member_plan_assignment 
+                 (memberId, planId, membershipFrom, membershipTo, paymentMode, amountPaid, status, assignedBy, assignedAt)
+                 VALUES (?, ?, ?, ?, ?, ?, 'Active', ?, NOW())`,
+                [
+                  memberId,
+                  classId,
+                  startDate,
+                  endDate,
+                  paymentStatus === "PAID" || paymentStatus === "Paid" ? "Cash" : null,
+                  price && price > 0 ? price : plan.price || 0,
+                  member.adminId || null,
+                ]
+              );
+
+              // Update member status if needed
+              const [[activePlans]] = await pool.query(
+                `SELECT COUNT(*) as activeCount 
+                 FROM member_plan_assignment 
+                 WHERE memberId = ? AND status = 'Active' AND membershipTo >= CURDATE()`,
+                [memberId]
+              );
+
+              if (activePlans && activePlans.activeCount > 0) {
+                await pool.query(
+                  `UPDATE member SET status = 'Active' WHERE id = ?`,
+                  [memberId]
+                );
+              }
+            }
+          }
+        }
+      } catch (planAssignError) {
+        console.error("Error assigning plan to member:", planAssignError);
+        // Don't fail the booking if plan assignment fails, just log it
+      }
+    }
+
     res.json({
       success: true,
       message: "Booking created successfully"

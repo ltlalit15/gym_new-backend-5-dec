@@ -226,7 +226,7 @@ export const getRenewalPreview = async (req, res, next) => {
 export const updateMemberRenewalStatus = async (req, res, next) => {
   try {
     const memberId = Number(req.params.memberId);
-    const { status, adminId } = req.body;
+    const { status, adminId, assignmentId, planId } = req.body;
 
     if (!Number.isInteger(memberId)) {
       return res.status(400).json({
@@ -252,7 +252,9 @@ export const updateMemberRenewalStatus = async (req, res, next) => {
     const data = await updateMemberRenewalStatusService(
       memberId,
       adminId,
-      status
+      status,
+      assignmentId || null,
+      planId || null
     );
 
     return res.status(200).json({

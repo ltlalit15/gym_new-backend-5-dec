@@ -1,5 +1,241 @@
 import { pool } from "../../config/db.js";
 
+// Generate Sales Report Service (Total Sales - Plans bought/assigned)
+export const generateSalesReportService = async (adminId) => {
+  try {
+    // 1️⃣ Total Sales: Count of all plans bought/assigned
+    const [[totalSalesStats]] = await pool.query(
+      `SELECT 
+        COUNT(*) AS totalSales,
+        COALESCE(SUM(mpa.amountPaid), 0) AS totalRevenue,
+        SUM(CASE 
+          WHEN mpa.membershipTo >= CURDATE() AND mpa.status = 'Active' THEN 1 
+          ELSE 0 
+        END) AS confirmed,
+        SUM(CASE 
+          WHEN mpa.membershipTo < CURDATE() OR mpa.status = 'Inactive' THEN 1 
+          ELSE 0 
+        END) AS cancelled
+      FROM member_plan_assignment mpa
+      INNER JOIN member m ON mpa.memberId = m.id
+      WHERE m.adminId = ?`,
+      [adminId]
+    );
+
+    // 2️⃣ Booked: Count of bookings from dynamic page (unified_bookings where bookingType = 'GROUP')
+    const [[bookedStats]] = await pool.query(
+      `SELECT COUNT(*) AS booked
+      FROM unified_bookings ub
+      INNER JOIN member m ON ub.memberId = m.id
+      WHERE m.adminId = ? AND ub.bookingType = 'GROUP'`,
+      [adminId]
+    );
+
+    // 3️⃣ Bookings by Day: Plan assignments per day
+    const [bookingsByDay] = await pool.query(
+      `SELECT 
+        DATE(mpa.assignedAt) AS date,
+        COUNT(*) AS count
+      FROM member_plan_assignment mpa
+      INNER JOIN member m ON mpa.memberId = m.id
+      WHERE m.adminId = ?
+      GROUP BY DATE(mpa.assignedAt)
+      ORDER BY date ASC`,
+      [adminId]
+    );
+
+    // 4️⃣ Booking Status: Active and Inactive/Expired plans
+    const [bookingStatus] = await pool.query(
+      `SELECT 
+        CASE
+          WHEN mpa.membershipTo >= CURDATE() AND mpa.status = 'Active' THEN 'Active'
+          WHEN mpa.membershipTo < CURDATE() OR mpa.status = 'Inactive' THEN 'Inactive'
+          ELSE 'Inactive'
+        END AS bookingStatus,
+        COUNT(*) AS count
+      FROM member_plan_assignment mpa
+      INNER JOIN member m ON mpa.memberId = m.id
+      WHERE m.adminId = ?
+      GROUP BY 
+        CASE
+          WHEN mpa.membershipTo >= CURDATE() AND mpa.status = 'Active' THEN 'Active'
+          WHEN mpa.membershipTo < CURDATE() OR mpa.status = 'Inactive' THEN 'Inactive'
+          ELSE 'Inactive'
+        END`,
+      [adminId]
+    );
+
+    // 5️⃣ Last Transactions: All plan purchases/assignments with trainer name and booking details
+    const [transactions] = await pool.query(
+      `SELECT 
+        DATE(mpa.assignedAt) AS date,
+        m.id AS memberId,
+        m.fullName AS username,
+        mp.id AS planId,
+        mp.name AS planName,
+        COALESCE(mp.sessions, 0) AS totalClasses,
+        mp.type AS planType,
+        mp.trainerType,
+        COALESCE(mpa.amountPaid, 0) AS price,
+        COALESCE(mpa.paymentMode, 'N/A') AS paymentMode,
+        mpa.status AS originalStatus,
+        mpa.membershipTo,
+        CASE
+          WHEN mpa.membershipTo >= CURDATE() AND mpa.status = 'Active' THEN 'Active'
+          WHEN mpa.membershipTo < CURDATE() OR mpa.status = 'Inactive' THEN 'Inactive'
+          ELSE 'Inactive'
+        END AS computedStatus,
+        COALESCE(
+          (SELECT u.fullName FROM user u WHERE u.id = mpa.assignedBy),
+          'System'
+        ) AS assignedBy,
+        COALESCE(
+          (SELECT u.fullName FROM user u 
+           INNER JOIN staff s ON s.userId = u.id 
+           WHERE s.id = mp.trainerId),
+          'N/A'
+        ) AS trainerName,
+        mp.trainerId,
+        TIME(mpa.assignedAt) AS time,
+        -- Booking statistics for this member-plan combination
+        -- For GROUP bookings: classId = planId, for PT bookings: count all PT bookings for member
+        COALESCE((
+          SELECT COUNT(*) 
+          FROM unified_bookings ub 
+          WHERE ub.memberId = m.id 
+            AND (
+              (mp.type = 'GROUP' AND ub.bookingType = 'GROUP' AND ub.classId = mp.id)
+              OR (mp.type = 'PERSONAL' AND ub.bookingType = 'PT')
+              OR (mp.type = 'MEMBER' AND mp.trainerType = 'personal' AND ub.bookingType = 'PT')
+            )
+        ), 0) AS classesBooked,
+        COALESCE((
+          SELECT COUNT(*) 
+          FROM unified_bookings ub 
+          WHERE ub.memberId = m.id 
+            AND (
+              (mp.type = 'GROUP' AND ub.bookingType = 'GROUP' AND ub.classId = mp.id)
+              OR (mp.type = 'PERSONAL' AND ub.bookingType = 'PT')
+              OR (mp.type = 'MEMBER' AND mp.trainerType = 'personal' AND ub.bookingType = 'PT')
+            )
+            AND ub.bookingStatus = 'Confirmed'
+        ), 0) AS classesConfirmed,
+        COALESCE((
+          SELECT COUNT(*) 
+          FROM unified_bookings ub 
+          WHERE ub.memberId = m.id 
+            AND (
+              (mp.type = 'GROUP' AND ub.bookingType = 'GROUP' AND ub.classId = mp.id)
+              OR (mp.type = 'PERSONAL' AND ub.bookingType = 'PT')
+              OR (mp.type = 'MEMBER' AND mp.trainerType = 'personal' AND ub.bookingType = 'PT')
+            )
+            AND ub.bookingStatus = 'Cancelled'
+        ), 0) AS classesCancelled,
+        COALESCE((
+          SELECT COUNT(*) 
+          FROM unified_bookings ub 
+          WHERE ub.memberId = m.id 
+            AND (
+              (mp.type = 'GROUP' AND ub.bookingType = 'GROUP' AND ub.classId = mp.id)
+              OR (mp.type = 'PERSONAL' AND ub.bookingType = 'PT')
+              OR (mp.type = 'MEMBER' AND mp.trainerType = 'personal' AND ub.bookingType = 'PT')
+            )
+            AND ub.bookingStatus = 'Completed'
+        ), 0) AS classesCompleted
+      FROM member_plan_assignment mpa
+      INNER JOIN member m ON mpa.memberId = m.id
+      INNER JOIN memberplan mp ON mpa.planId = mp.id
+      WHERE m.adminId = ?
+      ORDER BY mpa.assignedAt DESC
+      LIMIT 100`,
+      [adminId]
+    );
+
+    // Format the data for the UI
+    const formattedStats = {
+      totalBookings: totalSalesStats.totalSales || 0,
+      totalRevenue: parseFloat(totalSalesStats.totalRevenue) || 0,
+      confirmed: totalSalesStats.confirmed || 0,
+      cancelled: totalSalesStats.cancelled || 0,
+      booked: bookedStats.booked || 0,
+      avgTicket: totalSalesStats.totalSales > 0 
+        ? parseFloat(totalSalesStats.totalRevenue) / totalSalesStats.totalSales 
+        : 0,
+    };
+
+    // Format transactions data
+    const formattedTransactions = transactions.map((transaction) => {
+      // Format time to HH:MM if it exists
+      let formattedTime = "-";
+      if (transaction.time) {
+        const timeStr = String(transaction.time);
+        // If time is in HH:MM:SS format, extract HH:MM
+        if (timeStr.includes(":")) {
+          formattedTime = timeStr.substring(0, 5);
+        } else {
+          formattedTime = timeStr;
+        }
+      }
+      
+      // Ensure proper type conversion and handle null/undefined values
+      const planPrice = transaction.price !== null && transaction.price !== undefined 
+        ? parseFloat(transaction.price) 
+        : 0;
+      const totalClasses = transaction.totalClasses !== null && transaction.totalClasses !== undefined
+        ? parseInt(transaction.totalClasses)
+        : (transaction.sessions !== null && transaction.sessions !== undefined 
+            ? parseInt(transaction.sessions) 
+            : 0);
+      // Handle paymentMode - check if it's a valid string
+      let paymentMode = "N/A";
+      if (transaction.paymentMode && 
+          transaction.paymentMode !== 'N/A' && 
+          transaction.paymentMode !== null && 
+          transaction.paymentMode !== undefined &&
+          String(transaction.paymentMode).trim() !== '') {
+        paymentMode = String(transaction.paymentMode).trim();
+      }
+      
+      return {
+        date: transaction.date,
+        memberId: transaction.memberId,
+        memberName: transaction.username || "N/A",
+        username: transaction.username || "N/A", // Keep for backward compatibility
+        planId: transaction.planId,
+        planName: transaction.planName || "Plan Assignment",
+        planType: transaction.planType,
+        trainer: transaction.trainerName || transaction.assignedBy || "N/A",
+        trainerName: transaction.trainerName || transaction.assignedBy || "N/A", // Keep for backward compatibility
+        assignedBy: transaction.assignedBy || "System", // Keep for backward compatibility
+        trainerId: transaction.trainerId,
+        planPrice: planPrice,
+        price: planPrice, // Keep for backward compatibility
+        revenue: planPrice, // Keep for backward compatibility
+        totalClasses: totalClasses,
+        sessions: totalClasses, // Keep for backward compatibility
+        classesBooked: parseInt(transaction.classesBooked || 0),
+        classesConfirmed: parseInt(transaction.classesConfirmed || 0),
+        classesCancelled: parseInt(transaction.classesCancelled || 0),
+        classesCompleted: parseInt(transaction.classesCompleted || 0),
+        paymentMode: paymentMode,
+        time: formattedTime,
+        status: transaction.computedStatus || "Inactive",
+        computedStatus: transaction.computedStatus || "Inactive", // Keep for backward compatibility
+        type: transaction.planName || "Plan Assignment", // Keep for backward compatibility
+      };
+    });
+
+    return {
+      stats: formattedStats,
+      bookingsByDay,
+      bookingStatus,
+      transactions: formattedTransactions,
+    };
+  } catch (error) {
+    throw new Error(`Error generating sales report: ${error.message}`);
+  }
+};
+
 // Generate Member Report Service
 export const generateMemberReportService = async (adminId) => {
   try {
@@ -300,109 +536,206 @@ export const generateGeneralTrainerReportService = async (adminId) => {
 //   }
 // };
 
-export const generatePersonalTrainerReportService = async (adminId) => {
+export const generatePersonalTrainerReportService = async (adminId, trainerId = null) => {
   try {
-    const [members] = await pool.query(
-      `SELECT id FROM member WHERE adminId = ?`,
-      [adminId]
-    );
-
-    if (members.length === 0) {
-      return {
-        stats: {
-          totalBookings: 0,
-          confirmed: 0,
-          cancelled: 0,
-          booked: 0,
-        },
-        bookingsByDay: [],
-        bookingStatus: [],
-        transactions: [],
-      };
+    // Build WHERE clause for trainer filter
+    let trainerFilter = "";
+    let trainerParams = [];
+    if (trainerId) {
+      trainerFilter = "AND mp.trainerId = ?";
+      trainerParams = [trainerId];
     }
 
-    // Extract member IDs
-    const memberIds = members.map((m) => m.id);
-
-    // 2️⃣ PT booking stats
-    const [bookingStats] = await pool.query(
+    // 1️⃣ Total Bookings: Count of Personal Trainer plans assigned
+    // Personal Trainer plans: type = 'PERSONAL' OR (type = 'MEMBER' AND trainerType = 'personal')
+    const [[planStats]] = await pool.query(
       `SELECT 
-        COUNT(*) as totalBookings,
-        SUM(CASE WHEN bookingStatus = 'Completed' THEN 1 ELSE 0 END) as confirmed,
-        SUM(CASE WHEN bookingStatus = 'Cancelled' THEN 1 ELSE 0 END) as cancelled,
-        SUM(CASE WHEN bookingStatus = 'Booked' THEN 1 ELSE 0 END) as booked
-      FROM unified_bookings ub
-  LEFT JOIN member m ON ub.memberId = m.id  -- This join ensures we link the correct member.id from unified_bookings
-  WHERE m.adminId = ?  -- Filtering by adminId to ensure we're only pulling bookings for this admin
-    AND ub.bookingType = 'PT'`,
-      [adminId]
+        COUNT(*) AS totalBookings,
+        COALESCE(SUM(mpa.amountPaid), 0) AS totalRevenue,
+        SUM(CASE 
+          WHEN mpa.membershipTo >= CURDATE() AND mpa.status = 'Active' THEN 1 
+          ELSE 0 
+        END) AS confirmed,
+        SUM(CASE 
+          WHEN mpa.membershipTo < CURDATE() OR mpa.status = 'Inactive' THEN 1 
+          ELSE 0 
+        END) AS cancelled
+      FROM member_plan_assignment mpa
+      INNER JOIN member m ON mpa.memberId = m.id
+      INNER JOIN memberplan mp ON mpa.planId = mp.id
+      WHERE m.adminId = ?
+        AND (mp.type = 'PERSONAL' OR (mp.type = 'MEMBER' AND mp.trainerType = 'personal'))
+        ${trainerFilter}`,
+      [adminId, ...trainerParams]
     );
 
-    // 3️⃣ PT bookings group by day
+    // 2️⃣ Booked: Count of bookings from dynamic page (unified_bookings where bookingType = 'PT')
+    const [[bookedStats]] = await pool.query(
+      `SELECT COUNT(*) AS booked
+      FROM unified_bookings ub
+      INNER JOIN member m ON ub.memberId = m.id
+      WHERE m.adminId = ? 
+        AND ub.bookingType = 'PT'
+        ${trainerId ? "AND ub.trainerId = (SELECT userId FROM staff WHERE id = ?)" : ""}`,
+      trainerId ? [adminId, trainerId] : [adminId]
+    );
+
+    // 3️⃣ Bookings by Day: Personal Trainer plan assignments per day (with revenue)
     const [bookingsByDay] = await pool.query(
       `SELECT 
-        DATE(createdAt) AS date,
-        COUNT(*) AS count
-      FROM unified_bookings ub
-  LEFT JOIN member m ON ub.memberId = m.id  -- Ensuring the correct join for memberId
-  WHERE m.adminId = ? 
-    AND ub.bookingType = 'PT'  -- Only group bookings
-  GROUP BY DATE(ub.createdAt)
-  ORDER BY date ASC`,
-      [adminId]
+        DATE(mpa.assignedAt) AS date,
+        COUNT(*) AS count,
+        COALESCE(SUM(mpa.amountPaid), 0) AS revenue
+      FROM member_plan_assignment mpa
+      INNER JOIN member m ON mpa.memberId = m.id
+      INNER JOIN memberplan mp ON mpa.planId = mp.id
+      WHERE m.adminId = ?
+        AND (mp.type = 'PERSONAL' OR (mp.type = 'MEMBER' AND mp.trainerType = 'personal'))
+        ${trainerFilter}
+      GROUP BY DATE(mpa.assignedAt)
+      ORDER BY date ASC`,
+      [adminId, ...trainerParams]
     );
 
-    // 4️⃣ PT booking status distribution
+    // 4️⃣ Booking Status: Active and Inactive Personal Trainer plans
     const [bookingStatus] = await pool.query(
       `SELECT 
-        bookingStatus,
+        CASE
+          WHEN mpa.membershipTo >= CURDATE() AND mpa.status = 'Active' THEN 'Active'
+          WHEN mpa.membershipTo < CURDATE() OR mpa.status = 'Inactive' THEN 'Inactive'
+          ELSE 'Inactive'
+        END AS bookingStatus,
         COUNT(*) AS count
-      FROM unified_bookings ub
-  LEFT JOIN member m ON ub.memberId = m.id  -- Correctly joining with member.id
-  WHERE m.adminId = ?
-    AND ub.bookingType = 'PT'  -- Only group bookings
-  GROUP BY ub.bookingStatus`,
-      [adminId]
+      FROM member_plan_assignment mpa
+      INNER JOIN member m ON mpa.memberId = m.id
+      INNER JOIN memberplan mp ON mpa.planId = mp.id
+      WHERE m.adminId = ?
+        AND (mp.type = 'PERSONAL' OR (mp.type = 'MEMBER' AND mp.trainerType = 'personal'))
+        ${trainerFilter}
+      GROUP BY 
+        CASE
+          WHEN mpa.membershipTo >= CURDATE() AND mpa.status = 'Active' THEN 'Active'
+          WHEN mpa.membershipTo < CURDATE() OR mpa.status = 'Inactive' THEN 'Inactive'
+          ELSE 'Inactive'
+        END`,
+      [adminId, ...trainerParams]
     );
 
-    // 5️⃣ PT transactions list
+    // 5️⃣ Last Transactions: All Personal Trainer plan purchases/assignments with trainer name
     const [transactions] = await pool.query(
       `SELECT 
-          ub.date,
-          trainerUser.fullName AS trainerName,
-          memberUser.fullName AS memberName,
-          'Personal Training' AS type,
-          ub.startTime AS time,
-          ub.bookingStatus AS status
-        FROM unified_bookings ub
-        LEFT JOIN user AS trainerUser 
-              ON ub.trainerId = trainerUser.id
-        LEFT JOIN member AS m
-              ON ub.memberId = m.id
-        LEFT JOIN user AS memberUser
-              ON m.userId = memberUser.id
-       WHERE m.adminId = ?
-    AND ub.bookingType = 'PT'  -- Only group bookings
-  ORDER BY ub.date DESC`,
-      [adminId]
+        DATE(mpa.assignedAt) AS date,
+        m.id AS memberId,
+        m.fullName AS username,
+        mp.id AS planId,
+        mp.name AS planName,
+        mp.sessions AS totalClasses,
+        mpa.amountPaid AS price,
+        mpa.paymentMode,
+        mpa.status AS originalStatus,
+        mpa.membershipTo,
+        CASE
+          WHEN mpa.membershipTo >= CURDATE() AND mpa.status = 'Active' THEN 'Active'
+          WHEN mpa.membershipTo < CURDATE() OR mpa.status = 'Inactive' THEN 'Inactive'
+          ELSE 'Inactive'
+        END AS computedStatus,
+        COALESCE(
+          (SELECT u.fullName FROM user u WHERE u.id = mpa.assignedBy),
+          'System'
+        ) AS assignedBy,
+        COALESCE(
+          (SELECT u.fullName FROM user u 
+           INNER JOIN staff s ON s.userId = u.id 
+           WHERE s.id = mp.trainerId),
+          'N/A'
+        ) AS trainerName,
+        mp.trainerId,
+        TIME(mpa.assignedAt) AS time,
+        -- Booking statistics for Personal Trainer plans
+        -- Note: unified_bookings doesn't have planId, so we count all PT bookings for the member
+        COALESCE((
+          SELECT COUNT(*) 
+          FROM unified_bookings ub 
+          WHERE ub.memberId = m.id 
+            AND ub.bookingType = 'PT'
+        ), 0) AS classesBooked,
+        COALESCE((
+          SELECT COUNT(*) 
+          FROM unified_bookings ub 
+          WHERE ub.memberId = m.id 
+            AND ub.bookingStatus = 'Confirmed'
+            AND ub.bookingType = 'PT'
+        ), 0) AS classesConfirmed,
+        COALESCE((
+          SELECT COUNT(*) 
+          FROM unified_bookings ub 
+          WHERE ub.memberId = m.id 
+            AND ub.bookingStatus = 'Cancelled'
+            AND ub.bookingType = 'PT'
+        ), 0) AS classesCancelled,
+        COALESCE((
+          SELECT COUNT(*) 
+          FROM unified_bookings ub 
+          WHERE ub.memberId = m.id 
+            AND ub.bookingStatus = 'Completed'
+            AND ub.bookingType = 'PT'
+        ), 0) AS classesCompleted
+      FROM member_plan_assignment mpa
+      INNER JOIN member m ON mpa.memberId = m.id
+      INNER JOIN memberplan mp ON mpa.planId = mp.id
+      WHERE m.adminId = ?
+        AND (mp.type = 'PERSONAL' OR (mp.type = 'MEMBER' AND mp.trainerType = 'personal'))
+        ${trainerFilter}
+      ORDER BY mpa.assignedAt DESC
+      LIMIT 100`,
+      [adminId, ...trainerParams]
     );
 
     // Format output for UI
     const formattedStats = {
-      totalBookings: bookingStats[0].totalBookings || 0,
-      confirmed: bookingStats[0].confirmed || 0,
-      cancelled: bookingStats[0].cancelled || 0,
-      booked: bookingStats[0].booked || 0,
+      totalBookings: planStats.totalBookings || 0,
+      totalRevenue: parseFloat(planStats.totalRevenue) || 0,
+      confirmed: planStats.confirmed || 0,
+      cancelled: planStats.cancelled || 0,
+      booked: bookedStats.booked || 0,
+      avgTicket: planStats.totalBookings > 0 
+        ? parseFloat(planStats.totalRevenue) / planStats.totalBookings 
+        : 0,
     };
 
-    const formattedTransactions = transactions.map((tx) => ({
-      date: tx.date,
-      trainer: tx.trainerName || "N/A",
-      username: tx.memberName || "N/A",
-      type: tx.type,
-      time: tx.time,
-      status: tx.status,
-    }));
+    // Format transactions data
+    const formattedTransactions = transactions.map((transaction) => {
+      // Format time to HH:MM if it exists
+      let formattedTime = "-";
+      if (transaction.time) {
+        const timeStr = String(transaction.time);
+        if (timeStr.includes(":")) {
+          formattedTime = timeStr.substring(0, 5);
+        } else {
+          formattedTime = timeStr;
+        }
+      }
+      
+      return {
+        date: transaction.date,
+        memberId: transaction.memberId,
+        memberName: transaction.username || "N/A",
+        planId: transaction.planId,
+        planName: transaction.planName || "Personal Training Plan",
+        trainer: transaction.trainerName || "N/A",
+        trainerId: transaction.trainerId,
+        planPrice: parseFloat(transaction.price) || 0,
+        totalClasses: transaction.totalClasses || 0,
+        classesBooked: transaction.classesBooked || 0,
+        classesConfirmed: transaction.classesConfirmed || 0,
+        classesCancelled: transaction.classesCancelled || 0,
+        classesCompleted: transaction.classesCompleted || 0,
+        paymentMode: transaction.paymentMode || "N/A",
+        time: formattedTime,
+        status: transaction.computedStatus || "Inactive",
+        revenue: parseFloat(transaction.price) || 0,
+      };
+    });
 
     return {
       stats: formattedStats,
