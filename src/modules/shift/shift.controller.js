@@ -94,32 +94,17 @@ export const getAllShifts = async (req, res) => {
 
 
 
-export const getShiftByStaffId = async (req, res) => {
+export const getShiftByStaffId = async (req, res, next) => {
   try {
     const { staffId } = req.params;
 
-    if (!staffId) {
-      return res.status(400).json({
-        success: false,
-        message: "staffId is required",
-      });
-    }
+    const shift = await getShiftByStaffIdService(staffId);
 
-    const shifts = await getShiftByStaffIdService(staffId);
-
-    return res.status(200).json({
-      success: true,
-      count: shifts.length,
-      data: shifts,
-    });
-  } catch (error) {
-    return res.status(error.status || 500).json({
-      success: false,
-      message: error.message || "Failed to fetch shifts",
-    });
+    return res.json({ success: true, data: shift });
+  } catch (err) {
+    next(err);
   }
 };
-
 
 
 export const getShiftByShiftId = async (req, res, next) => {

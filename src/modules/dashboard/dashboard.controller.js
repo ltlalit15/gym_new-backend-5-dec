@@ -204,17 +204,17 @@ export const getReceptionistDashboard = async (req, res, next) => {
     }
 
     /* =========================
-       1️⃣ WEEKLY ATTENDANCE TREND (LAST 7 DAYS)
+       WEEKLY ATTENDANCE
     ========================= */
-    const [weeklyTrend] = await pool.query(
+    const [weekly] = await pool.query(
       `
       SELECT 
-        DAYNAME(ma.checkIn) AS day,
-        COUNT(*) AS count,
-        DAYOFWEEK(ma.checkIn) AS sortOrder
+          DAYNAME(ma.checkIn) AS day,
+          COUNT(*) AS count,
+          DAYOFWEEK(ma.checkIn) AS sortOrder
       FROM memberattendance ma
       JOIN user u ON ma.memberId = u.id
-      WHERE DATE(ma.checkIn) >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+      WHERE DATE(ma.checkIn) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
         AND u.adminId = ?
       GROUP BY day, sortOrder
       ORDER BY sortOrder
@@ -223,9 +223,9 @@ export const getReceptionistDashboard = async (req, res, next) => {
     );
 
     /* =========================
-       2️⃣ TODAY'S TOTAL CHECK-INS
+       TODAY SUMMARY
     ========================= */
-    const [[todayCheckins]] = await pool.query(
+    const [[present]] = await pool.query(
       `
       SELECT COUNT(*) AS count
       FROM memberattendance ma
@@ -236,50 +236,6 @@ export const getReceptionistDashboard = async (req, res, next) => {
       [adminId]
     );
 
-    /* =========================
-       3️⃣ YESTERDAY'S TOTAL CHECK-INS
-    ========================= */
-    const [[yesterdayCheckins]] = await pool.query(
-      `
-      SELECT COUNT(*) AS count
-      FROM memberattendance ma
-      JOIN user u ON ma.memberId = u.id
-      WHERE DATE(ma.checkIn) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
-        AND u.adminId = ?
-      `,
-      [adminId]
-    );
-
-    /* =========================
-       4️⃣ TOTAL ACTIVE MEMBERS (ADMIN WISE)
-    ========================= */
-    const [[totalMembers]] = await pool.query(
-      `
-      SELECT COUNT(*) AS count
-      FROM member
-      WHERE adminId = ?
-        AND status = 'Active'
-      `,
-      [adminId]
-    );
-
-    /* =========================
-       5️⃣ PRESENT MEMBERS (UNIQUE TODAY)
-    ========================= */
-    const [[presentMembers]] = await pool.query(
-      `
-      SELECT COUNT(DISTINCT ma.memberId) AS count
-      FROM memberattendance ma
-      JOIN user u ON ma.memberId = u.id
-      WHERE DATE(ma.checkIn) = CURDATE()
-        AND u.adminId = ?
-      `,
-      [adminId]
-    );
-
-    /* =========================
-       6️⃣ ACTIVE & COMPLETED MEMBERS
-    ========================= */
     const [[active]] = await pool.query(
       `
       SELECT COUNT(*) AS count
@@ -305,40 +261,46 @@ export const getReceptionistDashboard = async (req, res, next) => {
     );
 
     /* =========================
-       7️⃣ REVENUE BY PAYMENT MODE (MEMBER TABLE)
+       TODAY CHECK-INS COUNT
     ========================= */
-    const [revenueByMethod] = await pool.query(
+    const [[todayCheckinsCount]] = await pool.query(
       `
-      SELECT 
-        paymentMode AS paymentMethod,
-        SUM(amountPaid) AS total
-      FROM member
-      WHERE adminId = ?
-        AND status = 'Active'
-        AND amountPaid > 0
-      GROUP BY paymentMode
+      SELECT COUNT(*) AS count
+      FROM memberattendance ma
+      JOIN user u ON ma.memberId = u.id
+      WHERE DATE(ma.checkIn) = CURDATE()
+        AND u.adminId = ?
       `,
       [adminId]
     );
 
     /* =========================
-       FINAL RESPONSE
+       REVENUE (Admin wise)
     ========================= */
-    return res.json({
+  const [[revenue]] = await pool.query(
+  `
+  SELECT SUM(p.amount) AS total
+  FROM payment p
+  JOIN user u ON p.memberId = u.id
+  WHERE u.adminId = ?
+  `,
+  [adminId]
+);
+
+
+    res.json({
       success: true,
       dashboard: {
-        cards: {
-          todayCheckins: todayCheckins.count || 0,
-          yesterdayCheckins: yesterdayCheckins.count || 0,
-          totalMembers: totalMembers.count || 0,
-          presentMembers: presentMembers.count || 0,
+        weeklyTrend: weekly,
+        todayCheckinsCount: todayCheckinsCount.count,
+        summary: {
+          present: present.count,
+          active: active.count,
+          completed: completed.count,
         },
-        attendanceSummary: {
-          active: active.count || 0,
-          completed: completed.count || 0,
+        revenue: {
+          total: revenue?.total || 0,
         },
-        weeklyTrend,
-        revenueByMethod,
       },
     });
 
@@ -346,8 +308,6 @@ export const getReceptionistDashboard = async (req, res, next) => {
     next(err);
   }
 };
-
-
 
 
 /* -----------------------------------------------------
